@@ -1,13 +1,19 @@
 // Cloudflare Worker for the members' club: https://club.carsandcoffee.uk
-// Static single-page app in ./public (no build step). Talks to the
-// "Cars and Coffee Community" Supabase project from the browser.
+// - ./public is the single-page app (no build step); it talks to the "Cars and Coffee Community" Supabase project.
+// - src/worker.js handles photo uploads (/api/*) and serves photos (/media/*) from the R2 bucket carsandcoffee-media.
 {
   "name": "carsandcoffee-club",
+  "main": "src/worker.js",
   "compatibility_date": "2026-11-01",
   "assets": {
     "directory": "./public",
-    "not_found_handling": "single-page-application"
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/media/*"]
   },
+  "r2_buckets": [
+    { "binding": "MEDIA", "bucket_name": "carsandcoffee-media" }
+  ],
   "routes": [
     { "pattern": "club.carsandcoffee.uk", "custom_domain": true }
   ],

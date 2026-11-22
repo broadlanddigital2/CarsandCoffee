@@ -24,12 +24,13 @@ export function createMock(scenario) {
   ];
   const allow = [{ email: "justin@broadlanddigital.co.uk", note: "Owner – first admin" }, { email: "jusrev@gmail.com", note: "Owner – Google sign-in (admin)" }];
   const settings = { signups_open: false };
-  const tables = { profiles: () => profile, applications: () => application, signup_allowlist: () => allow, settings: () => ({ value: settings.signups_open }) };
+  const cars = [{ id: "car1", owner_id: uid, make: "MG", model: "MGB GT", year: 1972, nickname: "Bluebell", colour: "Teal blue", engine: "1.8 B-series", usage: "classic", description: "Bought from a barn in Holt in 2019. Three summers of weekends later she's on the road.", mods: "Electronic ignition\nStainless exhaust", photo_paths: [], sort: 0 }];
+  const tables = { garage_cars: () => cars, profiles: () => profile, applications: () => application, signup_allowlist: () => allow, settings: () => ({ value: settings.signups_open }) };
   const ok = (data) => Promise.resolve({ data, error: null });
   function q(table) {
     const api = {
-      select: () => api, eq: () => api, order: () => ok(tables[table]()),
-      maybeSingle: () => ok(tables[table]()), single: () => ok(tables[table]()),
+      select: () => api, eq: () => api, order: () => api, then: (res, rej) => ok(tables[table]()).then(res, rej),
+      maybeSingle: () => { const v = tables[table](); return ok(Array.isArray(v) && table === "garage_cars" ? v[0] : v); }, single: () => ok(tables[table]()),
       insert: (row) => { if (table === "applications") application = { ...application, ...row, id: "app-1", status: "pending", created_at: new Date().toISOString() }; else allow.unshift(row); return ok(null); },
       update: (row) => { if (table === "applications") Object.assign(application, row, { status: application.status === "more_info" ? "pending" : application.status }); if (table === "profiles") Object.assign(profile, row); if (table === "settings") settings.signups_open = row.value; return { eq: () => ok(null) }; },
       delete: () => ({ eq: () => ok(null) }),
@@ -40,6 +41,9 @@ export function createMock(scenario) {
     get_my_membership: () => [{ invite_code: "a1b2c3d4", can_recommend: true, status: profile.status, role: profile.role, is_private: profile.is_private, recommendations_last_30_days: 3, recommendation_limit: 10 }],
     get_my_recommendations: () => [{ first_name: "Ellie", status: "pending", applied_at: new Date(now - 3 * 3600e3).toISOString() }, { first_name: "Tom", status: "approved", applied_at: new Date(now - 9 * day).toISOString() }],
     get_application_queue: () => queue,
+    get_profile: () => [{ id: uid, handle: "sam_mgb", display_name: "Sam Taylor", avatar_path: null, bio: "Classic MG owner from Norwich.", location: "Norwich, Norfolk", instagram: "sam_mgb", approved_at: new Date(now - 30 * day).toISOString(), is_private: false, can_see: true, friendship: scenario === "member" ? "none" : "friends", friend_count: 3, car_count: 1, is_me: false }],
+    get_my_friends: () => [{ user_id: "u2", handle: "ellie_gti", display_name: "Ellie Watson", avatar_path: null, location: "Wymondham, Norfolk", state: "incoming" }, { user_id: "u3", handle: "tom_rs", display_name: "Tom Reed", avatar_path: null, location: "Ipswich, Suffolk", state: "friend" }],
+    send_friend_request: () => "requested", respond_friend_request: () => null, remove_friend: () => null,
     decide_application: () => null,
     get_my_invites: () => [{ friend_name: "Dan", email: "dan@example.com", sent_at: new Date(now - day).toISOString(), joined: false }],
     send_member_invite: () => ({ status: "sent", message: "Invite sent." }),

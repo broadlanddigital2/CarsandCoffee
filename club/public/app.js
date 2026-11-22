@@ -72,7 +72,7 @@ async function loadMember() {
   if (!session) return;
   const uid = session.user.id;
   const [p, a, m] = await Promise.all([
-    sb.from("profiles").select("id,handle,display_name,location,bio,status,role,is_private,approved_at").eq("id", uid).maybeSingle(),
+    sb.from("profiles").select("id,handle,display_name,location,bio,status,role,is_private,approved_at,avatar_path,instagram").eq("id", uid).maybeSingle(),
     sb.from("applications").select("*").eq("user_id", uid).maybeSingle(),
     sb.rpc("get_my_membership"),
   ]);
@@ -83,6 +83,8 @@ const isTeam = () => state.profile && state.profile.status === "approved" && ["a
 // ---------- routing ----------
 const routes = {};
 const route = (path, fn) => (routes[path] = fn);
+const proutes = []; // routes with a parameter, e.g. /u/:handle
+const routeP = (pattern, fn) => proutes.push({ re: new RegExp("^" + pattern.replace(/:(\w+)/g, "(?<$1>[^/]+)") + "$"), fn });
 const withMock = (p) => (MOCK ? p + (p.includes("?") ? "&" : "?") + "mock=" + MOCK : p);
 // depth counts in-app page visits, so Back only uses browser history when it stays inside the club
 function go(path, replace = false) { path = withMock(path); replace ? history.replaceState({ depth: history.state?.depth || 0 }, "", path) : history.pushState({ depth: (history.state?.depth || 0) + 1 }, "", path); render(); }
@@ -97,7 +99,7 @@ function nav() {
   if (!state.session) { n.innerHTML = `<a href="/sign-in" data-link>Sign in</a>`; return; }
   const here = location.pathname;
   const link = (p, t) => `<a href="${p}" data-link class="${here === p ? "on" : ""}">${t}</a>`;
-  n.innerHTML = (state.profile?.status === "approved" ? link("/home", "Home") + link("/recommend", "Invite a mate") : "")
+  n.innerHTML = (state.profile?.status === "approved" ? link("/home", "Home") + link("/garage", "Garage") + link("/friends", "Friends") + link("/recommend", "Invite a mate") : "")
     + (isTeam() ? link("/admin", "Team") : "")
     + `<button type="button" id="signout">Sign out</button>`;
   $("#signout").onclick = async () => { await sb.auth.signOut(); toast("Signed out"); go("/", true); };
@@ -118,9 +120,11 @@ async function render() {
   await loadMember();
   nav();
   const clean = location.pathname.replace(/\/+$/, "") || "/";
-  const fn = routes[clean] || routes["/404"];
+  let fn = routes[clean], params = {};
+  if (!fn) for (const r of proutes) { const m = clean.match(r.re); if (m) { fn = r.fn; params = m.groups || {}; break; } }
+  fn = fn || routes["/404"];
   app.innerHTML = "";
-  await fn();
+  await fn(params);
   addBack(clean);
   app.focus({ preventScroll: true });
   window.scrollTo(0, 0);
@@ -128,7 +132,7 @@ async function render() {
 
 // Back link at the top of every page except the landing page and members' home.
 const NO_BACK = ["/", "/home", "/auth/callback"];
-const PARENT = { "/invite": "/recommend", "/recommend": "/home", "/admin": "/home" };
+const PARENT = { "/invite": "/recommend", "/recommend": "/home", "/admin": "/home", "/garage": "/home", "/friends": "/home", "/garage/new": "/garage" };
 function addBack(path) {
   if (NO_BACK.includes(path) || $(".backbar", app)) return;
   const fallback = PARENT[path] || (state.profile?.status === "approved" ? "/home" : "/");
@@ -336,11 +340,17 @@ route("/home", async () => {
     ${isTeam() ? `<div class="notice"><strong>Team access:</strong> review applications and manage the invite list in <a href="/admin" data-link>Team</a>.</div>` : ""}
     <div class="grid2">
       <div class="panel"><h3>Your profile</h3>
+        <div class="avatar-edit"><div class="avatar big" id="avprev">${avatarHTML(p, 88)}</div>
+          <div><label class="btn ghost small" style="cursor:pointer">Change photo<input type="file" id="avfile" accept="image/*" hidden></label>
+          ${p.avatar_path ? `<button class="btn ghost small" type="button" id="avremove">Remove</button>` : ""}
+          <p class="muted small" id="avmsg" style="margin:6px 0 0">A clear photo of you or your car.</p></div></div>
+        ${p.handle ? `<p class="small"><a href="/u/${esc(p.handle)}" data-link>View your public profile</a></p>` : `<p class="small muted">Choose a username to get your own profile page.</p>`}
         <form id="profform" novalidate>
           <label class="f">Display name<input type="text" id="display_name" maxlength="60" value="${esc(p.display_name || "")}"></label>
           <label class="f">Username <small>3–24 lowercase letters, numbers or underscores</small><input type="text" id="handle" maxlength="24" value="${esc(p.handle || "")}" autocapitalize="none" placeholder="e.g. norfolk_gti"></label>
           <label class="f">Town<select id="ptown">${townOptions(p.location || "")}</select></label>
           <label class="f">Bio <small>(up to 500 characters)</small><textarea id="bio" maxlength="500">${esc(p.bio || "")}</textarea></label>
+          <label class="f">Instagram <small>(optional, without the @)</small><input type="text" id="instagram" maxlength="30" value="${esc(p.instagram || "")}" autocapitalize="none" placeholder="e.g. norfolk_gti"></label>
           <label class="check"><input type="checkbox" id="private" ${p.is_private ? "checked" : ""}> <span><strong>Private profile</strong><br><span class="muted small">Only your friends and the team can see your full profile and garage.</span></span></label>
           <p class="err" id="proferr" role="alert"></p>
           <button class="btn red" type="submit">Save profile</button>
@@ -350,7 +360,8 @@ route("/home", async () => {
           <a class="btn red" href="/recommend" data-link>Get your invite link</a>
           ${m.invite_code ? `<p class="muted small" style="margin-top:12px">Your code: <strong>${esc(m.invite_code)}</strong></p>` : ""}</div>
         <div class="panel"><h3>Coming to the club</h3><ul class="soon">
-          <li><span>Your garage</span><span class="badge">Next</span></li>
+          <li><span><a href="/garage" data-link>Your garage</a></span><span class="badge ok">New</span></li>
+          <li><span><a href="/friends" data-link>Friends</a></span><span class="badge ok">New</span></li>
           <li><span>Members' feed and posts</span><span class="badge">Soon</span></li>
           <li><span>Motorsport, car and local hubs</span><span class="badge">Soon</span></li>
           <li><span>The Forecourt and Parts Bin</span><span class="badge">Soon</span></li>
@@ -363,10 +374,26 @@ route("/home", async () => {
     if (handle && !/^[a-z0-9_]{3,24}$/.test(handle)) return ($("#proferr").textContent = "Usernames use 3–24 lowercase letters, numbers or underscores.");
     const { error } = await sb.from("profiles").update({
       display_name: $("#display_name").value.trim() || null, handle, location: $("#ptown").value || null,
-      bio: $("#bio").value.trim() || null, is_private: $("#private").checked,
+      bio: $("#bio").value.trim() || null, is_private: $("#private").checked, instagram: $("#instagram").value.trim().replace(/^@/, "") || null,
     }).eq("id", p.id);
     if (error) return ($("#proferr").textContent = /duplicate|unique/i.test(error.message) ? "That username is taken. Try another." : "We couldn't save your profile. Please try again.");
     $("#proferr").textContent = ""; toast("Profile saved");
+  };
+  $("#avfile").onchange = async (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    $("#avmsg").textContent = "Uploading…";
+    try {
+      const up = await uploadPhoto(f, 800);
+      const old = p.avatar_path;
+      const { error } = await sb.from("profiles").update({ avatar_path: up.key }).eq("id", p.id);
+      if (error) throw error;
+      if (old) deletePhoto(old);
+      p.avatar_path = up.key; $("#avprev").innerHTML = avatarHTML(p, 88); $("#avmsg").textContent = "Photo updated."; nav();
+    } catch (err) { $("#avmsg").textContent = err.message || "Upload failed. Please try again."; }
+  };
+  if ($("#avremove")) $("#avremove").onclick = async () => {
+    const old = p.avatar_path; const { error } = await sb.from("profiles").update({ avatar_path: null }).eq("id", p.id);
+    if (error) return toast("Couldn't remove the photo"); deletePhoto(old); p.avatar_path = null; render();
   };
 });
 
@@ -440,6 +467,218 @@ route("/invite", async () => {
     if (error || !data) { msg.textContent = "Sorry, something went wrong. Please try again."; return; }
     msg.textContent = data.message;
     if (data.status === "sent") { toast(data.message); f.reset(); $("#inv_name").focus(); msg.textContent = data.message + " Want to invite someone else?"; }
+  };
+});
+
+
+// ---------- photos (stored in Cloudflare R2 through the club Worker) ----------
+const mediaUrl = (key) => (!key ? "" : /^https?:|^\//.test(key) ? key : `/media/${key}`);
+function avatarHTML(p, size = 40) {
+  const initial = esc(((p?.display_name || p?.handle || "?").trim()[0] || "?").toUpperCase());
+  return p?.avatar_path ? `<img src="${esc(mediaUrl(p.avatar_path))}" alt="" width="${size}" height="${size}" loading="lazy">` : `<span aria-hidden="true">${initial}</span>`;
+}
+// Shrinks big phone photos before upload (max edge in px), keeps quality high, sends WebP where the browser supports it.
+async function shrink(file, maxEdge) {
+  if (!/^image\//.test(file.type)) throw new Error("Please choose a photo.");
+  let bmp;
+  try { bmp = await createImageBitmap(file, { imageOrientation: "from-image" }); } catch { throw new Error("We couldn't read that photo. Try a JPG or PNG."); }
+  const scale = Math.min(1, maxEdge / Math.max(bmp.width, bmp.height));
+  const c = document.createElement("canvas"); c.width = Math.round(bmp.width * scale); c.height = Math.round(bmp.height * scale);
+  c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+  const blob = await new Promise((r) => c.toBlob(r, "image/webp", 0.86)) || await new Promise((r) => c.toBlob(r, "image/jpeg", 0.88));
+  if (!blob) throw new Error("We couldn't process that photo.");
+  return blob;
+}
+async function uploadPhoto(file, maxEdge = 2000) {
+  const blob = await shrink(file, maxEdge);
+  if (MOCK) return { key: "mock/" + Math.random().toString(36).slice(2), url: URL.createObjectURL(blob) };
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) throw new Error("Please sign in again.");
+  const r = await fetch("/api/upload", { method: "POST", headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": blob.type }, body: blob });
+  const out = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(out.error || "Upload failed. Please try again.");
+  return out;
+}
+async function deletePhoto(key) {
+  if (MOCK || !key || !/^u\//.test(key)) return;
+  const { data: { session } } = await sb.auth.getSession(); if (!session) return;
+  fetch(`/api/media?key=${encodeURIComponent(key)}`, { method: "DELETE", headers: { Authorization: `Bearer ${session.access_token}` } }).catch(() => {});
+}
+
+// ---------- garage ----------
+const USAGE = { daily: "Daily driver", weekend: "Weekend car", project: "Project", track: "Track car", show: "Show car", classic: "Classic" };
+const carName = (c) => c.nickname || [c.year, c.make, c.model].filter(Boolean).join(" ");
+const carCard = (c, href) => `<a class="carcard" href="${href}" data-link>
+  <div class="carph">${c.photo_paths?.[0] ? `<img src="${esc(mediaUrl(c.photo_paths[0]))}" alt="${esc(carName(c))}" loading="lazy">` : `<span class="muted small">No photo yet</span>`}${c.usage ? `<span class="badge">${esc(USAGE[c.usage] || c.usage)}</span>` : ""}</div>
+  <div class="carbody"><strong>${esc(carName(c))}</strong>${c.nickname ? `<span class="muted small">${esc([c.year, c.make, c.model].filter(Boolean).join(" "))}</span>` : ""}</div></a>`;
+
+route("/garage", async () => {
+  if (!state.session) return go("/sign-in", true);
+  if (state.profile?.status !== "approved") return go(homeFor(), true);
+  const { data: cars, error } = await sb.from("garage_cars").select("*").eq("owner_id", state.profile.id).order("sort").order("created_at");
+  app.innerHTML = `<span class="eyebrow">Your garage</span><h1>My garage</h1>
+    <p class="muted">Show off what you drive, what you're building and what you've owned. ${state.profile.handle ? `Your garage appears on <a href="/u/${esc(state.profile.handle)}" data-link>your profile</a>${state.profile.is_private ? " (friends only, because your profile is private)" : ""}.` : `Choose a username on your <a href="/home" data-link>profile</a> so people can see it.`}</p>
+    ${error ? `<div class="notice red">We couldn't load your garage. Please refresh.</div>` : ""}
+    <div class="cargrid">${(cars || []).map((c) => carCard(c, `/garage/${c.id}`)).join("")}
+      ${(cars || []).length < 20 ? `<a class="carcard add" href="/garage/new" data-link><div class="carph"><span class="plus" aria-hidden="true">+</span></div><div class="carbody"><strong>Add a car</strong><span class="muted small">Photos, specs and the story</span></div></a>` : ""}</div>`;
+});
+
+routeP("/garage/:id", async ({ id }) => {
+  if (!state.session) return go("/sign-in", true);
+  if (state.profile?.status !== "approved") return go(homeFor(), true);
+  const isNew = id === "new";
+  let c = { make: "", model: "", photo_paths: [] };
+  if (!isNew) {
+    const { data } = await sb.from("garage_cars").select("*").eq("id", id).eq("owner_id", state.profile.id).maybeSingle();
+    if (!data) { app.innerHTML = `<h1>Car not found</h1><p><a href="/garage" data-link>Back to your garage</a></p>`; return; }
+    c = data;
+  }
+  let photos = [...(c.photo_paths || [])];
+  const removed = [];
+  const year = new Date().getFullYear();
+  app.innerHTML = `<div class="narrow wide"><span class="eyebrow">Your garage</span><h1>${isNew ? "Add a car" : esc(carName(c))}</h1>
+    <form id="carform" novalidate>
+      <div class="panel"><h3>Photos</h3><p class="muted small">Up to 12. The first photo is the cover; use the arrows to reorder.</p>
+        <div class="photogrid" id="photos"></div>
+        <label class="btn ghost small" style="cursor:pointer" id="addph">Add photos<input type="file" id="phfile" accept="image/*" multiple hidden></label>
+        <span class="muted small" id="phmsg"></span></div>
+      <div class="panel"><h3>The car</h3><div class="row3">
+        <label class="f">Make<input type="text" id="make" maxlength="60" required value="${esc(c.make)}" placeholder="e.g. Volkswagen"></label>
+        <label class="f">Model<input type="text" id="model" maxlength="60" required value="${esc(c.model)}" placeholder="e.g. Golf GTI Mk1"></label>
+        <label class="f">Year<input type="number" id="year" min="1885" max="${year + 1}" value="${esc(c.year ?? "")}" placeholder="${year - 40}"></label></div>
+        <div class="row3">
+        <label class="f">Nickname <small>(optional)</small><input type="text" id="nickname" maxlength="60" value="${esc(c.nickname || "")}" placeholder="e.g. The Orange One"></label>
+        <label class="f">Colour <small>(optional)</small><input type="text" id="colour" maxlength="40" value="${esc(c.colour || "")}"></label>
+        <label class="f">Engine <small>(optional)</small><input type="text" id="engine" maxlength="60" value="${esc(c.engine || "")}" placeholder="e.g. 1.6 8v"></label></div>
+        <label class="f">What it is to you<select id="usage"><option value="">Choose…</option>${Object.entries(USAGE).map(([k, v]) => `<option value="${k}" ${c.usage === k ? "selected" : ""}>${v}</option>`).join("")}</select></label>
+        <label class="f">The story <small>(optional, up to 2,000 characters)</small><textarea id="description" maxlength="2000" rows="5" placeholder="How you found it, what you've done, where you take it">${esc(c.description || "")}</textarea></label>
+        <label class="f">Modifications <small>(optional)</small><textarea id="mods" maxlength="2000" rows="3" placeholder="One per line">${esc(c.mods || "")}</textarea></label>
+      </div>
+      <p class="err" id="carerr" role="alert"></p>
+      <div class="btns"><button class="btn red" type="submit">${isNew ? "Add to my garage" : "Save changes"}</button><a class="btn ghost" href="/garage" data-link>Cancel</a>
+        ${!isNew ? `<button class="btn ghost" type="button" id="delcar" style="margin-left:auto">Remove car</button>` : ""}</div>
+    </form></div>`;
+  const draw = () => {
+    $("#photos").innerHTML = photos.map((k, i) => `<div class="ph"><img src="${esc(mediaUrl(k))}" alt="Photo ${i + 1}">${i === 0 ? `<span class="badge">Cover</span>` : ""}
+      <div class="phbtns"><button type="button" data-mv="-1" data-i="${i}" ${i === 0 ? "disabled" : ""} aria-label="Move left">&larr;</button><button type="button" data-mv="1" data-i="${i}" ${i === photos.length - 1 ? "disabled" : ""} aria-label="Move right">&rarr;</button><button type="button" data-rm="${i}" aria-label="Remove photo">&times;</button></div></div>`).join("") || `<p class="muted small">No photos yet.</p>`;
+    $("#addph").hidden = photos.length >= 12;
+  };
+  draw();
+  $("#photos").onclick = (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    if (b.dataset.rm) { removed.push(...photos.splice(Number(b.dataset.rm), 1)); }
+    else { const i = Number(b.dataset.i), j = i + Number(b.dataset.mv); [photos[i], photos[j]] = [photos[j], photos[i]]; }
+    draw();
+  };
+  $("#phfile").onchange = async (e) => {
+    const files = [...e.target.files].slice(0, 12 - photos.length); e.target.value = "";
+    for (const [n, f] of files.entries()) {
+      $("#phmsg").textContent = `Uploading ${n + 1} of ${files.length}…`;
+      try { const up = await uploadPhoto(f); photos.push(up.key); draw(); }
+      catch (err) { $("#phmsg").textContent = err.message; return; }
+    }
+    $("#phmsg").textContent = files.length ? "Uploaded. Remember to save." : "";
+  };
+  $("#carform").onsubmit = async (e) => {
+    e.preventDefault();
+    const v = (id) => $("#" + id).value.trim();
+    if (!v("make") || !v("model")) return ($("#carerr").textContent = "Please add the make and model.");
+    const yr = v("year") ? Number(v("year")) : null;
+    if (yr && (yr < 1885 || yr > year + 1)) return ($("#carerr").textContent = "Please check the year.");
+    const row = { make: v("make"), model: v("model"), year: yr, nickname: v("nickname") || null, colour: v("colour") || null, engine: v("engine") || null,
+      usage: v("usage") || null, description: v("description") || null, mods: v("mods") || null, photo_paths: photos };
+    const res = isNew ? await sb.from("garage_cars").insert({ ...row, owner_id: state.profile.id }) : await sb.from("garage_cars").update(row).eq("id", c.id);
+    if (res.error) return ($("#carerr").textContent = /20 cars/.test(res.error.message) ? res.error.message : "We couldn't save the car. Please try again.");
+    removed.forEach(deletePhoto);
+    toast(isNew ? "Added to your garage" : "Saved"); go("/garage", true);
+  };
+  if ($("#delcar")) $("#delcar").onclick = async (e) => {
+    const b = e.target;
+    if (!b.dataset.armed) { b.dataset.armed = "1"; b.textContent = "Click again to remove"; return; }
+    const { error } = await sb.from("garage_cars").delete().eq("id", c.id);
+    if (error) return toast("Couldn't remove the car");
+    [...photos, ...removed].forEach(deletePhoto); toast("Car removed"); go("/garage", true);
+  };
+});
+
+// ---------- member profiles ----------
+function friendButton(p) {
+  if (!state.session || state.profile?.status !== "approved" || p.is_me) return "";
+  return { friends: `<button class="btn ghost small" data-fr="remove">Friends ✓</button>`, requested: `<button class="btn ghost small" disabled>Request sent</button>`,
+    incoming: `<button class="btn red small" data-fr="accept">Accept friend request</button>`, none: `<button class="btn red small" data-fr="add">Add friend</button>` }[p.friendship] || "";
+}
+routeP("/u/:handle", async ({ handle }) => {
+  const { data } = await sb.rpc("get_profile", { p_handle: decodeURIComponent(handle) });
+  const p = data && data[0];
+  if (!p) { app.innerHTML = `<div class="narrow"><h1>Member not found</h1><p class="muted">This profile doesn't exist or isn't available.</p></div>`; document.title = "Member not found · Cars and Coffee Club"; return; }
+  document.title = `${p.display_name || "@" + p.handle} · Cars and Coffee Club`;
+  let cars = [];
+  if (p.can_see) { const r = await sb.from("garage_cars").select("*").eq("owner_id", p.id).order("sort").order("created_at"); cars = r.data || []; }
+  app.innerHTML = `<div class="profile">
+    <div class="profhead"><div class="avatar huge">${avatarHTML(p, 120)}</div>
+      <div class="profinfo"><h1>${esc(p.display_name || "@" + p.handle)}</h1>
+        <p class="muted">@${esc(p.handle)}${p.location ? ` · ${esc(p.location)}` : ""} · Member since ${new Date(p.approved_at).toLocaleDateString("en-GB", { month: "long", year: "numeric" })}</p>
+        <p class="small">${p.friend_count} friend${p.friend_count === 1 ? "" : "s"}${p.can_see ? ` · ${p.car_count} car${p.car_count === 1 ? "" : "s"}` : ""}${p.instagram ? ` · <a href="https://www.instagram.com/${esc(p.instagram)}/" rel="noopener nofollow" target="_blank">Instagram</a>` : ""}</p>
+        <div class="btns">${friendButton(p)}${p.is_me ? `<a class="btn ghost small" href="/home" data-link>Edit profile</a><a class="btn ghost small" href="/garage" data-link>Edit garage</a>` : ""}</div></div></div>
+    ${p.can_see ? `${p.bio ? `<div class="panel"><p style="margin:0;white-space:pre-line">${esc(p.bio)}</p></div>` : ""}
+      <h2>Garage</h2>${cars.length ? `<div class="cargrid">${cars.map((c) => carCard(c, `/u/${esc(p.handle)}/car/${c.id}`)).join("")}</div>` : `<p class="muted">No cars in the garage yet.</p>`}`
+      : `<div class="notice">This profile is private. ${state.session ? "Add them as a friend to see their garage." : `<a href="/sign-in" data-link>Sign in</a> to add them as a friend.`}</div>`}
+    ${!state.session ? `<div class="panel" style="margin-top:24px"><h3>Join the Cars and Coffee Club</h3><p class="muted">The members' club for car enthusiasts across Norfolk and Suffolk.</p><a class="btn red" href="/apply" data-link>Apply to join</a></div>` : ""}
+  </div>`;
+  app.onclick = async (e) => {
+    const b = e.target.closest("[data-fr]"); if (!b) return;
+    b.disabled = true; let r;
+    if (b.dataset.fr === "add") r = await sb.rpc("send_friend_request", { p_user: p.id });
+    else if (b.dataset.fr === "accept") r = await sb.rpc("respond_friend_request", { p_requester: p.id, p_accept: true });
+    else if (b.dataset.fr === "remove") { if (!b.dataset.armed) { b.dataset.armed = "1"; b.disabled = false; b.textContent = "Remove friend?"; return; } r = await sb.rpc("remove_friend", { p_user: p.id }); }
+    if (r?.error) { b.disabled = false; return toast(r.error.message); }
+    toast({ add: r?.data === "friends" ? "You're now friends" : "Friend request sent", accept: "You're now friends", remove: "Friend removed" }[b.dataset.fr]); render();
+  };
+});
+routeP("/u/:handle/car/:id", async ({ handle, id }) => {
+  const { data: pr } = await sb.rpc("get_profile", { p_handle: decodeURIComponent(handle) });
+  const p = pr && pr[0];
+  const { data: c } = p && p.can_see ? await sb.from("garage_cars").select("*").eq("id", id).eq("owner_id", p.id).maybeSingle() : { data: null };
+  if (!c) { app.innerHTML = `<div class="narrow"><h1>Car not found</h1><p class="muted">It may have been removed, or the owner's profile is private.</p></div>`; return; }
+  document.title = `${carName(c)} · ${p.display_name || "@" + p.handle} · Cars and Coffee Club`;
+  const ph = c.photo_paths || [];
+  app.innerHTML = `<span class="eyebrow"><a href="/u/${esc(p.handle)}" data-link>${esc(p.display_name || "@" + p.handle)}'s garage</a></span>
+    <h1>${esc(carName(c))}</h1>${c.nickname ? `<p class="muted">${esc([c.year, c.make, c.model].filter(Boolean).join(" "))}</p>` : ""}
+    ${ph.length ? `<div class="carhero"><img id="bigph" src="${esc(mediaUrl(ph[0]))}" alt="${esc(carName(c))}"></div>
+      ${ph.length > 1 ? `<div class="thumbs">${ph.map((k, i) => `<button type="button" data-ph="${esc(mediaUrl(k))}" aria-label="Photo ${i + 1}"><img src="${esc(mediaUrl(k))}" alt="" loading="lazy"></button>`).join("")}</div>` : ""}` : ""}
+    <div class="grid2" style="margin-top:20px">
+      <div>${c.description ? `<div class="panel"><h3>The story</h3><p style="white-space:pre-line;margin:0">${esc(c.description)}</p></div>` : ""}
+        ${c.mods ? `<div class="panel"><h3>Modifications</h3><ul class="list">${c.mods.split("\n").filter((x) => x.trim()).map((m) => `<li>${esc(m.trim())}</li>`).join("")}</ul></div>` : ""}</div>
+      <div class="panel"><h3>Specs</h3><dl class="kv">
+        ${[["Make", c.make], ["Model", c.model], ["Year", c.year], ["Engine", c.engine], ["Colour", c.colour], ["Use", USAGE[c.usage]]].filter(([, v]) => v).map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("")}</dl>
+        ${p.is_me ? `<a class="btn ghost small" href="/garage/${c.id}" data-link>Edit this car</a>` : ""}</div>
+    </div>`;
+  app.onclick = (e) => { const b = e.target.closest("[data-ph]"); if (b) $("#bigph").src = b.dataset.ph; };
+});
+
+// ---------- friends ----------
+route("/friends", async () => {
+  if (!state.session) return go("/sign-in", true);
+  if (state.profile?.status !== "approved") return go(homeFor(), true);
+  const { data } = await sb.rpc("get_my_friends");
+  const rows = data || [];
+  const person = (f, actions) => `<li class="person"><a href="${f.handle ? `/u/${esc(f.handle)}` : "#"}" data-link class="avatar">${avatarHTML(f, 44)}</a>
+    <div><strong>${f.handle ? `<a href="/u/${esc(f.handle)}" data-link>${esc(f.display_name || "@" + f.handle)}</a>` : esc(f.display_name || "Member")}</strong><div class="muted small">${f.handle ? "@" + esc(f.handle) : ""}${f.location ? ` · ${esc(f.location)}` : ""}</div></div>
+    <div class="btns" style="margin:0 0 0 auto">${actions}</div></li>`;
+  const inc = rows.filter((r) => r.state === "incoming"), fr = rows.filter((r) => r.state === "friend"), out = rows.filter((r) => r.state === "outgoing");
+  app.innerHTML = `<span class="eyebrow">Your people</span><h1>Friends</h1>
+    ${inc.length ? `<h2>Friend requests</h2><ul class="people">${inc.map((f) => person(f, `<button class="btn red small" data-acc="${f.user_id}">Accept</button><button class="btn ghost small" data-dec="${f.user_id}">Decline</button>`)).join("")}</ul>` : ""}
+    <h2>Friends${fr.length ? ` (${fr.length})` : ""}</h2>
+    ${fr.length ? `<ul class="people">${fr.map((f) => person(f, "")).join("")}</ul>` : `<p class="muted">No friends yet. Find members at meets, in the hubs (coming soon) or <a href="/recommend" data-link>invite your mates</a>; you'll be friends as soon as they're approved.</p>`}
+    ${out.length ? `<h2>Requests you've sent</h2><ul class="people">${out.map((f) => person(f, `<button class="btn ghost small" data-cancel="${f.user_id}">Cancel</button>`)).join("")}</ul>` : ""}`;
+  app.onclick = async (e) => {
+    const b = e.target.closest("button"); if (!b) return; b.disabled = true; let r;
+    if (b.dataset.acc) r = await sb.rpc("respond_friend_request", { p_requester: b.dataset.acc, p_accept: true });
+    else if (b.dataset.dec) r = await sb.rpc("respond_friend_request", { p_requester: b.dataset.dec, p_accept: false });
+    else if (b.dataset.cancel) r = await sb.rpc("remove_friend", { p_user: b.dataset.cancel });
+    else return;
+    if (r.error) { b.disabled = false; return toast(r.error.message); }
+    toast(b.dataset.acc ? "You're now friends" : "Done"); render();
   };
 });
 
