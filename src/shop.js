@@ -278,7 +278,7 @@ export async function checkoutPage() {
       <label class="hb-hp" aria-hidden="true">Leave this blank<input name="cc_hp" tabindex="-1" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"></label>
     </div>
     <aside class="bsk-sum"><h2>Order summary</h2><div id="co-items"></div><div id="co-tot"></div>
-      <label class="co-agree"><input type="checkbox" name="agree"> I agree to the <a href="/terms" target="_blank">terms</a> and <a href="/privacy" target="_blank">privacy policy</a>, and I’m happy for my details to be shared with the sellers in my order.</label>
+      <label class="co-agree"><input type="checkbox" name="agree"><span>I agree to the <a href="/terms" target="_blank">terms</a> and <a href="/privacy" target="_blank">privacy policy</a>, and I’m happy for my details to be shared with the sellers in my order.</span></label>
       <button class="btn red co-go" type="submit">Place order ${ARROW}</button><p class="ct-msg" role="status"></p><p class="ct-small"><a href="/basket">‹ Back to basket</a></p></aside></form>
     <div id="co-done" hidden></div></div></section>
   <script>document.addEventListener('DOMContentLoaded',async function(){var B=window.CCB;if(!B)return;${basketJS}
