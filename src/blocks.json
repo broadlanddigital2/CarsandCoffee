@@ -1,70 +1,284 @@
 {
-  "hero": { "label": "Hero: next meet", "fields": [
-    { "name": "title", "label": "Main heading", "default": "Cars and Coffee UK" },
-    { "name": "subtitle", "label": "Line under the heading", "default": "Car meets, motorsport news and community." },
-    { "name": "image", "label": "Background photo (desktop)", "type": "image", "default": "homepage/hero.webp" },
-    { "name": "image_mobile", "label": "Background photo (mobile)", "type": "image", "default": "homepage/hero-m.webp" },
-    { "name": "image_alt", "label": "Photo description", "default": "Enthusiasts with coffee gathered around a green classic GT car outside The Workshop, Norfolk" },
-    { "name": "next_label", "label": "Next meet label", "default": "Next meet" },
-    { "name": "tickets_label", "label": "Tickets button", "default": "Get tickets" },
-    { "name": "join_label", "label": "Join link text", "default": "Join the community" },
-    { "name": "join_url", "label": "Join link", "type": "url", "default": "https://club.carsandcoffee.uk/apply" }
-  ]},
-  "intro": { "label": "Intro and quick actions", "fields": [
-    { "name": "heading", "label": "Heading", "default": "Car meets and motorsport across the UK" },
-    { "name": "body", "label": "Text", "type": "textarea", "default": "Cars and Coffee UK brings car enthusiasts together through relaxed Sunday-morning meets, scenic tours and garage nights, starting in Norfolk and growing across East Anglia and the UK. Find your next car meet, catch up on motorsport news from F1, WEC and touring cars to club racing, and join a friendly members’ community where owners share builds, restorations and road trips. You’ll also find our club shop, featured cars and galleries, and a directory of trusted garages, detailers, wrap specialists and restorers near you. Classic, modern, track car or daily driver: if you love cars, coffee and good company, you’re welcome here." }
-  ]},
-  "events": { "label": "Upcoming events", "fields": [
-    { "name": "heading", "label": "Heading", "default": "Upcoming events" },
-    { "name": "count", "label": "How many events to show", "type": "number", "default": "6" }
-  ]},
-  "news": { "label": "Latest news", "fields": [
-    { "name": "heading", "label": "Heading", "default": "Latest news" }
-  ]},
-  "detail_of_month": { "label": "Auto Opulence: Detail of the Month", "note": "Edit the text and photo in Partner features." },
-  "community": { "label": "From the community", "fields": [
-    { "name": "label", "label": "Small label", "default": "From the community" },
-    { "name": "join_note", "label": "Note under the buttons", "type": "textarea", "default": "Every member is approved by our team, usually within 24 hours. Recommended by a member? You’re fast-tracked." }
-  ]},
-  "livery_of_week": { "label": "Race Car Graphics: Livery of the Week", "note": "Edit the text and photo in Partner features." },
-  "shop": { "label": "Shop best sellers", "fields": [
-    { "name": "heading", "label": "Heading", "default": "Shop best sellers" }
-  ]},
-  "race_night": { "label": "Le Man Cave: Race Night", "note": "Edit the text and photo in Partner features." },
-  "gallery": { "label": "Featured cars and galleries", "fields": [
-    { "name": "heading", "label": "Heading", "default": "Featured cars and galleries" },
-    { "name": "body", "label": "Text", "default": "Photo features, build stories and event galleries from across the UK scene." }
-  ]},
-  "directory": { "label": "Business directory", "fields": [
-    { "name": "label", "label": "Small label", "default": "Garages, specialists and suppliers" },
-    { "name": "heading", "label": "Heading", "default": "Find trusted car businesses near you" },
-    { "name": "body", "label": "Text", "type": "textarea", "default": "Restorers, tuners, detailers, wrap shops and garages recommended by the Cars and Coffee community. Every listing is checked by our team." },
-    { "name": "cta_heading", "label": "Business call-out heading", "default": "Run a car business?" },
-    { "name": "cta_body", "label": "Business call-out text", "type": "textarea", "default": "Get in front of thousands of local enthusiasts. Basic listings are free; featured spots put you on this homepage." }
-  ]},
-  "sponsored": { "label": "Sponsored slot", "note": "Edit the advert in Sponsored slots." },
-  "why_join": { "label": "Why join", "fields": [
-    { "name": "heading", "label": "Heading", "default": "Why join Cars and Coffee UK?" },
-    { "name": "body", "label": "Text", "type": "textarea", "default": "Be part of a friendly community of car enthusiasts who meet, share and keep car culture alive." },
-    { "name": "image", "label": "Photo", "type": "image", "default": "homepage/whyjoin.webp" },
-    { "name": "image_alt", "label": "Photo description", "default": "Friends laughing with coffee at a car meet" },
-    { "name": "benefit_1", "label": "Benefit 1", "default": "Access to member events" },
-    { "name": "benefit_2", "label": "Benefit 2", "default": "Build stories and features" },
-    { "name": "benefit_3", "label": "Benefit 3", "default": "A friendly, like-minded community" },
-    { "name": "benefit_4", "label": "Benefit 4", "default": "Member offers and partner perks" }
-  ]},
-  "partners": { "label": "Partners strip", "fields": [
-    { "name": "heading", "label": "Heading", "default": "Proudly supported by" }
-  ]},
-  "advertise": { "label": "Advertise with us", "fields": [
-    { "name": "heading", "label": "Heading", "default": "Advertise with us" },
-    { "name": "body", "label": "Text", "type": "textarea", "default": "Put your brand in front of a highly engaged UK car community, online and at our events. Sponsored posts, banners, hub sponsorships, event promotions and directory listings." }
-  ]},
-  "newsletter": { "label": "Newsletter", "fields": [
-    { "name": "heading", "label": "Heading", "default": "Newsletter" },
-    { "name": "body", "label": "Text", "default": "Get the latest events, stories and partner offers, straight to your inbox every week." }
-  ]},
-  "faqs": { "label": "FAQs", "fields": [
-    { "name": "heading", "label": "Heading", "default": "Frequently asked questions" }
-  ]}
+  "hero": {
+    "label": "Hero: next meet",
+    "fields": [
+      {
+        "name": "title",
+        "label": "Main heading",
+        "default": "Cars and Coffee UK"
+      },
+      {
+        "name": "subtitle",
+        "label": "Line under the heading",
+        "default": "Everything cars and motorsport: meets, events, parts, products and trusted local services."
+      },
+      {
+        "name": "image",
+        "label": "Background photo (desktop)",
+        "type": "image",
+        "default": "homepage/hero.webp"
+      },
+      {
+        "name": "image_mobile",
+        "label": "Background photo (mobile)",
+        "type": "image",
+        "default": "homepage/hero-m.webp"
+      },
+      {
+        "name": "image_alt",
+        "label": "Photo description",
+        "default": "Enthusiasts with coffee gathered around a green classic GT car outside The Workshop, Norfolk"
+      },
+      {
+        "name": "next_label",
+        "label": "Next meet label",
+        "default": "Next meet"
+      },
+      {
+        "name": "tickets_label",
+        "label": "Tickets button",
+        "default": "Get tickets"
+      },
+      {
+        "name": "join_label",
+        "label": "Join link text",
+        "default": "Join the community"
+      },
+      {
+        "name": "join_url",
+        "label": "Join link",
+        "type": "url",
+        "default": "https://club.carsandcoffee.uk/apply"
+      }
+    ]
+  },
+  "intro": {
+    "label": "Intro and quick actions",
+    "fields": [
+      {
+        "name": "heading",
+        "label": "Heading",
+        "default": "Your home for everything cars and motorsport"
+      },
+      {
+        "name": "body",
+        "label": "Text",
+        "type": "textarea",
+        "default": "Cars and Coffee UK brings together everything on four wheels. Find car meets, shows, tours, track days and race nights near you, follow motorsport news from F1, WEC and touring cars to club racing, and track down the cars, parts and products you need, whether you’re buying, selling, building or just browsing.\n\nOur directory connects you with trusted garages, restorers, tuners, detailers, wrap shops and parts suppliers, all checked by our team. Add the club shop, featured builds and galleries, and a friendly members’ community, and it’s all in one place. Classic, modern, track car or daily driver: if you love cars, you’re welcome here."
+      }
+    ]
+  },
+  "events": {
+    "label": "Upcoming events",
+    "fields": [
+      {
+        "name": "heading",
+        "label": "Heading",
+        "default": "Meets, shows and motorsport events"
+      },
+      {
+        "name": "count",
+        "label": "How many events to show",
+        "type": "number",
+        "default": "6"
+      }
+    ]
+  },
+  "news": {
+    "label": "Latest news",
+    "fields": [
+      {
+        "name": "heading",
+        "label": "Heading",
+        "default": "Car and motorsport news"
+      }
+    ]
+  },
+  "detail_of_month": {
+    "label": "Auto Opulence: Detail of the Month",
+    "note": "Edit the text and photo in Partner features."
+  },
+  "community": {
+    "label": "From the community",
+    "fields": [
+      {
+        "name": "label",
+        "label": "Small label",
+        "default": "From the community"
+      },
+      {
+        "name": "join_note",
+        "label": "Note under the buttons",
+        "type": "textarea",
+        "default": "Every member is approved by our team, usually within 24 hours. Recommended by a member? You’re fast-tracked."
+      }
+    ]
+  },
+  "livery_of_week": {
+    "label": "Race Car Graphics: Livery of the Week",
+    "note": "Edit the text and photo in Partner features."
+  },
+  "shop": {
+    "label": "Shop best sellers",
+    "fields": [
+      {
+        "name": "heading",
+        "label": "Heading",
+        "default": "Shop best sellers"
+      }
+    ]
+  },
+  "race_night": {
+    "label": "Le Man Cave: Race Night",
+    "note": "Edit the text and photo in Partner features."
+  },
+  "gallery": {
+    "label": "Featured cars and galleries",
+    "fields": [
+      {
+        "name": "heading",
+        "label": "Heading",
+        "default": "Featured cars and galleries"
+      },
+      {
+        "name": "body",
+        "label": "Text",
+        "default": "Photo features, build stories and event galleries from across the UK car and motorsport scene."
+      }
+    ]
+  },
+  "directory": {
+    "label": "Business directory",
+    "fields": [
+      {
+        "name": "label",
+        "label": "Small label",
+        "default": "Parts, services and specialists"
+      },
+      {
+        "name": "heading",
+        "label": "Heading",
+        "default": "Find trusted car businesses near you"
+      },
+      {
+        "name": "body",
+        "label": "Text",
+        "type": "textarea",
+        "default": "Garages, restorers, tuners, detailers, wrap shops, parts suppliers and more, recommended by the community and checked by our team."
+      },
+      {
+        "name": "cta_heading",
+        "label": "Business call-out heading",
+        "default": "Run a car business?"
+      },
+      {
+        "name": "cta_body",
+        "label": "Business call-out text",
+        "type": "textarea",
+        "default": "Get in front of thousands of local drivers, buyers and enthusiasts. Basic listings are free; featured spots put you on this homepage."
+      }
+    ]
+  },
+  "sponsored": {
+    "label": "Sponsored slot",
+    "note": "Edit the advert in Sponsored slots."
+  },
+  "why_join": {
+    "label": "Why join",
+    "fields": [
+      {
+        "name": "heading",
+        "label": "Heading",
+        "default": "Why join Cars and Coffee UK?"
+      },
+      {
+        "name": "body",
+        "label": "Text",
+        "type": "textarea",
+        "default": "Join a friendly community of drivers, builders and motorsport fans who meet up, share their cars and keep car culture alive."
+      },
+      {
+        "name": "image",
+        "label": "Photo",
+        "type": "image",
+        "default": "homepage/whyjoin.webp"
+      },
+      {
+        "name": "image_alt",
+        "label": "Photo description",
+        "default": "Friends laughing with coffee at a car meet"
+      },
+      {
+        "name": "benefit_1",
+        "label": "Benefit 1",
+        "default": "Access to member events"
+      },
+      {
+        "name": "benefit_2",
+        "label": "Benefit 2",
+        "default": "Build stories and features"
+      },
+      {
+        "name": "benefit_3",
+        "label": "Benefit 3",
+        "default": "A friendly, like-minded community"
+      },
+      {
+        "name": "benefit_4",
+        "label": "Benefit 4",
+        "default": "Member offers and partner perks"
+      }
+    ]
+  },
+  "partners": {
+    "label": "Partners strip",
+    "fields": [
+      {
+        "name": "heading",
+        "label": "Heading",
+        "default": "Proudly supported by"
+      }
+    ]
+  },
+  "advertise": {
+    "label": "Advertise with us",
+    "fields": [
+      {
+        "name": "heading",
+        "label": "Heading",
+        "default": "Advertise with us"
+      },
+      {
+        "name": "body",
+        "label": "Text",
+        "type": "textarea",
+        "default": "Reach a highly engaged UK audience of car owners, buyers and motorsport fans, online and at our events. Sponsored posts, banners, hub sponsorships, event promotions and directory listings."
+      }
+    ]
+  },
+  "newsletter": {
+    "label": "Newsletter",
+    "fields": [
+      {
+        "name": "heading",
+        "label": "Heading",
+        "default": "Newsletter"
+      },
+      {
+        "name": "body",
+        "label": "Text",
+        "default": "The week’s events, motorsport news, new products and partner offers, straight to your inbox."
+      }
+    ]
+  },
+  "faqs": {
+    "label": "FAQs",
+    "fields": [
+      {
+        "name": "heading",
+        "label": "Heading",
+        "default": "Frequently asked questions"
+      }
+    ]
+  }
 }

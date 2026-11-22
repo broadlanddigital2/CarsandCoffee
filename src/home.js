@@ -105,7 +105,7 @@ export function townItems(places = []) {
 }
 export function nearYou(places = []) {
   const links = places.filter((p) => p.county).sort((a, b) => (a.town ? 1 : 0) - (b.town ? 1 : 0) || (a.town || a.county).localeCompare(b.town || b.county));
-  return `<div class="near"><div class="near-t"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s7-7.5 7-13a7 7 0 0 0-14 0c0 5.5 7 13 7 13z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="9" r="2.5" fill="currentColor"/></svg><div><strong>Car meets near you</strong><span>Meets, venues, drives and local businesses by town.</span></div></div>
+  return `<div class="near"><div class="near-t"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s7-7.5 7-13a7 7 0 0 0-14 0c0 5.5 7 13 7 13z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="9" r="2.5" fill="currentColor"/></svg><div><strong>Car meets and car services near you</strong><span>Events, garages, parts and local specialists by town.</span></div></div>
 ${townSearch(townItems(places), { cls: "near-f" })}
 <div class="near-l">${links.map((p) => `<a href="${E(p.path)}">${E(p.town || p.county)}</a>`).join("")}<a href="/car-meets">All areas ${ARROW}</a></div></div>`;
 }
