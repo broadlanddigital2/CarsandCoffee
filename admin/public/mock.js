@@ -28,6 +28,7 @@ export function createMock(scenario) {
       partners: [{ id: "pa1", slug: "le-man-cave", name: "Le Man Cave", tagline: "Racing simulators and Scalextric, Norwich", sort: 2, active: true }],
       partner_features: [{ id: "pf1", partner_id: "pa1", block_key: "race_night", title: "Race Night at Le Man Cave", starts_at: iso(now - day), active: true }],
       homepage_blocks: [{ key: "hero", title: "Hero: next meet", position: 20, enabled: true, settings: {} }, { key: "intro", title: "Intro", position: 30, enabled: true, settings: {} }, { key: "events", title: "Upcoming events", position: 40, enabled: true, settings: {} }, { key: "detail_of_month", title: "Detail of the Month", position: 60, enabled: true, settings: {} }, { key: "why_join", title: "Why join", position: 140, enabled: false, settings: {} }],
+      venues: [{ id: "v1", slug: "le-man-cave", name: "Le Man Cave", town: "Norwich", county: "Norfolk", lat: 52.6309, lng: 1.2974, approximate: true, active: true }],
       community_highlights: [{ id: "c1", handle: "@norfolkseries", title: "Bringing a Series IIA back to life", posted_label: "3 days ago", image_path: "homepage/com-1.webp", sort: 0, active: true }],
       products: [{ id: "pr1", slug: "club-cap", name: "Cars and Coffee UK cap", price_pence: 2200, units_sold_30d: 40, image_path: "homepage/shop-cap.webp", active: true }],
       gallery_items: [{ id: "g1", slug: "dawn-run", title: "Dawn run", image_path: "homepage/com-3.webp", image_alt: "Classic cars", sort: 0, featured: true }],

@@ -38,6 +38,47 @@ const newsletterHTML = () => `<section class="band news-band" aria-labelledby="n
 <form id="nl" novalidate><input type="email" id="nl-email" name="email" autocomplete="email" placeholder="Your email address" aria-label="Email address" required><button class="btn red" type="submit">Subscribe</button>
 <label><input type="checkbox" id="nl-consent" required> <span>I’d like to receive emails from Cars and Coffee UK, including events, news and partner offers. I can unsubscribe at any time. See our <a href="/privacy" style="text-decoration:underline">privacy policy</a>.</span></label><p class="msg" id="nl-msg" role="status"></p></form></div></section>`;
 
+
+// ---------- map and directions ----------
+const venuesOf = (events) => { const seen = new Map(); for (const e of events) { const v = e.venue_info; if (v && !seen.has(v.id)) seen.set(v.id, { ...v, events: [] }); if (v) seen.get(v.id).events.push(e); } return [...seen.values()]; };
+export function directions(v) {
+  const label = [v.name, v.address_line, v.town, v.postcode].filter(Boolean).join(", ");
+  if (v.lat == null || v.approximate) {
+    const qs = enc([v.name, v.town || v.county].filter(Boolean).join(" "));
+    return { google: `https://www.google.com/maps/search/?api=1&query=${qs}`, apple: `https://maps.apple.com/?q=${qs}`, waze: `https://waze.com/ul?q=${qs}&navigate=yes`, label };
+  }
+  return { google: `https://www.google.com/maps/dir/?api=1&destination=${v.lat},${v.lng}`, apple: `https://maps.apple.com/?daddr=${v.lat},${v.lng}&q=${enc(v.name)}`, waze: `https://waze.com/ul?ll=${v.lat},${v.lng}&navigate=yes`, label };
+}
+const dirButtons = (v) => { const d = directions(v); return `<div class="lp-dir"><a class="btn red small" href="${E(d.google)}" target="_blank" rel="noopener">Google Maps</a><a class="btn ghost small" href="${E(d.apple)}" target="_blank" rel="noopener">Apple Maps</a><a class="btn ghost small" href="${E(d.waze)}" target="_blank" rel="noopener">Waze</a></div>`; };
+function mapSection(place, events, listings) {
+  const vs = venuesOf(events).filter((v) => v.lat != null);
+  const biz = listings.filter((l) => l.lat != null);
+  if (!vs.length && !biz.length) return "";
+  const points = [
+    ...vs.map((v) => ({ t: "venue", n: v.name, lat: v.lat, lng: v.lng, a: !!v.approximate, sub: v.events.map((e) => e.title).slice(0, 2).join(" · "), href: `/events/${v.events[0].slug}`, dir: directions(v).google })),
+    ...biz.map((l) => ({ t: "biz", n: l.name, lat: l.lat, lng: l.lng, a: !!l.approximate, sub: (l.services || []).slice(0, 3).join(" · "), href: `/directory/${l.slug}`, dir: directions({ ...l, name: l.name }).google })),
+  ];
+  const venueCards = vs.map((v) => `<div class="lp-panel lp-venue"><h3>${E(v.name)}</h3>
+      <p class="lp-addr">${E([v.address_line, v.town, v.postcode].filter(Boolean).join(", ") || v.county || "")}${v.approximate ? ` <span class="lp-approx">Approximate location</span>` : ""}</p>
+      <p class="lp-next">Next: <a href="/events/${E(v.events[0].slug)}">${E(v.events[0].title)}</a></p>
+      ${v.parking ? `<p><strong>Parking:</strong> ${E(v.parking)}</p>` : ""}${v.access ? `<p><strong>Access:</strong> ${E(v.access)}</p>` : ""}
+      ${dirButtons(v)}</div>`).join("");
+  return sec(`Meets and businesses on the map`, `<div class="lp-mapwrap"><div id="lpmap" class="lp-map" role="region" aria-label="Map of car meet venues and businesses near ${E(place)}" data-points="${E(JSON.stringify(points))}"><p>Loading the map…</p></div>
+    <p class="lp-legend"><span class="dot venue"></span> Meet venue <span class="dot biz"></span> Local business · Map data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors</p></div>
+    ${venueCards ? `<h3 style="margin-top:26px">Venues and directions</h3><div class="lp-venues">${venueCards}</div>` : ""}
+    <script>(function(){var el=document.getElementById('lpmap');if(!el)return;var started=false;
+      function css(h){var l=document.createElement('link');l.rel='stylesheet';l.href=h;document.head.appendChild(l);}
+      function js(srcs,cb){var s=document.createElement('script');s.src=srcs[0];s.onload=cb;s.onerror=function(){if(srcs.length>1)js(srcs.slice(1),cb);else el.innerHTML='<p>The map could not load. Use the directions below.</p>';};document.head.appendChild(s);}
+      function draw(){var pts=JSON.parse(el.getAttribute('data-points'));el.innerHTML='';var map=L.map(el,{scrollWheelZoom:false});
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
+        var esc=function(t){return String(t||'').replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});};
+        var b=[];pts.forEach(function(p){var m=L.circleMarker([p.lat,p.lng],{radius:p.t==='venue'?10:7,color:'#fff',weight:2,fillColor:p.t==='venue'?'#c00d0d':'#5e4c42',fillOpacity:1}).addTo(map);
+          m.bindPopup('<strong>'+esc(p.n)+'</strong><br>'+esc(p.sub)+(p.a?'<br><em>Approximate location</em>':'')+'<br><a href="'+esc(p.href)+'">'+(p.t==='venue'?'See the event':'View business')+'</a> · <a href="'+esc(p.dir)+'" target="_blank" rel="noopener">Directions</a>');b.push([p.lat,p.lng]);});
+        if(b.length>1)map.fitBounds(b,{padding:[40,40],maxZoom:12});else map.setView(b[0],11);}
+      function start(){if(started)return;started=true;css('https://unpkg.com/leaflet@1.9.4/dist/leaflet.css');js(['https://unpkg.com/leaflet@1.9.4/dist/leaflet.js','https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js'],draw);}
+      if('IntersectionObserver' in window){var io=new IntersectionObserver(function(es){if(es[0].isIntersecting){io.disconnect();start();}},{rootMargin:'300px'});io.observe(el);}else start();})();</script>`, { id: "map", lead: `Upcoming meet venues and trusted businesses in and around ${E(place)}. Tap a pin for details and directions.` });
+}
+
 export async function loadPage(path) {
   const rows = await q(`pages?select=*&path=eq.${enc(path)}&status=eq.published&limit=1`);
   return rows[0] || null;
@@ -49,8 +90,8 @@ export async function renderLocation(p) {
   const isHub = !p.county, isTown = !!p.town;
   const place = p.town || p.county || "East Anglia";
   const [eventsAll, listings, children, parentRows, siblings, partners] = await Promise.all([
-    q(`events?select=*&ends_at=gte.${now}&order=starts_at&limit=12`),
-    isHub ? Promise.resolve([]) : q(`directory_listings?select=slug,name,services,town,county,image_path,image_alt,featured,featured_until&county=eq.${enc(p.county)}&order=featured.desc,name&limit=6`),
+    q(`events?select=*,venue_info:venues(*)&ends_at=gte.${now}&order=starts_at&limit=12`),
+    q(`directory_listings?select=slug,name,services,town,county,image_path,image_alt,featured,featured_until,address_line,postcode,lat,lng,approximate${isHub ? "" : `&county=eq.${enc(p.county)}`}&order=featured.desc,name&limit=${isHub ? 30 : 6}`),
     q(`pages?select=path,title,town,county,hero_image_path,intro,content&parent_id=eq.${p.id}&status=eq.published&order=title`),
     p.parent_id ? q(`pages?select=path,title,county,town&id=eq.${p.parent_id}`) : Promise.resolve([]),
     p.parent_id && isTown ? q(`pages?select=path,title,town,hero_image_path,intro&parent_id=eq.${p.parent_id}&status=eq.published&id=neq.${p.id}&order=title&limit=6`) : Promise.resolve([]),
@@ -104,6 +145,7 @@ export async function renderLocation(p) {
       card({ href: `${CLUB}/hubs/classic-cars`, image: "homepage/gal-aston.webp", small: "Club hub", title: "Classic cars", text: "Ownership, restoration and runs." }),
       card({ href: `${CLUB}/hubs/track-days`, image: "homepage/rcg.webp", small: "Club hub", title: "Track days", text: "Snetterton dates, set-up and lap times." })].join("")}</div>
       <div class="btns" style="margin-top:18px"><a class="btn red" href="${CLUB}/apply">Join the Cars and Coffee club ${ARROW}</a></div>`));
+    parts.push(mapSection(place, events, listings));
     parts.push(sec("Trusted local businesses", listings.length ? `<div class="bizs">${listings.map(bizCard).join("")}</div>` : `<p class="lp-empty">We're checking local businesses for ${E(place)}. Know a good one? Tell us.</p>`,
       { lead: `Restorers, detailers, wrap shops and garages in and around ${E(place)}, checked by our team.` }).replace("</div></section>", `<div class="btns" style="margin-top:18px"><a class="btn ghost" href="/directory/region/${slug(place)}">Browse the ${E(place)} directory</a><a class="btn ghost" href="/directory/list-your-business">List your business</a></div></div></section>`));
     const towns = isTown ? siblings : children;
@@ -112,6 +154,7 @@ export async function renderLocation(p) {
     if (townsHTML || more.length) parts.push(sec(isTown ? "Nearby towns" : `Car meets by town in ${E(p.county)}`, townsHTML + (more.length ? `<h3 style="margin-top:22px">More places</h3>${chips(more.map((n) => [n, `/car-meets/${slug(p.county)}/${slug(n)}`]))}` : "")));
     if (c.getting_there?.car || c.getting_there?.no_car) parts.push(sec(`Getting to meets in ${E(place)}`, `<div class="lp-split eq"><div class="lp-panel"><h3>By car</h3><p>${E(c.getting_there.car || "")}</p></div><div class="lp-panel"><h3>Without a car</h3><p>${E(c.getting_there.no_car || "")}</p></div></div>`));
   } else {
+    parts.push(mapSection("Norfolk and Suffolk", events, listings));
     parts.push(sec("How our meets work", `<ol class="lp-steps"><li><h3>Find a meet</h3><p>Pick a date near you on this page or the events calendar.</p></li><li><h3>RSVP or book</h3><p>Most morning meets are free; we ask you to RSVP so we can plan parking.</p></li><li><h3>Turn up and enjoy</h3><p>Coffee, cars and conversation. Bring what you drive.</p></li></ol>`));
   }
   if (c.faqs?.length) parts.push(sec("Frequently asked questions", faqHTML(c.faqs)));
@@ -125,6 +168,10 @@ export async function renderLocation(p) {
       about: { "@type": "Place", name: place, address: { "@type": "PostalAddress", addressRegion: p.county || "East Anglia", addressLocality: p.town || undefined, addressCountry: "GB" } },
       mainEntity: { "@type": "ItemList", itemListElement: events.map((e, i) => ({ "@type": "ListItem", position: i + 1, url: `${SITE}/events/${e.slug}`, name: e.title })) } },
   ];
+  const vs = venuesOf(events);
+  if (vs.length) ld.push({ "@context": "https://schema.org", "@type": "ItemList", name: `Car meet venues in and near ${place}`, itemListElement: vs.map((v, i) => ({ "@type": "ListItem", position: i + 1,
+    item: { "@type": "Place", name: v.name, address: { "@type": "PostalAddress", streetAddress: v.address_line || undefined, addressLocality: v.town || undefined, postalCode: v.postcode || undefined, addressRegion: v.county || undefined, addressCountry: "GB" },
+      ...(v.approximate || v.lat == null ? {} : { geo: { "@type": "GeoCoordinates", latitude: v.lat, longitude: v.lng } }) } })) });
   if (c.faqs?.length) ld.push({ "@context": "https://schema.org", "@type": "FAQPage", mainEntity: c.faqs.map(([qq, a]) => ({ "@type": "Question", name: qq, acceptedAnswer: { "@type": "Answer", text: a } })) });
 
   return shell({ title: p.meta_title || `${p.title} | Cars and Coffee UK`, description: p.meta_description || p.intro || "", path: p.path, image: p.og_image_path || p.hero_image_path, noindex: p.noindex, ld, main: parts.join("\n"), partners });

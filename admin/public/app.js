@@ -86,6 +86,7 @@ function navHTML() {
     ${item("/pages?type=landing", "ad", "Ad landing pages")}
     ${item("/homepage", "home", "Homepage blocks")}
     ${item("/content/events", "cal", "Events")}
+    ${item("/content/venues", "pin", "Venues")}
     ${item("/content/articles", "news", "News")}
     ${item("/content/faqs", "faq", "FAQs")}
     ${item("/content/partners", "star", "Partners")}
@@ -462,7 +463,7 @@ const CONTENT = {
     fields: [F("key", "Key", "readonly"), F("title", "Name"), F("position", "Position", "number"), F("enabled", "Shown on the homepage", "bool"), F("starts_at", "Show from", "datetime"), F("ends_at", "Show until", "datetime")] },
   events: { title: "Events", order: ["starts_at", true], list: ["title", "starts_at", "venue", "ticket_status", "published"],
     fields: [F("title", "Title", "text", { required: true }), F("slug", "Address (slug)", "slug", { from: "title" }), F("event_type", "Type", "select", { options: ["meet", "tour", "garage", "watch", "race", "track", "show"] }),
-      F("starts_at", "Starts", "datetime", { required: true }), F("ends_at", "Ends", "datetime", { required: true }), F("venue", "Venue", "text", { required: true }), F("region", "Region"),
+      F("starts_at", "Starts", "datetime", { required: true }), F("ends_at", "Ends", "datetime", { required: true }), F("venue_id", "Venue (for the map and directions)", "ref", { table: "venues", label: "name" }), F("venue", "Venue name as shown on cards", "text", { required: true }), F("county", "County", "select", { options: ["Norfolk", "Suffolk", "Cambridgeshire", "Essex"] }), F("town", "Town"), F("region", "Region"),
       F("price_pence", "Price (pence, 0 for free)", "number"), F("ticket_status", "Tickets", "select", { options: ["free_rsvp", "on_sale", "selling_fast", "sold_out"] }),
       F("members_only", "Members only", "bool"), F("image_path", "Image", "image"), F("image_alt", "Image description"), F("published", "Published", "bool", { def: true })] },
   articles: { title: "News", order: ["published_at", false], list: ["title", "category", "published_at", "status", "featured"],
@@ -479,13 +480,18 @@ const CONTENT = {
       F("body", "Text", "textarea"), F("extra", "Extra line"), F("image_path", "Image", "image"), F("image_alt", "Image description"), F("cta_label", "Button 1 text"), F("cta_url", "Button 1 link"),
       F("cta2_label", "Button 2 text"), F("cta2_url", "Button 2 link"), F("countdown_to", "Countdown to", "datetime"), F("starts_at", "Show from", "datetime"), F("ends_at", "Show until", "datetime"), F("active", "Active", "bool", { def: true })] },
   directory_listings: { title: "Directory", order: ["created_at", false], list: ["name", "town", "status", "featured"],
-    fields: [F("name", "Business name", "text", { required: true }), F("slug", "Slug", "slug", { from: "name" }), F("services", "Services (comma separated)", "array"), F("town", "Town"), F("region", "Region"),
+    fields: [F("name", "Business name", "text", { required: true }), F("slug", "Slug", "slug", { from: "name" }), F("services", "Services (comma separated)", "array"), F("address_line", "Street address (shown publicly)"), F("town", "Town"), F("county", "County", "select", { options: ["Norfolk", "Suffolk", "Cambridgeshire", "Essex"] }), F("postcode", "Postcode", "postcode"), F("lat", "Latitude", "number", { step: "any" }), F("lng", "Longitude", "number", { step: "any" }), F("approximate", "Map pin is only approximate", "bool"), F("region", "Region"),
       F("website", "Website"), F("image_path", "Image", "image"), F("image_alt", "Image description"), F("featured", "Featured on the homepage", "bool"), F("featured_until", "Featured until", "date"),
       F("status", "Status", "select", { options: ["pending", "published", "rejected"] })] },
   sponsored_slots: { title: "Sponsored slots", order: ["starts_at", false], list: ["advertiser", "title", "starts_at", "ends_at", "status"],
     fields: [F("advertiser", "Advertiser", "text", { required: true }), F("title", "Headline", "text", { required: true }), F("body", "Text", "textarea"), F("image_path", "Image", "image"), F("image_alt", "Image description"),
       F("cta_label", "Button text"), F("cta_url", "Button link"), F("starts_at", "Starts", "datetime", { required: true }), F("ends_at", "Ends", "datetime", { required: true }),
       F("status", "Status", "select", { options: ["pending", "approved", "rejected", "paused"] }), F("impressions", "Impressions", "readonly"), F("clicks", "Clicks", "readonly")] },
+  venues: { title: "Venues", order: ["name", true], list: ["name", "town", "county", "approximate", "active"],
+    help: "Places where meets happen. Events pick a venue, and venues appear on location page maps with directions. Enter a postcode and press Look up to place the pin exactly.",
+    fields: [F("name", "Venue name", "text", { required: true }), F("slug", "Slug", "slug", { from: "name" }), F("address_line", "Street address"), F("town", "Town"),
+      F("county", "County", "select", { options: ["Norfolk", "Suffolk", "Cambridgeshire", "Essex"] }), F("postcode", "Postcode", "postcode"), F("lat", "Latitude", "number", { step: "any" }), F("lng", "Longitude", "number", { step: "any" }),
+      F("approximate", "Pin is only approximate", "bool"), F("parking", "Parking", "textarea"), F("access", "Accessibility", "textarea"), F("website", "Website"), F("notes", "Team notes (not shown)", "textarea"), F("active", "Active", "bool", { def: true })] },
   community_highlights: { title: "Community posts", order: ["sort", true], list: ["title", "handle", "sort", "active"],
     help: "The three posts shown in “From the community” on the homepage (lowest order numbers first).",
     fields: [F("title", "Title", "text", { required: true }), F("handle", "Member handle", "text", { required: true, ph: "@norfolkseries" }), F("posted_label", "When (shown next to the handle)", "text", { ph: "3 days ago" }),
@@ -520,7 +526,7 @@ function cell(v, f) {
 }
 // on/off switch shown on each row of a list: which field it flips and the "on" / "off" values
 const TOGGLE = {
-  events: { field: "published", label: "Live" }, articles: { field: "status", on: "published", off: "draft", label: "Live" },
+  events: { field: "published", label: "Live" }, venues: { field: "active", label: "Active" }, articles: { field: "status", on: "published", off: "draft", label: "Live" },
   faqs: { field: "published", label: "Live" }, partners: { field: "active", label: "Active" }, partner_features: { field: "active", label: "Live" },
   community_highlights: { field: "active", label: "Shown" }, products: { field: "active", label: "On sale" }, gallery_items: { field: "featured", label: "On homepage" },
   directory_listings: { field: "status", on: "published", off: "pending", label: "Live" }, sponsored_slots: { field: "status", on: "approved", off: "paused", label: "Running" },
@@ -612,7 +618,8 @@ route("/content/:table/:id", async ({ table, id }) => {
       case "markdown": return `<textarea class="form-control code" id="${id}" rows="14">${esc(v ?? "")}</textarea>`;
       case "select": return `<select class="form-select" id="${id}">${f.options.map((o) => `<option value="${o}" ${o === v ? "selected" : ""}>${esc(LABELS[o] || o)}</option>`).join("")}</select>`;
       case "ref": return `<select class="form-select" id="${id}" ${req}><option value="">Choose…</option>${refs[f.name].map((o) => `<option value="${o.id}" ${o.id === v ? "selected" : ""}>${esc(o[f.label])}</option>`).join("")}</select>`;
-      case "number": return `<input class="form-control" type="number" id="${id}" value="${esc(v ?? "")}" ${req}>`;
+      case "number": return `<input class="form-control" type="number" ${f.step ? `step="${f.step}"` : ""} id="${id}" value="${esc(v ?? "")}" ${req}>`;
+      case "postcode": return `<div class="input-group"><input class="form-control" id="${id}" value="${esc(v ?? "")}" placeholder="e.g. NR1 3DD" autocapitalize="characters"><button class="btn btn-outline-secondary" type="button" data-pclookup="${id}">Look up</button></div><div class="form-text" data-pcmsg="${id}">Fills in the map position from the postcode.</div>`;
       case "date": return `<input class="form-control" type="date" id="${id}" value="${esc(v ? String(v).slice(0, 10) : "")}" ${req}>`;
       case "datetime": return `<input class="form-control" type="datetime-local" id="${id}" value="${toLocal(v)}" ${req}>`;
       case "array": return `<input class="form-control" id="${id}" value="${esc((v || []).join(", "))}">`;
@@ -631,6 +638,19 @@ route("/content/:table/:id", async ({ table, id }) => {
   if (slugF) $("#f_" + slugF.name).addEventListener("input", (e) => (e.target.dataset.touched = "1"));
   $("#cf").addEventListener("input", () => (dirty = true));
   wireImageInputs($("#cf"));
+  for (const b of $$("[data-pclookup]")) b.onclick = async () => {
+    const id = b.dataset.pclookup, msg = $(`[data-pcmsg="${id}"]`), pc = $("#" + id).value.trim();
+    if (!pc) { msg.textContent = "Enter a postcode first."; return; }
+    msg.textContent = "Looking up…";
+    try {
+      const r = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(pc)}`); const j = await r.json();
+      if (!r.ok || !j.result) { msg.textContent = "Postcode not found. Check it and try again."; return; }
+      $("#f_postcode").value = j.result.postcode; if ($("#f_lat")) $("#f_lat").value = j.result.latitude.toFixed(6); if ($("#f_lng")) $("#f_lng").value = j.result.longitude.toFixed(6);
+      if ($("#f_approximate")) $("#f_approximate").checked = false;
+      if ($("#f_town") && !$("#f_town").value) $("#f_town").value = j.result.admin_district || "";
+      dirty = true; msg.textContent = `Found: ${j.result.admin_ward || ""}, ${j.result.admin_district || ""}. Pin placed exactly. Remember to save.`;
+    } catch { msg.textContent = "Couldn't reach the postcode service. Enter the position by hand or try again."; }
+  };
   $("#cf").onsubmit = async (e) => {
     e.preventDefault();
     const out = {};
