@@ -5,7 +5,7 @@ import { sanitize, safeUrl } from "./sanitize.js";
 import { carsIndex } from "./standard.js";
 import { shareBar, galleryOf, galleryHTML } from "./ui.js";
 import { findAll } from "./assist.js";
-import { shopHome, productPage, categoryPage as shopCategory, shopsIndex, storefront, sellPage, shopSitemap } from "./shop.js";
+import { basketPage, shopHome, productPage, categoryPage as shopCategory, shopsIndex, storefront, sellPage, shopSitemap } from "./shop.js";
 import { directoryHome, businessPage, servicePage, servicesIndex, regionPage, listYourBusiness } from "./directory.js";
 export { sanitize };
 
@@ -35,6 +35,7 @@ const body = (row) => (row.body_html ? sanitize(row.body_html) : row.body ? sani
 // ---------- routing ----------
 export async function loadContent(path) {
   if (path === "/cars") return { kind: "cars" };
+  if (path === "/basket") return { kind: "basket" };
   const sm = path.match(/^\/(shop|shops)(?:\/([a-z0-9-]+))?(?:\/([a-z0-9-]+))?$/);
   if (sm) return { kind: sm[1], a: sm[2], b: sm[3] };
   const dm = path.match(/^\/directory(?:\/([a-z0-9-]+))?(?:\/([a-z0-9-]+))?$/);
@@ -62,6 +63,7 @@ export async function renderContent({ kind, slug, ics }) {
     if (a === "category" && b) return shopCategory(b);
     if (a === "sell" && !b) return sellPage();
     return b ? null : productPage(a); }
+  if (kind === "basket") return basketPage();
   if (kind === "shops") { const { a, b } = arguments[0]; return a ? storefront(a, b) : shopsIndex(); }
   if (kind === "search") return searchPage(arguments[0].q);
   if (kind === "guides") return slug ? guidePage(slug) : guidesList();

@@ -26,7 +26,7 @@ export default {
     if ((/^\/car-meets\/?$/.test(url.pathname) || /^\/(norfolk|suffolk|cambridgeshire|essex)(\/[a-z0-9-]+)?\/?$/.test(url.pathname)) && (request.method === "GET" || request.method === "HEAD")) {
       return contentPage(request, env, ctx, url);
     }
-    if ((/^\/(events|news|guides|galleries|search)(\/[a-z0-9-]+(\.ics)?)?\/?$/.test(url.pathname) || url.pathname === "/cars" || /^\/directory(\/[a-z0-9-]+){0,2}\/?$/.test(url.pathname) || /^\/shops?(\/[a-z0-9-]+){0,2}\/?$/.test(url.pathname)) && (request.method === "GET" || request.method === "HEAD")) {
+    if ((/^\/(events|news|guides|galleries|search)(\/[a-z0-9-]+(\.ics)?)?\/?$/.test(url.pathname) || url.pathname === "/cars" || /^\/directory(\/[a-z0-9-]+){0,2}\/?$/.test(url.pathname) || /^\/shops?(\/[a-z0-9-]+){0,2}\/?$/.test(url.pathname) || url.pathname === "/basket") && (request.method === "GET" || request.method === "HEAD")) {
       return contentPage(request, env, ctx, url, true);
     }
     if (url.pathname.startsWith("/api/")) return handleAssist(request, env, url);

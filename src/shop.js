@@ -41,7 +41,7 @@ const ancestors = (cats, c) => { const out = []; const seen = new Set(); let x =
 const catCrumbs = (cats, c) => ancestors(cats, c).map((x) => [x.name, `/shop/category/${x.slug}`]);
 // Left-hand category tree. Branches on the way to the current category start open; others can be opened.
 // counts: { categoryId: number of products in it and below }. Categories with nothing in them are left out when hideEmpty is set.
-function catTree(cats, { counts = {}, current = null, href = (c) => `/shop/category/${c.slug}`, allHref = "/shop", allLabel = "All products", hideEmpty = false, title = "Categories" } = {}) {
+function catTree(cats, { counts = {}, current = null, href = (c) => `/shop/category/${c.slug}`, allHref = "/shop", allLabel = "All products", hideEmpty = false, title = "Categories", back = null } = {}) {
   const onPath = new Set(current ? ancestors(cats, current).map((x) => x.id) : []);
   const show = (c) => !hideEmpty || (counts[c.id] || 0) > 0;
   const branch = (parentId, depth) => {
@@ -51,7 +51,7 @@ function catTree(cats, { counts = {}, current = null, href = (c) => `/shop/categ
       const a = `<a href="${E(href(c))}"${here ? ' aria-current="page"' : ""}><span>${E(c.name)}</span>${n ? `<small>${n}</small>` : ""}</a>`;
       return `<li${onPath.has(c.id) ? ' class="on"' : ""}>${sub ? `<details${onPath.has(c.id) ? " open" : ""}><summary>${a}</summary>${sub}</details>` : a}</li>`; }).join("")}</ul>`;
   };
-  const body = `<a class="ct-all" href="${E(allHref)}"${current ? "" : ' aria-current="page"'}>${E(allLabel)}</a>${branch(null, 0)}`;
+  const body = `${back ? `<a class="ct-back" href="${E(back[1])}">‹ ${E(back[0])}</a>` : ""}<a class="ct-all" href="${E(allHref)}"${current ? "" : ' aria-current="page"'}>${E(allLabel)}</a>${branch(null, 0)}`;
   return `<aside class="ct-side"><details class="ct-mob"><summary>${E(title)}${current ? `: ${E(current.name)}` : ""}</summary><nav class="ct-tree" aria-label="${E(title)}">${body}</nav></details><nav class="ct-tree ct-desk" aria-label="${E(title)}"><h2>${E(title)}</h2>${body}</nav></aside>`;
 }
 const countsOf = (cats, products) => { const out = {}; for (const p of products) { const c = cats.find((x) => x.id === p.category_id); for (const a of c ? ancestors(cats, c) : []) out[a.id] = (out[a.id] || 0) + 1; } return out; };
@@ -95,7 +95,7 @@ export async function shopHome(params = {}) {
   const main = [crumbsHTML(crumbs),
     `<section class="dir-hero shp-hero"><div class="wrap"><span class="eyebrow">The Cars and Coffee shop</span><h1>Parts, car care, clothing and more</h1><p>Club merch and products from trusted UK specialists, all in one place.</p>${searchBox()}</div></section>`,
     `<section class="lp-sec"><div class="wrap"><h2>Shop by category</h2><div class="shp-cats">${tops.map((c) => { const n = count(c); return `<a class="shp-cat" href="/shop/category/${E(c.slug)}">${c.image_path ? `<img src="${E(img(c.image_path))}" alt="" loading="lazy">` : ""}<strong>${E(c.name)}</strong><span>${n ? `${n} product${n === 1 ? "" : "s"}` : "Coming soon"}</span></a>`; }).join("")}</div></div></section>`,
-    fs ? `<section class="lp-sec"><div class="wrap"><span class="eyebrow" style="color:var(--red2)">Featured shop</span><div class="shp-feat">
+    fs ? `<section class="lp-sec"><div class="wrap"><div class="head"><h2>Featured shop</h2><a class="more" href="/shops">All partner shops ${ARROW}</a></div><div class="shp-feat">
       <a class="shp-feat-card" href="/shops/${E(fs.slug)}"${fs.banner_path ? ` style="background-image:linear-gradient(90deg,rgba(18,10,7,.9),rgba(18,10,7,.55)),url('${E(img(fs.banner_path))}')"` : ""}>${logoHTML(fs)}<h2>${E(fs.name)}</h2>${fs.tagline ? `<p>${E(fs.tagline)}</p>` : ""}${fs.town ? `<p class="small">${E([fs.town, fs.county].filter(Boolean).join(", "))}</p>` : ""}<span class="btn red">Visit the shop ${ARROW}</span></a>
       <div class="prods shp-grid shp-two">${fsProducts.map((p) => productCard(p, byId)).join("")}</div></div></div></section>` : "",
     featured.length ? `<section class="lp-sec"><div class="wrap"><div class="head"><h2>Featured products</h2></div>${grid(featured, byId)}</div></section>` : "",
@@ -150,7 +150,7 @@ export async function productPage(slug) {
     brand: p.brand ? { "@type": "Brand", name: p.brand } : undefined, category: cat?.name,
     offers: { "@type": "Offer", url: `${SITE}/shop/${p.slug}`, priceCurrency: "GBP", price: ((p.price_pence || 0) / 100).toFixed(2), availability: `https://schema.org/${avail}`, itemCondition: `https://schema.org/${{ new: "NewCondition", used: "UsedCondition", refurbished: "RefurbishedCondition" }[p.condition]}`, seller: { "@type": "Organization", name: seller } } };
   const main = [crumbsHTML(crumbs), `<section class="lp-sec" style="border:0;padding-top:20px"><div class="wrap shp-prod">
-    <div class="shp-pics">${pics.length ? `<img class="shp-main" src="${E(pics[0].src)}" alt="${E(pics[0].alt)}" width="800" height="600">${pics.length > 1 ? `<div class="shp-thumbs">${pics.map((x, i) => `<button type="button" data-src="${E(x.src)}" data-alt="${E(x.alt)}" aria-label="Show photo ${i + 1}"${i ? "" : ' aria-current="true"'}><img src="${E(x.src)}" alt="" loading="lazy"></button>`).join("")}</div>` : ""}` : `<div class="shp-main shp-noimg big">${BAG}</div>`}</div>
+    <div class="shp-pics">${pics.length ? `<div class="shp-mainwrap"><img class="shp-main" src="${E(pics[0].src)}" alt="${E(pics[0].alt)}" width="800" height="600">${pics.length > 1 ? `<button type="button" class="shp-nx prev" aria-label="Previous photo">‹</button><button type="button" class="shp-nx next" aria-label="Next photo">›</button><span class="shp-pc">1 / ${pics.length}</span>` : ""}</div>${pics.length > 1 ? `<div class="shp-thumbs">${pics.map((x, i) => `<button type="button" data-src="${E(x.src)}" data-alt="${E(x.alt)}" aria-label="Show photo ${i + 1}"${i ? "" : ' aria-current="true"'}><img src="${E(x.src)}" alt="" loading="lazy"></button>`).join("")}</div>` : ""}` : `<div class="shp-main shp-noimg big">${BAG}</div>`}</div>
     <div class="shp-info">
       ${shop ? `<a class="shp-seller" href="/shops/${E(shop.slug)}">${logoHTML(shop, "shp-logo sm")}<span>Sold by <strong>${E(shop.name)}</strong></span></a>` : `<p class="shp-seller"><span>Official <strong>Cars and Coffee UK</strong> merch</span></p>`}
       <h1>${E(p.name)}</h1>
@@ -158,9 +158,14 @@ export async function productPage(slug) {
       ${p.member_price_pence ? `<p class="shp-member">Members pay <b>${money(p.member_price_pence)}</b>. <a href="https://club.carsandcoffee.uk/apply">Join the club</a></p>` : ""}
       <p class="shp-stock ${E(p.stock_status)}">${E(STOCK[p.stock_status])}${p.condition !== "new" ? ` · ${E(COND[p.condition])}` : ""}</p>
       ${p.summary ? `<p class="shp-sum">${E(p.summary)}</p>` : ""}
-      ${opts.map((o) => `<label class="shp-opt">${E(o.name)}<select>${o.values.map((v) => `<option>${E(v)}</option>`).join("")}</select></label>`).join("")}
-      <div class="shp-buy">${p.stock_status === "out" ? `<a class="btn ghost" href="${E(ask)}">Ask when it’s back ${ARROW}</a>` : buy ? `<a class="btn red" href="${E(buy)}" rel="noopener sponsored" target="_blank" data-track="buy">Buy from ${E(seller)} ${ARROW}</a>` : `<a class="btn red" href="${E(ask)}">Ask about this ${ARROW}</a>`}</div>
-      <p class="small shp-note">${buy ? `You’ll finish your order on ${E(seller)}’s website.` : `Send us a message and ${shop ? `${E(shop.name)} will` : "we’ll"} get back to you with availability and delivery.`} Online checkout is coming soon.</p>
+      <form class="shp-cart" data-basket-form novalidate>
+      ${opts.map((o) => `<label class="shp-opt">${E(o.name)}<select data-opt="${E(o.name)}">${o.values.map((v) => `<option>${E(v)}</option>`).join("")}</select></label>`).join("")}
+      ${p.stock_status === "out" ? `<div class="shp-buy"><a class="btn red" href="${E(ask)}">Ask when it’s back ${ARROW}</a></div>` : `<div class="shp-buy">
+        <div class="qty" role="group" aria-label="Quantity"><button type="button" data-q="-1" aria-label="One fewer">−</button><input type="number" name="qty" data-qty value="1" min="1" max="${p.stock_qty && p.stock_qty > 0 ? Math.min(99, p.stock_qty) : 99}" inputmode="numeric" aria-label="Quantity"><button type="button" data-q="1" aria-label="One more">+</button></div>
+        <button class="btn red" type="submit" data-item="${E(JSON.stringify({ slug: p.slug, name: p.name, price: p.price_pence || 0, member: p.member_price_pence || null, img: pics[0]?.src || "", seller, shop: shop ? shop.slug : "" }))}">Add to basket ${BAG}</button></div>`}
+      </form>
+      ${p.stock_status !== "out" ? `<p class="shp-alt">${buy ? `<a href="${E(buy)}" rel="noopener sponsored" target="_blank" data-track="buy">Or buy direct from ${E(seller)} ↗</a> · ` : ""}<a href="${E(ask)}">Ask a question</a></p>` : ""}
+      <p class="small shp-note">Add what you’d like to your basket and send it as an order request: ${shop ? `${E(shop.name)}` : "we"} will confirm availability, delivery and payment by email. Online card checkout is coming soon.</p>
       ${facts.length ? `<dl class="shp-facts">${facts.map(([k, v]) => `<div><dt>${E(k)}</dt><dd>${E(v)}</dd></div>`).join("")}</dl>` : ""}
       ${shareBar(`${SITE}/shop/${p.slug}`, p.name)}
     </div></div></section>`,
@@ -168,7 +173,10 @@ export async function productPage(slug) {
     pics.length > 2 ? `<section class="lp-sec"><div class="wrap">${galleryHTML(pics.map((x) => ({ src: x.src, alt: x.alt, caption: "" })), p.name)}</div></section>` : "",
     more.length ? `<section class="lp-sec"><div class="wrap"><div class="head"><h2>More from ${E(seller)}</h2>${shop ? `<a class="more" href="/shops/${E(shop.slug)}">Visit the shop ${ARROW}</a>` : ""}</div>${grid(more, byId)}</div></section>` : "",
     rel.length ? `<section class="lp-sec"><div class="wrap"><h2>You might also like</h2>${grid(rel, byId)}</div></section>` : "",
-    `<script>(function(){var m=document.querySelector('.shp-main');document.querySelectorAll('.shp-thumbs button').forEach(function(b){b.onclick=function(){m.src=b.dataset.src;m.alt=b.dataset.alt;document.querySelectorAll('.shp-thumbs button').forEach(function(x){x.removeAttribute('aria-current');});b.setAttribute('aria-current','true');};});})();</script>`].join("\n");
+    `<script>(function(){var m=document.querySelector('.shp-main'),tb=[].slice.call(document.querySelectorAll('.shp-thumbs button')),pc=document.querySelector('.shp-pc'),i=0;if(!m||!tb.length)return;
+  function show(n){i=(n+tb.length)%tb.length;var b=tb[i];m.src=b.dataset.src;m.alt=b.dataset.alt;tb.forEach(function(x){x.removeAttribute('aria-current');});b.setAttribute('aria-current','true');if(pc)pc.textContent=(i+1)+' / '+tb.length;}
+  tb.forEach(function(b,n){b.onclick=function(){show(n);};});var p=document.querySelector('.shp-nx.prev'),nx=document.querySelector('.shp-nx.next');if(p)p.onclick=function(){show(i-1);};if(nx)nx.onclick=function(){show(i+1);};
+  var x0=null;m.addEventListener('touchstart',function(e){x0=e.touches[0].clientX;},{passive:true});m.addEventListener('touchend',function(e){if(x0==null)return;var dx=e.changedTouches[0].clientX-x0;if(Math.abs(dx)>40)show(i+(dx<0?1:-1));x0=null;});})();</script>`].join("\n");
   return shell({ title: p.meta_title || (shop ? `${p.name} | ${shop.name} | Cars and Coffee UK shop` : `${p.name} | Cars and Coffee UK shop`), description: p.meta_description || p.summary || `${p.name} from ${seller}, ${money(p.price_pence)}.`, path: `/shop/${p.slug}`, image: pics[0]?.src, ld: [ld(crumbs), prodLd], partners, ogType: "product", main });
 }
 
@@ -197,10 +205,10 @@ export async function storefront(slug, catSlug) {
   const crumbs = [["Home", "/"], ["Shop", "/shop"], ["Partner shops", "/shops"], [s.name, base], ...(cur ? ancestors(cats, cur).map((x) => [x.name, `${base}/${x.slug}`]) : [])];
   const socials = Object.entries(s.socials || {}).map(([k, v]) => [k, link(v)]).filter(([, v]) => v);
   const web = link(s.website);
-  const nav = catTree(cats, { counts, current: cur, href: (c) => `${base}/${c.slug}`, allHref: base, allLabel: `All ${s.name} products`, hideEmpty: true, title: `${s.name} categories` });
+  const nav = catTree(cats, { counts, current: cur, href: (c) => `${base}/${c.slug}`, allHref: base, allLabel: `All ${s.name} products`, hideEmpty: true, title: `${s.name} categories`, back: ["Back to the main shop", "/shop"] });
   const feat = !cur ? all.filter((p) => p.featured).slice(0, 4) : [];
   const main = [crumbsHTML(crumbs),
-    `<section class="shp-front"${s.banner_path ? ` style="background-image:linear-gradient(90deg,rgba(18,10,7,.92),rgba(18,10,7,.6)),url('${E(img(s.banner_path))}')"` : ""}><div class="wrap shp-front-in">${logoHTML(s, "shp-logo lg")}<div><span class="eyebrow">Partner shop</span><h1>${E(s.name)}${cur ? `: ${E(cur.name)}` : ""}</h1>${s.tagline ? `<p>${E(s.tagline)}</p>` : ""}
+    `<section class="shp-front"${s.banner_path ? ` style="background-image:linear-gradient(90deg,rgba(18,10,7,.92),rgba(18,10,7,.6)),url('${E(img(s.banner_path))}')"` : ""}><div class="wrap shp-front-in">${logoHTML(s, "shp-logo lg")}<div><a class="shp-backlink" href="/shop">‹ Cars and Coffee shop</a><span class="eyebrow">Partner shop</span><h1>${E(s.name)}${cur ? `: ${E(cur.name)}` : ""}</h1>${s.tagline ? `<p>${E(s.tagline)}</p>` : ""}
       <p class="shp-meta">${s.town ? `<span>📍 ${E([s.town, s.county].filter(Boolean).join(", "))}</span>` : ""}${web ? `<a href="${E(web)}" rel="noopener" target="_blank">Website ↗</a>` : ""}${socials.map(([k, v]) => `<a href="${E(v)}" rel="noopener" target="_blank">${E(k[0].toUpperCase() + k.slice(1))} ↗</a>`).join("")}${s.directory_listing_id ? `<a href="/directory?q=${encodeURIComponent(s.name)}">In our directory</a>` : ""}</p></div></div></section>`,
     `<section class="lp-sec" style="border:0"><div class="wrap shp-layout">${nav}<div class="shp-col">
       ${feat.length && all.length > 4 ? `<h2>Featured</h2>${grid(feat, byId)}<div style="height:36px"></div>` : ""}
@@ -218,6 +226,49 @@ export async function sellPage() {
     `<section class="lp-sec"><div class="wrap"><h2>What you get</h2><div class="ab-cards">${[["Your own shop page", "A storefront with your logo, banner, about section, links and your own product navigation."], ["Listed across the shop", "Your products appear in the main shop, in categories, in search and on related products."], ["You stay in control", "Log in to add products, prices, photos and stock whenever you like."], ["Simple pricing", "A monthly plan plus a small commission on sales made through the site. No set-up fee."]].map(([h, t]) => `<div class="lp-card"><div class="pad"><h3>${E(h)}</h3><p>${E(t)}</p></div></div>`).join("")}</div></div></section>`,
     `<section class="lp-sec"><div class="wrap"><h2>Good fits</h2><p>Parts suppliers, detailing brands, garages selling servicing kits, wrap and graphics studios, clothing and gift makers, model and print sellers. If car people would buy it, talk to us.</p><p><a class="btn red" href="/contact?topic=shop&about=Opening%20a%20shop">Get in touch ${ARROW}</a></p></div></section>`].join("\n");
   return shell({ title: "Sell on Cars and Coffee UK | Open a partner shop", description: "Open a partner shop on Cars and Coffee UK. Your own shop page, products listed across the shop, simple monthly plan plus commission.", path: "/shop/sell", ld: ld(crumbs), partners, main });
+}
+
+// ---------- /basket ----------
+// The basket lives in the visitor's browser. Sending it creates an order request (an enquiry) for the team.
+export async function basketPage() {
+  const partners = await partnersQ();
+  const crumbs = [["Home", "/"], ["Shop", "/shop"], ["Basket", "/basket"]];
+  const main = [crumbsHTML(crumbs), `<section class="lp-sec" style="border:0;padding-top:24px"><div class="wrap"><h1 class="shp-h1">Your basket</h1>
+    <div class="bsk" id="bsk"><p class="lp-empty">Loading your basket…</p></div>
+    <template id="bsk-empty"><div class="lp-empty"><p>Your basket is empty.</p><p><a class="btn red" href="/shop">Browse the shop ${ARROW}</a></p></div></template>
+    <div class="bsk-grid" id="bsk-full" hidden><div><div id="bsk-items"></div></div>
+      <aside class="bsk-sum"><h2>Order summary</h2><div id="bsk-totals"></div>
+        <form class="ct-form" id="bsk-f" data-captcha novalidate><h3>Send your order request</h3><p class="ct-small">No payment now. Each seller replies by email to confirm stock, delivery and how to pay. Online checkout is coming soon.</p>
+          <label>Your name<input name="name" autocomplete="name" required maxlength="120"></label><label>Email<input name="email" type="email" autocomplete="email" required maxlength="200"></label>
+          <label>Phone (optional)<input name="phone" type="tel" autocomplete="tel" maxlength="40"></label><label>Delivery postcode (optional)<input name="postcode" autocomplete="postal-code" maxlength="10"></label>
+          <label>Anything else? (optional)<textarea name="notes" rows="3" maxlength="1000"></textarea></label>
+          <label class="hb-hp" aria-hidden="true">Leave this blank<input name="cc_hp" tabindex="-1" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"></label>
+          <button class="btn red" type="submit">Send order request ${ARROW}</button><p class="ct-msg" role="status"></p>
+          <p class="ct-small">We share your details only with the sellers in your basket so they can reply. See our <a href="/privacy">privacy policy</a>.</p></form></aside></div></div></section>
+  <script>(function(){var B=window.CCB;if(!B)return;var gbp=function(p){return '£'+(p/100).toFixed(2).replace('.00','');},esc=function(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});};
+    function G(f,n){var a=f.querySelectorAll('[name="'+n+'"]');for(var i=0;i<a.length;i++){var v=(a[i].value||'').trim();if(v)return v;}return '';}
+    function draw(){var items=B.get(),box=document.getElementById('bsk'),full=document.getElementById('bsk-full');
+      if(!items.length){box.innerHTML=document.getElementById('bsk-empty').innerHTML;box.hidden=false;full.hidden=true;return;}
+      box.hidden=true;full.hidden=false;var groups={};items.forEach(function(it){(groups[it.seller]=groups[it.seller]||[]).push(it);});var total=0;
+      document.getElementById('bsk-items').innerHTML=Object.keys(groups).map(function(sel){var sub=0;var rows=groups[sel].map(function(it){var line=it.price*it.qty;sub+=line;var o=Object.keys(it.opts||{}).map(function(k){return esc(k)+': '+esc(it.opts[k]);}).join(' · ');
+        return '<div class="bsk-row" data-k="'+esc(it.k)+'"><a class="bsk-img" href="/shop/'+esc(it.slug)+'">'+(it.img?'<img src="'+esc(it.img)+'" alt="">':'<span></span>')+'</a><div class="bsk-info"><a href="/shop/'+esc(it.slug)+'"><strong>'+esc(it.name)+'</strong></a>'+(o?'<small>'+o+'</small>':'')+'<small>'+gbp(it.price)+' each'+(it.member?' · members '+gbp(it.member):'')+'</small></div>'+
+          '<div class="qty sm" role="group" aria-label="Quantity"><button type="button" data-d="-1" aria-label="One fewer">−</button><input type="number" min="1" max="99" value="'+it.qty+'" data-set aria-label="Quantity"><button type="button" data-d="1" aria-label="One more">+</button></div><b class="bsk-line">'+gbp(line)+'</b><button type="button" class="bsk-rm" data-rm aria-label="Remove '+esc(it.name)+'">Remove</button></div>';}).join('');total+=sub;
+        return '<div class="bsk-seller"><h2>'+esc(sel)+'</h2>'+rows+'<p class="bsk-sub">Subtotal <b>'+gbp(sub)+'</b></p></div>';}).join('');
+      var n=items.reduce(function(a,b){return a+b.qty;},0);
+      document.getElementById('bsk-totals').innerHTML='<p><span>'+n+' item'+(n===1?'':'s')+'</span><b>'+gbp(total)+'</b></p><p class="ct-small">Delivery is confirmed by each seller.'+(Object.keys(groups).length>1?' Your basket has items from '+Object.keys(groups).length+' sellers, so you may get more than one reply.':'')+'</p>';}
+    var wrap=document.getElementById('bsk-items');
+    wrap.addEventListener('click',function(e){var r=e.target.closest('.bsk-row');if(!r)return;var k=r.dataset.k;if(e.target.closest('[data-rm]')){B.remove(k);draw();return;}var d=e.target.closest('[data-d]');if(d){var it=B.get().find(function(x){return x.k===k;});if(it){B.setQty(k,it.qty+Number(d.dataset.d));draw();}}});
+    wrap.addEventListener('change',function(e){var r=e.target.closest('.bsk-row');if(r&&e.target.matches('[data-set]')){B.setQty(r.dataset.k,parseInt(e.target.value,10)||1);draw();}});
+    var f=document.getElementById('bsk-f');f.addEventListener('submit',async function(e){e.preventDefault();var m=f.querySelector('.ct-msg'),b=f.querySelector('[type=submit]'),items=B.get();
+      var miss=!G(f,'name')?'Please add your name.':!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(G(f,'email'))?'Please check your email address.':!items.length?'Your basket is empty.':'';if(miss){m.textContent=miss;m.className='ct-msg bad';return;}
+      var total=0,lines=items.map(function(it){total+=it.price*it.qty;var o=Object.keys(it.opts||{}).map(function(k){return k+': '+it.opts[k];}).join(', ');return it.qty+' x '+it.name+(o?' ('+o+')':'')+' at '+gbp(it.price)+' from '+it.seller+' [carsandcoffee.uk/shop/'+it.slug+']';});
+      var msg=('ORDER REQUEST\\n'+lines.join('\\n')+'\\nTotal: '+gbp(total)+(G(f,'phone')?'\\nPhone: '+G(f,'phone'):'')+(G(f,'postcode')?'\\nDelivery postcode: '+G(f,'postcode'):'')+(G(f,'notes')?'\\n\\nNotes: '+G(f,'notes'):'')).slice(0,3990);
+      b.disabled=true;m.className='ct-msg';m.textContent='Sending…';
+      try{var r=await fetch('/api/enquiry',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:G(f,'name'),email:G(f,'email'),topic:'shop',message:msg,cc_hp:G(f,'cc_hp'),page:'/basket'})});var j=await r.json().catch(function(){return{};});
+        if(!r.ok)throw new Error(j.error||'Sorry, that didn\\'t send. Please try again.');B.clear();document.getElementById('bsk-full').innerHTML='<div class="ct-sent"><h3>Thanks, your order request is on its way.</h3><p>The seller'+(lines.length>1?'s':'')+' will email you to confirm stock, delivery and payment, usually within a day or two.</p><p><a class="btn ghost" href="/shop">Back to the shop</a></p></div>';}
+      catch(err){m.textContent=err.message;m.className='ct-msg bad';b.disabled=false;}});
+    draw();})();</script>`].join("\n");
+  return shell({ title: "Your basket | Cars and Coffee UK shop", description: "Your Cars and Coffee UK shop basket.", path: "/basket", noindex: true, ld: ld(crumbs), partners, main });
 }
 
 export async function shopSitemap() {

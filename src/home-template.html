@@ -748,8 +748,8 @@ body:has(.mbar.show) .hb{bottom:84px}
 .shp-noimg{display:grid;place-items:center;aspect-ratio:218/127;background:linear-gradient(135deg,#efe5d8,#e2d3c1);color:#8a6f5a}.shp-noimg svg{width:44px;height:44px}
 .shp-noimg.big{aspect-ratio:4/3;border-radius:10px}.shp-noimg.big svg{width:90px;height:90px}
 .shp-feat{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:22px;align-items:stretch;margin-top:8px}
-.shp-feat-card{display:flex;flex-direction:column;justify-content:flex-end;gap:6px;padding:30px;border-radius:12px;background:var(--esp) center/cover;color:#f6ece0;text-decoration:none;min-height:340px;background-image:radial-gradient(circle at 85% 15%,rgba(192,13,13,.4),transparent 55%)}
-.shp-feat-card h2{color:#fff;font-family:Anton,Impact,sans-serif;font-weight:400;text-transform:uppercase;font-size:clamp(30px,3.4vw,44px);margin:6px 0 0;line-height:1}.shp-feat-card p{margin:0;max-width:44ch}.shp-feat-card .btn{align-self:flex-start;margin-top:14px}
+.shp-feat-card{display:flex;flex-direction:column;justify-content:flex-end;gap:6px;padding:30px;border-radius:12px;background:var(--esp) center/cover;color:#f6ece0;text-decoration:none;min-height:420px;padding:36px;background-image:radial-gradient(circle at 85% 15%,rgba(192,13,13,.4),transparent 55%)}
+.shp-feat-card h2{color:#fff;font-family:Anton,Impact,sans-serif;font-weight:400;text-transform:uppercase;font-size:clamp(44px,5.4vw,76px);margin:10px 0 6px;line-height:.95}.shp-feat-card p{margin:0;max-width:44ch;font-size:20px;font-weight:600;line-height:1.4}.shp-feat-card p.small{font-size:16px;font-weight:500;opacity:.85;margin-top:6px}.shp-feat-card .shp-logo{width:96px;height:96px;font-size:38px}.shp-feat-card .btn{align-self:flex-start;margin-top:14px}
 .prods.shp-grid.shp-two{grid-template-columns:repeat(2,minmax(0,1fr))}
 .shp-logo{width:72px;height:72px;border-radius:12px;background:#fff;border:1px solid var(--line);object-fit:contain;padding:6px;flex:0 0 auto}
 .shp-logo.mono{display:grid;place-items:center;font-family:Anton,Impact,sans-serif;font-size:28px;color:var(--red);padding:0}
@@ -804,6 +804,28 @@ body:has(.mbar.show) .hb{bottom:84px}
 @media (max-width:980px){.shp-layout{grid-template-columns:1fr;gap:18px}.ct-side{position:static}.ct-desk{display:none}
   .ct-mob{display:block;border:1px solid var(--line);border-radius:10px;background:var(--paper)}.ct-mob>summary{padding:14px 16px;font-weight:800;cursor:pointer}.ct-mob .ct-tree{padding:0 10px 12px}
   .shp-col .prods.shp-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.ico.bag{position:relative;color:inherit;text-decoration:none}.bag-n{position:absolute;top:4px;right:2px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--red);color:#fff;font:800 11px/18px Inter,sans-serif;text-align:center}
+.shp-cart{margin:0}.shp-buy{display:flex;flex-wrap:wrap;gap:10px;align-items:stretch}
+.qty{display:inline-flex;align-items:stretch;border:1px solid var(--line);border-radius:6px;background:var(--paper);overflow:hidden}.qty button{width:42px;border:0;background:none;font:700 20px Inter,sans-serif;color:var(--ink);cursor:pointer}.qty button:hover{background:var(--ink);color:var(--bg)}
+.qty input{width:52px;border:0;border-left:1px solid var(--line);border-right:1px solid var(--line);text-align:center;font:700 16px Inter,sans-serif;background:var(--bg);color:var(--ink);-moz-appearance:textfield}.qty input::-webkit-inner-spin-button,.qty input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.qty.sm button{width:32px;font-size:16px}.qty.sm input{width:40px;font-size:14px}
+.shp-buy .btn svg{width:20px;height:20px}.shp-buy .btn.added{background:#2e8b57;border-color:#2e8b57}
+.shp-alt{margin:10px 0 6px;font-size:14px}.shp-alt a{color:var(--ink)}
+.shp-mainwrap{position:relative}.shp-nx{position:absolute;top:50%;transform:translateY(-50%);width:42px;height:42px;border-radius:50%;border:0;background:rgba(255,255,255,.9);color:#241712;font-size:26px;line-height:1;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.15)}.shp-nx.prev{left:10px}.shp-nx.next{right:10px}.shp-nx:hover{background:var(--ink);color:var(--bg)}
+.shp-pc{position:absolute;right:10px;bottom:10px;background:rgba(18,10,7,.75);color:#fff;font-size:12px;font-weight:700;padding:3px 8px;border-radius:4px}
+.bsk-grid{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:36px;align-items:start}
+.bsk-seller{border:1px solid var(--line);border-radius:10px;background:var(--paper);padding:6px 18px 12px;margin-bottom:18px}.bsk-seller h2{font:800 14px Inter,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:var(--soft);margin:12px 0 4px}
+.bsk-row{display:grid;grid-template-columns:72px minmax(0,1fr) auto auto auto;gap:14px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
+.bsk-img img,.bsk-img span{width:72px;height:54px;object-fit:cover;border-radius:6px;display:block;background:linear-gradient(135deg,#efe5d8,#e2d3c1)}
+.bsk-info{display:grid;gap:2px}.bsk-info a{color:var(--ink);text-decoration:none}.bsk-info small{color:var(--soft);font-size:13px}
+.bsk-line{min-width:70px;text-align:right}.bsk-rm{border:0;background:none;color:var(--soft);text-decoration:underline;cursor:pointer;font:600 13px Inter,sans-serif}.bsk-rm:hover{color:var(--red)}
+.bsk-sub{text-align:right;margin:8px 0 0;border-top:1px solid var(--line);padding-top:10px}
+.bsk-sum{position:sticky;top:96px;border:1px solid var(--line);border-radius:10px;background:var(--paper);padding:20px}.bsk-sum h2{font-size:22px;margin:0 0 10px}.bsk-sum h3{font-size:18px;margin:18px 0 4px}
+#bsk-totals p:first-child{display:flex;justify-content:space-between;font-size:20px;margin:0 0 6px}
+@media (max-width:980px){.bsk-grid{grid-template-columns:1fr}.bsk-sum{position:static}}
+@media (max-width:600px){.bsk-row{grid-template-columns:60px minmax(0,1fr) auto;grid-template-areas:"i t t" "i q l" "i r r"}.bsk-img{grid-area:i}.bsk-info{grid-area:t}.bsk-row .qty{grid-area:q;justify-self:start}.bsk-line{grid-area:l}.bsk-rm{grid-area:r;justify-self:start}.shp-buy .btn{flex:1}}
+.ct-tree .ct-back{font-weight:700;color:var(--red);margin-bottom:6px}
+.shp-backlink{display:inline-block;color:#f6ece0;font-weight:700;font-size:14px;text-decoration:none;margin-bottom:10px;opacity:.9}.shp-backlink:hover{opacity:1;text-decoration:underline}
 @media (max-width:1080px){.shp-cats{grid-template-columns:repeat(3,minmax(0,1fr))}.shp-shops{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:860px){.shp-prod,.shp-feat{grid-template-columns:1fr;gap:24px}.prods.shp-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.shp-shops.big{grid-template-columns:1fr 1fr}.shp-front-in{flex-direction:column;align-items:flex-start}}
 @media (max-width:600px){.shp-cats{grid-template-columns:1fr 1fr}.shp-shops,.shp-shops.big{grid-template-columns:1fr}.prods.shp-grid{gap:12px}.shp-card h3{font-size:15px;margin:4px 10px}.shp-by,.shp-card .price{margin-left:10px;margin-right:10px}.shp-search{flex-direction:column}.shp-buy .btn{width:100%}.shp-nav{top:64px}.shp-count{margin-left:0;width:100%}}
@@ -831,6 +853,7 @@ body:has(.mbar.show) .hb{bottom:84px}
 <nav class="nav" aria-label="Main"><a href="/events">Events</a><a href="/news">News</a><a href="https://club.carsandcoffee.uk/">Community</a><a href="/shop">Shop</a><a href="/directory">Directory</a><a href="/partners">Partners</a><a href="/advertise">Advertise</a></nav>
 <div class="tools">
 <button class="ico search" type="button" id="srch-open" aria-label="Search the site" aria-haspopup="dialog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg></button>
+<a class="ico bag" href="/basket" aria-label="Basket"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 8h14l-1 13H6zM9 8V6a3 3 0 0 1 6 0v2"/></svg><span class="bag-n" hidden>0</span></a>
 <a class="signin" href="https://club.carsandcoffee.uk/sign-in">Sign in</a>
 <a class="btn red" href="https://club.carsandcoffee.uk/apply">Join</a>
 <button class="ico burger" type="button" aria-expanded="false" aria-controls="drawer" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
@@ -1237,7 +1260,7 @@ const mbar=$('#mbar'),heroEl=$('#hero')||$('.phero');if(mbar&&heroEl){const hero
 <script>
 (function(){
   var m=document.querySelector('meta[name="ts-key"]');if(!m)return;var KEY=m.content,loading=null,widgets=new Map(),lastForm=null;
-  var SEL='#ctf,#hb-enq,#lyb,#lead,#rvf,form[data-captcha]',API=['/api/enquiry','/api/listing','/api/lead','/api/review'];
+  var SEL='#ctf,#hb-enq,#lyb,#lead,#rvf,#bsk-f,form[data-captcha]',API=['/api/enquiry','/api/listing','/api/lead','/api/review'];
   function load(){if(window.turnstile)return Promise.resolve();if(loading)return loading;loading=new Promise(function(res,rej){var s=document.createElement('script');s.src='https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';s.async=true;s.onload=function(){res();};s.onerror=rej;document.head.appendChild(s);});return loading;}
   function ensure(form){if(widgets.has(form))return Promise.resolve(widgets.get(form));return load().then(function(){var box=document.createElement('div');box.className='ts-widget';var btn=form.querySelector('[type=submit]');(btn?btn.parentNode:form).insertBefore(box,btn||null);
     var id=window.turnstile.render(box,{sitekey:KEY,theme:'light',size:'flexible',appearance:'interaction-only'});widgets.set(form,id);return id;});}
@@ -1249,6 +1272,25 @@ const mbar=$('#mbar'),heroEl=$('#hero')||$('.phero');if(mbar&&heroEl){const hero
       .catch(function(){return {id:null,tk:''};}).then(function(x){var b={};try{b=JSON.parse(o.body);}catch(e){}b.cf_turnstile=x.tk;var o2=Object.assign({},o,{body:JSON.stringify(b)});
         return of.call(self,u,o2).then(function(r){try{if(x.id!=null)window.turnstile.reset(x.id);}catch(e){}return r;});});};
 })();
+</script>
+<script>
+// Basket: kept in this browser (localStorage). window.CCB is used by the basket page.
+(function(){var KEY='cc_basket';
+  function get(){try{var v=JSON.parse(localStorage.getItem(KEY)||'[]');return Array.isArray(v)?v:[];}catch(e){return [];}}
+  function set(v){try{localStorage.setItem(KEY,JSON.stringify(v));}catch(e){}paint();}
+  function paint(){var n=get().reduce(function(a,b){return a+(b.qty||0);},0);document.querySelectorAll('.bag-n').forEach(function(el){el.textContent=n>99?'99+':n;el.hidden=!n;});}
+  var B=window.CCB={get:get,clear:function(){set([]);},
+    add:function(it,qty,opts){var k=it.slug+'|'+Object.keys(opts||{}).map(function(x){return x+'='+opts[x];}).join('|'),v=get(),f=v.find(function(x){return x.k===k;});
+      if(f)f.qty=Math.min(99,f.qty+qty);else v.push({k:k,slug:it.slug,name:it.name,price:it.price,member:it.member,img:it.img,seller:it.seller,shop:it.shop,opts:opts||{},qty:Math.min(99,qty)});set(v);},
+    setQty:function(k,q){var v=get(),f=v.find(function(x){return x.k===k;});if(!f)return;f.qty=Math.max(1,Math.min(99,q||1));set(v);},
+    remove:function(k){set(get().filter(function(x){return x.k!==k;}));}};
+  document.addEventListener('click',function(e){var b=e.target.closest('.qty [data-q]');if(!b)return;var i=b.parentNode.querySelector('input');var mx=parseInt(i.max,10)||99;i.value=Math.max(1,Math.min(mx,(parseInt(i.value,10)||1)+Number(b.dataset.q)));});
+  document.addEventListener('submit',function(e){var f=e.target.closest('[data-basket-form]');if(!f)return;e.preventDefault();var btn=f.querySelector('[data-item]');if(!btn)return;
+    var it;try{it=JSON.parse(btn.dataset.item);}catch(x){return;}var q=Math.max(1,parseInt((f.querySelector('[data-qty]')||{}).value,10)||1),opts={};
+    f.querySelectorAll('[data-opt]').forEach(function(s){opts[s.dataset.opt]=s.value;});B.add(it,q,opts);
+    var t=document.getElementById('toast');if(t){t.innerHTML='';t.append(q+' × '+it.name+' added to your basket. ');var a=document.createElement('a');a.href='/basket';a.textContent='View basket';a.style.textDecoration='underline';a.style.color='inherit';t.append(a);t.classList.add('show');clearTimeout(window.__bt);window.__bt=setTimeout(function(){t.classList.remove('show');},4000);}
+    btn.classList.add('added');setTimeout(function(){btn.classList.remove('added');},1200);});
+  window.addEventListener('storage',function(e){if(e.key===KEY)paint();});paint();})();
 </script>
 </body>
 </html>
