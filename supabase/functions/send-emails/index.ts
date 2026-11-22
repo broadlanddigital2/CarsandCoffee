@@ -42,6 +42,14 @@ function layout(preheader: string, body: string, footerNote = "") {
 </td></tr></table></td></tr></table></body></html>`;
 }
 
+function gbp(p: unknown) { const n = Number(p) || 0; return "£" + (n / 100).toFixed(2); }
+function itemsTable(items: unknown, showSeller = true) {
+  const list = Array.isArray(items) ? items as Record<string, unknown>[] : [];
+  const opt = (o: unknown) => { const e = Object.entries((o && typeof o === "object") ? o as Record<string, unknown> : {}); return e.length ? `<br><span style="color:#7a6a60;font-size:13px">${e.map(([k, v]) => `${esc(k)}: ${esc(v)}`).join(" · ")}</span>` : ""; };
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0;border-collapse:collapse;font:15px/1.4 Arial,sans-serif">${list.map((i) => `<tr><td style="padding:10px 0;border-bottom:1px solid #eadfd2">${esc(i.qty)} × <strong>${esc(i.name)}</strong>${opt(i.options)}${showSeller ? `<br><span style="color:#7a6a60;font-size:13px">Sold by ${esc(i.seller)}</span>` : ""}</td><td style="padding:10px 0;border-bottom:1px solid #eadfd2;text-align:right;white-space:nowrap">${gbp(i.line)}</td></tr>`).join("")}</table>`;
+}
+const itemsText = (items: unknown) => (Array.isArray(items) ? items as Record<string, unknown>[] : []).map((i) => `${i.qty} x ${i.name}${Object.keys((i.options as object) || {}).length ? ` (${Object.entries(i.options as Record<string, unknown>).map(([k, v]) => `${k}: ${v}`).join(", ")})` : ""} - ${gbp(i.line)} - ${i.seller}`).join("\n");
+
 function render(t: string, d: Record<string, unknown>): { subject: string; html: string; text: string; replyTo?: string } | null {
   switch (t) {
     case "member_invite": {
@@ -113,6 +121,36 @@ function render(t: string, d: Record<string, unknown>): { subject: string; html:
         replyTo: s(d.email),
       };
     }
+    case "order_received":
+      return {
+        subject: `Order ${s(d.ref)} received – Cars and Coffee UK`,
+        html: layout(`Thanks for your order ${s(d.ref)}.`,
+          `<p>${hi(d.name)}</p><p>Thanks for your order <strong>${esc(d.ref)}</strong>. Here's what you ordered:</p>${itemsTable(d.items)}
+          <p style="font-size:18px"><strong>Total: ${gbp(d.total)}</strong> <span style="color:#7a6a60;font-size:14px">(delivery confirmed by the seller)</span></p>
+          <p><strong>What happens next:</strong> the seller checks stock and delivery, then we email you a secure link to pay. Nothing is charged until then.</p>
+          <p>Questions? Just reply to this email and quote <strong>${esc(d.ref)}</strong>.</p>`,
+          `You're getting this because you placed an order on <a href="${SITE}/shop" style="color:#7a6a60">carsandcoffee.uk</a>.`),
+        text: `Thanks for your order ${s(d.ref)}.\n\n${itemsText(d.items)}\n\nTotal: ${gbp(d.total)} (delivery confirmed by the seller)\n\nThe seller checks stock and delivery, then we email you a secure link to pay. Nothing is charged until then.`,
+      };
+    case "team_new_order":
+      return {
+        subject: `New shop order ${s(d.ref)}: ${gbp(d.total)} from ${s(d.name)}`,
+        html: layout(`New order ${s(d.ref)}.`,
+          `<p><strong>${esc(d.name)}</strong> (<a href="mailto:${esc(d.email)}">${esc(d.email)}</a>) placed order <strong>${esc(d.ref)}</strong>:</p>${itemsTable(d.items)}
+          <p><strong>Total: ${gbp(d.total)}</strong>${Number(d.commission) ? ` · Commission: ${gbp(d.commission)}` : ""}</p>${button(`https://admin.carsandcoffee.uk/content/orders/${s(d.id)}`, "Open the order in admin")}`,
+          "You're getting this because you're an admin of Cars and Coffee UK."),
+        text: `New order ${s(d.ref)} from ${s(d.name)} <${s(d.email)}>\n\n${itemsText(d.items)}\n\nTotal: ${gbp(d.total)}\nhttps://admin.carsandcoffee.uk/content/orders/${s(d.id)}`,
+        replyTo: s(d.email),
+      };
+    case "shop_new_order":
+      return {
+        subject: `New order ${s(d.ref)} for ${s(d.shop)}`,
+        html: layout(`You have a new order through Cars and Coffee UK.`,
+          `<p>Good news: <strong>${esc(d.customer)}</strong> ordered from <strong>${esc(d.shop)}</strong> (order <strong>${esc(d.ref)}</strong>):</p>${itemsTable(d.items, false)}
+          <p>Please confirm stock and delivery in your shop admin. We'll take payment from the customer and let you know when to send.</p>${button("https://admin.carsandcoffee.uk/content/my_orders", "See your orders")}`,
+          `You're getting this because you manage ${esc(s(d.shop))} on Cars and Coffee UK.`),
+        text: `New order ${s(d.ref)} for ${s(d.shop)} from ${s(d.customer)}:\n\n${itemsText(d.items)}\n\nhttps://admin.carsandcoffee.uk/content/my_orders`,
+      };
     case "business_lead": {
       const url = `${SITE}/directory/${s(d.slug)}`;
       return {

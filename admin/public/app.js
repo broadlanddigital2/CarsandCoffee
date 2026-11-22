@@ -49,7 +49,7 @@ async function loadMe(force = false) {
   if (!isTeam()) { const { data: ms } = await site().rpc("my_shops"); state.myShops = ms || []; }
 }
 const isPartner = () => !isTeam() && state.myShops.length > 0;
-const PARTNER_OK = [/^\/$/, /^\/content\/my_products(\/[^/]+)?$/, /^\/content\/my_shop\/[^/]+$/];
+const PARTNER_OK = [/^\/$/, /^\/content\/my_products(\/[^/]+)?$/, /^\/content\/my_orders(\/[^/]+)?$/, /^\/content\/my_shop\/[^/]+$/];
 
 // ---------- routing ----------
 const routes = [];
@@ -87,7 +87,7 @@ const I = {
 const icon = (k) => `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[k]}</svg>`;
 function partnerNav() {
   const item = (href, ic, label) => `<li class="nav-item"><a class="nav-link" href="${href}" data-link>${icon(ic)}${label}</a></li>`;
-  return `${item("/", "dash", "My shop")}${item("/content/my_products", "star", "My products")}
+  return `${item("/", "dash", "My shop")}${item("/content/my_orders", "send", "My orders")}${item("/content/my_products", "star", "My products")}
     <li class="nav-title">Shop page</li>${state.myShops.map((x) => item(`/content/my_shop/${x.id}`, "home", esc(x.name))).join("")}`;
 }
 function navHTML() {
@@ -121,6 +121,7 @@ function navHTML() {
     <li class="nav-title">Shop</li>
     ${item("/content/products", "star", "Products")}
     ${item("/content/product_categories", "page", "Categories")}
+    ${item("/content/orders", "send", "Orders")}
     ${item("/content/shops", "home", "Partner shops")}
     <li class="nav-title">Club</li>
     ${item("/club/applications", "check", "Applications", pend ? `<span class="badge text-bg-danger">${pend}</span>` : "")}
@@ -714,6 +715,18 @@ const CONTENT = {
       F("partner_id", "Linked partner (optional)", "ref", { table: "partners", show: "name" }), F("directory_listing_id", "Linked directory listing (optional)", "ref", { table: "directory_listings", show: "name" }),
       F("h_status", "Status and promotion", "heading"), F("status", "Status", "select", { options: ["draft", "live", "paused"] }), F("featured", "Featured shop on the shop home", "bool", { short: "Featured" }), F("featured_order", "Featured order (lower first)", "number", { def: 0 }),
       F("meta_title", "Google title"), F("meta_description", "Google description", "textarea")] },
+  orders: { title: "Orders", order: ["created_at", false], list: ["ref", "name", "total_pence", "created_at", "status"], noCreate: true,
+    help: "Shop orders. Payment isn't taken online yet: once sellers confirm, send the customer a payment link and set the status to Paid.",
+    fields: [F("ref", "Order", "readonly"), F("created_at", "Placed", "readonly"), F("status", "Status", "select", { options: ["pending_payment", "paid", "processing", "shipped", "completed", "cancelled", "refunded"] }),
+      F("name", "Customer", "readonly"), F("email", "Email", "readonly"), F("phone", "Phone", "readonly"),
+      F("address_line1", "Address line 1", "readonly"), F("address_line2", "Address line 2", "readonly"), F("town", "Town", "readonly"), F("county", "County", "readonly"), F("postcode", "Postcode", "readonly"),
+      F("notes", "Customer notes", "readonly_long"), F("total_pence", "Total (pence)", "readonly", { short: "Total" }), F("commission_pence", "Commission (pence)", "readonly"),
+      F("payment_provider", "Payment method"), F("payment_ref", "Payment reference"), F("paid_at", "Paid on", "datetime"), F("team_notes", "Team notes (not shared)", "textarea")] },
+  my_orders: { title: "My orders", table: "order_items", noAi: true, noCreate: true, noDelete: true, order: ["id", false], list: ["name", "qty", "line_pence", "status"],
+    filter: (qq) => qq.in("shop_id", state.myShops.map((x) => x.id)),
+    help: "Orders for your products. Confirm each line when you have stock, then add tracking when you send it. We take payment from the customer and pay you after commission.",
+    fields: [F("name", "Product", "readonly"), F("qty", "Quantity", "readonly", { short: "Qty" }), F("unit_pence", "Unit price (pence)", "readonly"), F("line_pence", "Line total (pence)", "readonly", { short: "Total" }), F("commission_pence", "Commission (pence)", "readonly"),
+      F("status", "Status", "select", { options: ["new", "confirmed", "shipped", "cancelled"] }), F("tracking", "Tracking number or courier link")] },
   my_products: { title: "My products", table: "products", noAi: true, order: ["created_at", false], list: ["name", "shop_id", "price_pence", "stock_status", "active"], view: "/shop/",
     filter: (qq) => qq.in("shop_id", state.myShops.map((x) => x.id)),
     help: "Your products show on your shop page and across the Cars and Coffee UK shop. Switch “On sale” off to hide a product without deleting it.",
@@ -753,7 +766,7 @@ const CONTENT = {
   newsletter_subscribers: { title: "Newsletter", order: ["created_at", false], list: ["email", "source", "created_at", "unsubscribed_at"], noCreate: true, csv: true,
     fields: [F("email", "Email", "readonly"), F("source", "Signed up from", "readonly"), F("created_at", "Signed up", "readonly"), F("consent_text", "Agreed to", "readonly"), F("unsubscribed_at", "Unsubscribed", "datetime")] },
 };
-const LABELS = { in_stock: "In stock", low: "Low stock", out: "Out of stock", preorder: "Pre-order", refurbished: "Refurbished", trial: "Trial", past_due: "Payment overdue", free_rsvp: "Free (RSVP)", on_sale: "On sale", selling_fast: "Selling fast", sold_out: "Sold out", detail_of_month: "Detail of the Month", livery_of_week: "Livery of the Week", race_night: "Race Night" };
+const LABELS = { pending_payment: "Awaiting payment", paid: "Paid", processing: "Processing", shipped: "Shipped", completed: "Completed", cancelled: "Cancelled", refunded: "Refunded", new: "New", confirmed: "Confirmed", in_stock: "In stock", low: "Low stock", out: "Out of stock", preorder: "Pre-order", refurbished: "Refurbished", trial: "Trial", past_due: "Payment overdue", free_rsvp: "Free (RSVP)", on_sale: "On sale", selling_fast: "Selling fast", sold_out: "Sold out", detail_of_month: "Detail of the Month", livery_of_week: "Livery of the Week", race_night: "Race Night" };
 function cell(v, f) {
   if (f?._names) return v == null || v === "" ? `<span class="text-body-secondary">${esc(f.empty || "–")}</span>` : esc(f._names[v] || "–");
   if (v == null || v === "") return '<span class="text-body-secondary">–</span>';
@@ -917,6 +930,8 @@ route("/content/:table/:id", async ({ table, id }) => {
     if (subs && subs.length) $("#cf .card").insertAdjacentHTML("beforebegin", `<div class="alert alert-warning"><strong>Submitted from the website</strong> ${fmtDate(subs[0].created_at, true)} by ${esc(subs[0].contact_name)} · <a href="mailto:${esc(subs[0].contact_email)}?subject=${encodeURIComponent("Your Cars and Coffee directory listing")}">${esc(subs[0].contact_email)}</a>${subs[0].contact_phone ? ` · ${esc(subs[0].contact_phone)}` : ""}${subs[0].notes ? `<div class="small mt-1">Note: ${esc(subs[0].notes)}</div>` : ""}<div class="small mt-1">Only the team can see this. ${row.status === "pending" ? "Check the details, then set Status to Published." : ""}</div></div>`);
   }
   if (table === "shops" && !isNew) await shopExtras(row);
+  if (table === "orders" && !isNew) await orderExtras(row);
+  if (table === "my_orders" && !isNew) await myOrderExtras(row);
   if (table === "my_shop") state.uploadShop = row.id;
   wireGallery($("#cf"));
   if (SEO_KINDS[table]) {
@@ -986,6 +1001,24 @@ route("/content/:table/:id", async ({ table, id }) => {
     dirty = false; toast("Deleted"); go(`/content/${table}`, true);
   }; }
 });
+
+// ---------- orders ----------
+const gbpA = (p) => "£" + ((Number(p) || 0) / 100).toFixed(2);
+async function orderExtras(row) {
+  const { data: items } = await site().from("order_items").select("*").eq("order_id", row.id);
+  $("#cf .card").insertAdjacentHTML("beforebegin", `<div class="card mb-3"><div class="card-body"><h2 class="h5">Items</h2><div class="table-responsive"><table class="table table-sm align-middle mb-0"><thead><tr><th>Product</th><th>Seller</th><th>Qty</th><th>Price</th><th>Line</th><th>Commission</th><th>Seller status</th><th>Tracking</th></tr></thead><tbody>
+    ${(items || []).map((i) => `<tr><td>${esc(i.name)}${Object.keys(i.options || {}).length ? `<br><small class="text-body-secondary">${esc(Object.entries(i.options).map(([k, v]) => `${k}: ${v}`).join(", "))}</small>` : ""}</td><td>${esc(i.seller)}</td><td>${i.qty}</td><td>${gbpA(i.unit_pence)}</td><td>${gbpA(i.line_pence)}</td><td>${gbpA(i.commission_pence)} <small class="text-body-secondary">(${esc(i.commission_pct)}%)</small></td><td>${esc(LABELS[i.status] || i.status)}</td><td>${esc(i.tracking || "")}</td></tr>`).join("")}
+    </tbody></table></div><p class="mt-2 mb-0"><strong>Total ${gbpA(row.total_pence)}</strong> · commission ${gbpA(row.commission_pence)} · to sellers ${gbpA(row.total_pence - row.commission_pence)}</p></div></div>`);
+}
+async function myOrderExtras(row) {
+  const { data: o } = await site().from("orders").select("ref,created_at,status,name,email,phone,address_line1,address_line2,town,county,postcode,notes").eq("id", row.order_id).maybeSingle();
+  if (!o) return;
+  $("#cf .card").insertAdjacentHTML("beforebegin", `<div class="card mb-3"><div class="card-body"><h2 class="h5">Order ${esc(o.ref)} <span class="badge text-bg-light border">${esc(LABELS[o.status] || o.status)}</span></h2>
+    <p class="mb-1">Placed ${fmtDate(o.created_at, true)}${Object.keys(row.options || {}).length ? ` · Options: ${esc(Object.entries(row.options).map(([k, v]) => `${k}: ${v}`).join(", "))}` : ""}</p>
+    <p class="mb-1"><strong>Deliver to:</strong> ${esc(o.name)}, ${esc([o.address_line1, o.address_line2, o.town, o.county, o.postcode].filter(Boolean).join(", "))}</p>
+    <p class="mb-1"><strong>Contact:</strong> <a href="mailto:${esc(o.email)}">${esc(o.email)}</a>${o.phone ? ` · ${esc(o.phone)}` : ""}</p>${o.notes ? `<p class="mb-0"><strong>Customer notes:</strong> ${esc(o.notes)}</p>` : ""}
+    <p class="small text-body-secondary mt-2 mb-0">Only send the item once the order shows as Paid.</p></div></div>`);
+}
 
 // ---------- partner dashboard ----------
 async function partnerDash() {

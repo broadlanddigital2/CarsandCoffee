@@ -1,3 +1,4 @@
 -- Applied via Supabase migrations: shop_marketplace, shop_guards_only_for_partners, enquiry_topic_shop,
 -- shop_managers_and_uploads, shop_billing_default_row, shop_invite_check, allow_shop_invitees_signup.
 -- See the Supabase migration history for the full SQL.
+-- Also: category_tree_depth, shop_orders (orders, order_items, place_order, basket_quote).

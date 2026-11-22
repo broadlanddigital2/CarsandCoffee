@@ -18,12 +18,14 @@ const money = (p) => (!p ? "Free" : "£" + (p / 100).toFixed(2).replace(".00", "
 export async function handleAssist(request, env, url) {
   if (url.pathname === "/api/search" && request.method === "GET") return search(url);
   if (url.pathname === "/api/ask" && request.method === "POST") return ask(request, env);
-  if (["/api/enquiry", "/api/listing", "/api/lead", "/api/review"].includes(url.pathname) && request.method === "POST") {
+  if (["/api/enquiry", "/api/listing", "/api/lead", "/api/review", "/api/order"].includes(url.pathname) && request.method === "POST") {
     // Cloudflare Turnstile: checked only once the secret is set (Worker secret TURNSTILE_SECRET)
     const body = await request.clone().json().catch(() => ({}));
     if (!(await humanCheck(env, body.cf_turnstile, request))) return json({ error: "Please complete the quick security check, then try again." }, 400);
   }
   if (url.pathname === "/api/enquiry" && request.method === "POST") return enquiry(request);
+  if (url.pathname === "/api/order" && request.method === "POST") return placeOrder(request);
+  if (url.pathname === "/api/quote" && request.method === "POST") return quote(request);
   if (url.pathname === "/api/listing" && request.method === "POST") return listing(request);
   if (url.pathname === "/api/track" && request.method === "POST") return track(request);
   if (url.pathname === "/api/lead" && request.method === "POST") return directoryRpc(request, "submit_lead", "lead", 4, (b) => ({ p_slug: String(b.slug || "").slice(0, 120), p_name: String(b.name || "").slice(0, 120), p_email: String(b.email || "").slice(0, 200), p_phone: String(b.phone || "").slice(0, 40), p_message: String(b.message || "").slice(0, 4000) }));
@@ -182,4 +184,28 @@ async function humanCheck(env, token, request) {
   const ip = request.headers.get("CF-Connecting-IP"); if (ip) form.append("remoteip", ip);
   try { const r = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", { method: "POST", body: form }); const j = await r.json(); return !!j.success; }
   catch { return false; }
+}
+
+// ---------- shop checkout ----------
+// The browser sends only product slugs, quantities and chosen options; prices come from the database.
+async function placeOrder(request) {
+  let b; try { b = await request.json(); } catch { return json({ error: "Bad request" }, 400); }
+  if (b.cc_hp) return json({ error: "Sorry, that didn't go through." }, 400);
+  if (await limited(request, "ord", 5)) return json({ error: "Please wait a minute before trying again." }, 429);
+  const c = b.customer || {}, str = (v, n) => String(v ?? "").slice(0, n);
+  const items = (Array.isArray(b.items) ? b.items : []).slice(0, 50).map((i) => ({ slug: str(i.slug, 200), qty: Math.max(1, Math.min(99, Math.round(Number(i.qty) || 1))), opts: i.opts && typeof i.opts === "object" ? Object.fromEntries(Object.entries(i.opts).slice(0, 5).map(([k, v]) => [str(k, 40), str(v, 60)])) : {} }));
+  const p = { name: str(c.name, 120), email: str(c.email, 200), phone: str(c.phone, 40), address_line1: str(c.address_line1, 200), address_line2: str(c.address_line2, 200), town: str(c.town, 80), county: str(c.county, 80), postcode: str(c.postcode, 10), notes: str(c.notes, 1000), items };
+  const r = await rpc("place_order", { p });
+  if (r.ok) return json(await r.json());
+  let msg = "Sorry, we couldn't place your order. Please try again.";
+  try { const e = await r.json(); if (e && e.message && !/permission|function|schema|violates|column|relation/i.test(e.message)) msg = e.message; } catch {}
+  return json({ error: msg }, 400);
+}
+async function quote(request) {
+  let b; try { b = await request.json(); } catch { return json({ error: "Bad request" }, 400); }
+  if (await limited(request, "quo", 30)) return json({ error: "Slow down" }, 429);
+  const slugs = (Array.isArray(b.slugs) ? b.slugs : []).slice(0, 50).map((x) => String(x).slice(0, 200));
+  if (!slugs.length) return json({ items: [] });
+  const r = await rpc("basket_quote", { p_slugs: slugs });
+  return r.ok ? json({ items: await r.json() }) : json({ error: "Couldn't check prices" }, 502);
 }

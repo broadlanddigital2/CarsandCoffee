@@ -165,7 +165,7 @@ export async function productPage(slug) {
         <button class="btn red" type="submit" data-item="${E(JSON.stringify({ slug: p.slug, name: p.name, price: p.price_pence || 0, member: p.member_price_pence || null, img: pics[0]?.src || "", seller, shop: shop ? shop.slug : "" }))}">Add to basket ${BAG}</button></div>`}
       </form>
       ${p.stock_status !== "out" ? `<p class="shp-alt">${buy ? `<a href="${E(buy)}" rel="noopener sponsored" target="_blank" data-track="buy">Or buy direct from ${E(seller)} ↗</a> · ` : ""}<a href="${E(ask)}">Ask a question</a></p>` : ""}
-      <p class="small shp-note">Add what you’d like to your basket and send it as an order request: ${shop ? `${E(shop.name)}` : "we"} will confirm availability, delivery and payment by email. Online card checkout is coming soon.</p>
+      <p class="small shp-note">Add to your basket and check out. ${shop ? E(shop.name) : "We"} confirm${shop ? "s" : ""} stock and delivery, then you get a secure link to pay.</p>
       ${facts.length ? `<dl class="shp-facts">${facts.map(([k, v]) => `<div><dt>${E(k)}</dt><dd>${E(v)}</dd></div>`).join("")}</dl>` : ""}
       ${shareBar(`${SITE}/shop/${p.slug}`, p.name)}
     </div></div></section>`,
@@ -228,47 +228,81 @@ export async function sellPage() {
   return shell({ title: "Sell on Cars and Coffee UK | Open a partner shop", description: "Open a partner shop on Cars and Coffee UK. Your own shop page, products listed across the shop, simple monthly plan plus commission.", path: "/shop/sell", ld: ld(crumbs), partners, main });
 }
 
-// ---------- /basket ----------
-// The basket lives in the visitor's browser. Sending it creates an order request (an enquiry) for the team.
+// ---------- /basket and /checkout ----------
+// The basket lives in the visitor's browser. Checkout sends slugs, quantities and options; the database prices the order.
+const steps = (n) => `<ol class="co-steps">${["Basket", "Your details", "Payment", "Done"].map((t, i) => `<li class="${i + 1 < n ? "done" : i + 1 === n ? "on" : ""}"><span>${i + 1}</span>${t}</li>`).join("")}</ol>`;
+const basketJS = String.raw`var gbp=function(p){return '£'+(p/100).toFixed(2);},esc=function(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});};
+  var optTxt=function(o){return Object.keys(o||{}).map(function(k){return esc(k)+': '+esc(o[k]);}).join(' · ');};
+  function groupBy(items){var g={};items.forEach(function(it){(g[it.seller]=g[it.seller]||[]).push(it);});return g;}`;
+
 export async function basketPage() {
   const partners = await partnersQ();
   const crumbs = [["Home", "/"], ["Shop", "/shop"], ["Basket", "/basket"]];
-  const main = [crumbsHTML(crumbs), `<section class="lp-sec" style="border:0;padding-top:24px"><div class="wrap"><h1 class="shp-h1">Your basket</h1>
-    <div class="bsk" id="bsk"><p class="lp-empty">Loading your basket…</p></div>
+  const main = [crumbsHTML(crumbs), `<section class="lp-sec" style="border:0;padding-top:24px"><div class="wrap">${steps(1)}<h1 class="shp-h1">Your basket</h1>
+    <div id="bsk"><p class="lp-empty">Loading your basket…</p></div>
     <template id="bsk-empty"><div class="lp-empty"><p>Your basket is empty.</p><p><a class="btn red" href="/shop">Browse the shop ${ARROW}</a></p></div></template>
-    <div class="bsk-grid" id="bsk-full" hidden><div><div id="bsk-items"></div></div>
-      <aside class="bsk-sum"><h2>Order summary</h2><div id="bsk-totals"></div>
-        <form class="ct-form" id="bsk-f" data-captcha novalidate><h3>Send your order request</h3><p class="ct-small">No payment now. Each seller replies by email to confirm stock, delivery and how to pay. Online checkout is coming soon.</p>
-          <label>Your name<input name="name" autocomplete="name" required maxlength="120"></label><label>Email<input name="email" type="email" autocomplete="email" required maxlength="200"></label>
-          <label>Phone (optional)<input name="phone" type="tel" autocomplete="tel" maxlength="40"></label><label>Delivery postcode (optional)<input name="postcode" autocomplete="postal-code" maxlength="10"></label>
-          <label>Anything else? (optional)<textarea name="notes" rows="3" maxlength="1000"></textarea></label>
-          <label class="hb-hp" aria-hidden="true">Leave this blank<input name="cc_hp" tabindex="-1" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"></label>
-          <button class="btn red" type="submit">Send order request ${ARROW}</button><p class="ct-msg" role="status"></p>
-          <p class="ct-small">We share your details only with the sellers in your basket so they can reply. See our <a href="/privacy">privacy policy</a>.</p></form></aside></div></div></section>
-  <script>document.addEventListener('DOMContentLoaded',function(){var B=window.CCB;if(!B)return;var gbp=function(p){return '£'+(p/100).toFixed(2).replace('.00','');},esc=function(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});};
-    function G(f,n){var a=f.querySelectorAll('[name="'+n+'"]');for(var i=0;i<a.length;i++){var v=(a[i].value||'').trim();if(v)return v;}return '';}
+    <div class="bsk-grid" id="bsk-full" hidden><div><div id="bsk-items"></div><p><a class="more" href="/shop">‹ Continue shopping</a></p></div>
+      <aside class="bsk-sum"><h2>Order summary</h2><div id="bsk-totals"></div><a class="btn red co-go" href="/checkout">Checkout ${ARROW}</a>
+        <p class="ct-small">Secure checkout. You’ll add your delivery details on the next step.</p></aside></div></div></section>
+  <script>document.addEventListener('DOMContentLoaded',function(){var B=window.CCB;if(!B)return;${basketJS}
     function draw(){var items=B.get(),box=document.getElementById('bsk'),full=document.getElementById('bsk-full');
       if(!items.length){box.innerHTML=document.getElementById('bsk-empty').innerHTML;box.hidden=false;full.hidden=true;return;}
-      box.hidden=true;full.hidden=false;var groups={};items.forEach(function(it){(groups[it.seller]=groups[it.seller]||[]).push(it);});var total=0;
-      document.getElementById('bsk-items').innerHTML=Object.keys(groups).map(function(sel){var sub=0;var rows=groups[sel].map(function(it){var line=it.price*it.qty;sub+=line;var o=Object.keys(it.opts||{}).map(function(k){return esc(k)+': '+esc(it.opts[k]);}).join(' · ');
-        return '<div class="bsk-row" data-k="'+esc(it.k)+'"><a class="bsk-img" href="/shop/'+esc(it.slug)+'">'+(it.img?'<img src="'+esc(it.img)+'" alt="">':'<span></span>')+'</a><div class="bsk-info"><a href="/shop/'+esc(it.slug)+'"><strong>'+esc(it.name)+'</strong></a>'+(o?'<small>'+o+'</small>':'')+'<small>'+gbp(it.price)+' each'+(it.member?' · members '+gbp(it.member):'')+'</small></div>'+
+      box.hidden=true;full.hidden=false;var g=groupBy(items),total=0;
+      document.getElementById('bsk-items').innerHTML=Object.keys(g).map(function(sel){var sub=0;var rows=g[sel].map(function(it){var line=it.price*it.qty;sub+=line;var o=optTxt(it.opts);
+        return '<div class="bsk-row" data-k="'+esc(it.k)+'"><a class="bsk-img" href="/shop/'+esc(it.slug)+'">'+(it.img?'<img src="'+esc(it.img)+'" alt="">':'<span></span>')+'</a><div class="bsk-info"><a href="/shop/'+esc(it.slug)+'"><strong>'+esc(it.name)+'</strong></a>'+(o?'<small>'+o+'</small>':'')+'<small>'+gbp(it.price)+' each</small></div>'+
           '<div class="qty sm" role="group" aria-label="Quantity"><button type="button" data-d="-1" aria-label="One fewer">−</button><input type="number" min="1" max="99" value="'+it.qty+'" data-set aria-label="Quantity"><button type="button" data-d="1" aria-label="One more">+</button></div><b class="bsk-line">'+gbp(line)+'</b><button type="button" class="bsk-rm" data-rm aria-label="Remove '+esc(it.name)+'">Remove</button></div>';}).join('');total+=sub;
-        return '<div class="bsk-seller"><h2>'+esc(sel)+'</h2>'+rows+'<p class="bsk-sub">Subtotal <b>'+gbp(sub)+'</b></p></div>';}).join('');
+        return '<div class="bsk-seller"><h2>Sold by '+esc(sel)+'</h2>'+rows+'<p class="bsk-sub">Subtotal <b>'+gbp(sub)+'</b></p></div>';}).join('');
       var n=items.reduce(function(a,b){return a+b.qty;},0);
-      document.getElementById('bsk-totals').innerHTML='<p><span>'+n+' item'+(n===1?'':'s')+'</span><b>'+gbp(total)+'</b></p><p class="ct-small">Delivery is confirmed by each seller.'+(Object.keys(groups).length>1?' Your basket has items from '+Object.keys(groups).length+' sellers, so you may get more than one reply.':'')+'</p>';}
+      document.getElementById('bsk-totals').innerHTML='<dl class="co-tot"><div><dt>Items ('+n+')</dt><dd>'+gbp(total)+'</dd></div><div><dt>Delivery</dt><dd>Confirmed by the seller</dd></div><div class="grand"><dt>Total</dt><dd>'+gbp(total)+'</dd></div></dl>'+(Object.keys(g).length>1?'<p class="ct-small">Your basket has items from '+Object.keys(g).length+' sellers.</p>':'');}
     var wrap=document.getElementById('bsk-items');
     wrap.addEventListener('click',function(e){var r=e.target.closest('.bsk-row');if(!r)return;var k=r.dataset.k;if(e.target.closest('[data-rm]')){B.remove(k);draw();return;}var d=e.target.closest('[data-d]');if(d){var it=B.get().find(function(x){return x.k===k;});if(it){B.setQty(k,it.qty+Number(d.dataset.d));draw();}}});
     wrap.addEventListener('change',function(e){var r=e.target.closest('.bsk-row');if(r&&e.target.matches('[data-set]')){B.setQty(r.dataset.k,parseInt(e.target.value,10)||1);draw();}});
-    var f=document.getElementById('bsk-f');f.addEventListener('submit',async function(e){e.preventDefault();var m=f.querySelector('.ct-msg'),b=f.querySelector('[type=submit]'),items=B.get();
-      var miss=!G(f,'name')?'Please add your name.':!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(G(f,'email'))?'Please check your email address.':!items.length?'Your basket is empty.':'';if(miss){m.textContent=miss;m.className='ct-msg bad';return;}
-      var total=0,lines=items.map(function(it){total+=it.price*it.qty;var o=Object.keys(it.opts||{}).map(function(k){return k+': '+it.opts[k];}).join(', ');return it.qty+' x '+it.name+(o?' ('+o+')':'')+' at '+gbp(it.price)+' from '+it.seller+' [carsandcoffee.uk/shop/'+it.slug+']';});
-      var msg=('ORDER REQUEST\\n'+lines.join('\\n')+'\\nTotal: '+gbp(total)+(G(f,'phone')?'\\nPhone: '+G(f,'phone'):'')+(G(f,'postcode')?'\\nDelivery postcode: '+G(f,'postcode'):'')+(G(f,'notes')?'\\n\\nNotes: '+G(f,'notes'):'')).slice(0,3990);
-      b.disabled=true;m.className='ct-msg';m.textContent='Sending…';
-      try{var r=await fetch('/api/enquiry',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:G(f,'name'),email:G(f,'email'),topic:'shop',message:msg,cc_hp:G(f,'cc_hp'),page:'/basket'})});var j=await r.json().catch(function(){return{};});
-        if(!r.ok)throw new Error(j.error||'Sorry, that didn\\'t send. Please try again.');B.clear();document.getElementById('bsk-full').innerHTML='<div class="ct-sent"><h3>Thanks, your order request is on its way.</h3><p>The seller'+(lines.length>1?'s':'')+' will email you to confirm stock, delivery and payment, usually within a day or two.</p><p><a class="btn ghost" href="/shop">Back to the shop</a></p></div>';}
-      catch(err){m.textContent=err.message;m.className='ct-msg bad';b.disabled=false;}});
     draw();});</script>`].join("\n");
   return shell({ title: "Your basket | Cars and Coffee UK shop", description: "Your Cars and Coffee UK shop basket.", path: "/basket", noindex: true, ld: ld(crumbs), partners, main });
+}
+
+export async function checkoutPage() {
+  const partners = await partnersQ();
+  const crumbs = [["Home", "/"], ["Shop", "/shop"], ["Basket", "/basket"], ["Checkout", "/checkout"]];
+  const f = (label, name, attrs = "", wide = false) => `<label${wide ? ' class="wide"' : ""}>${label}<input name="${name}" ${attrs}></label>`;
+  const main = [crumbsHTML(crumbs), `<section class="lp-sec" style="border:0;padding-top:24px"><div class="wrap" id="co">${steps(2)}<h1 class="shp-h1">Checkout</h1>
+    <div id="co-empty" hidden class="lp-empty"><p>Your basket is empty.</p><p><a class="btn red" href="/shop">Browse the shop ${ARROW}</a></p></div>
+    <form class="bsk-grid" id="co-f" data-captcha novalidate hidden><div class="co-main">
+      <fieldset class="co-box"><legend>Contact</legend><div class="co-row">${f("Full name", "name", 'autocomplete="name" required maxlength="120"')}${f("Email", "email", 'type="email" autocomplete="email" required maxlength="200"')}</div>
+        ${f("Phone (for delivery questions)", "phone", 'type="tel" autocomplete="tel" maxlength="40"')}<p class="ct-small">We’ll send your order confirmation to this email.</p></fieldset>
+      <fieldset class="co-box"><legend>Delivery address</legend>${f("Address line 1", "address_line1", 'autocomplete="address-line1" required maxlength="200"', true)}${f("Address line 2 (optional)", "address_line2", 'autocomplete="address-line2" maxlength="200"', true)}
+        <div class="co-row">${f("Town or city", "town", 'autocomplete="address-level2" required maxlength="80"')}${f("County (optional)", "county", 'autocomplete="address-level1" maxlength="80"')}</div>
+        <div class="co-row">${f("Postcode", "postcode", 'autocomplete="postal-code" required maxlength="10" autocapitalize="characters"')}<label>Country<input value="United Kingdom" disabled></label></div></fieldset>
+      <fieldset class="co-box"><legend>Anything else?</legend><label class="wide">Order notes (optional)<textarea name="notes" rows="3" maxlength="1000" placeholder="Fitment questions, delivery instructions…"></textarea></label></fieldset>
+      <fieldset class="co-box"><legend>Payment</legend><div class="co-pay"><p><strong>Pay securely once your order is confirmed.</strong> Each seller checks stock and delivery first, then we email you a secure payment link. Nothing is charged today.</p></div></fieldset>
+      <label class="hb-hp" aria-hidden="true">Leave this blank<input name="cc_hp" tabindex="-1" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"></label>
+    </div>
+    <aside class="bsk-sum"><h2>Order summary</h2><div id="co-items"></div><div id="co-tot"></div>
+      <label class="lyb-chk co-agree"><input type="checkbox" name="agree"> I agree to the <a href="/terms" target="_blank">terms</a> and <a href="/privacy" target="_blank">privacy policy</a>, and I’m happy for my details to be shared with the sellers in my order.</label>
+      <button class="btn red co-go" type="submit">Place order ${ARROW}</button><p class="ct-msg" role="status"></p><p class="ct-small"><a href="/basket">‹ Back to basket</a></p></aside></form>
+    <div id="co-done" hidden></div></div></section>
+  <script>document.addEventListener('DOMContentLoaded',async function(){var B=window.CCB;if(!B)return;${basketJS}
+    function G(f,n){var a=f.querySelectorAll('[name="'+n+'"]');for(var i=0;i<a.length;i++){var v=(a[i].value||'').trim();if(v)return v;}return '';}
+    var form=document.getElementById('co-f'),items=B.get();if(!items.length){document.getElementById('co-empty').hidden=false;return;}form.hidden=false;
+    var note='';try{var r=await fetch('/api/quote',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({slugs:items.map(function(i){return i.slug;})})});var j=await r.json();var by={};(j.items||[]).forEach(function(x){by[x.slug]=x;});
+      var changed=false,gone=[];items.forEach(function(it){var q=by[it.slug];if(!q||!q.available||q.stock_status==='out'){gone.push(it);return;}if(q.price_pence!==it.price){it.price=q.price_pence;changed=true;}it.name=q.name;it.seller=q.seller;});
+      if(gone.length){gone.forEach(function(g){B.remove(g.k);});note+='<p class="co-warn">'+gone.map(function(g){return esc(g.name);}).join(', ')+(gone.length>1?' are':' is')+' no longer available and has been removed.</p>';}
+      items=B.get().map(function(it){var q=by[it.slug];if(q){it.price=q.price_pence;it.name=q.name;it.seller=q.seller;}return it;});try{localStorage.setItem('cc_basket',JSON.stringify(items));}catch(e){}
+      if(changed)note+='<p class="co-warn">Some prices have changed since you added them. The summary shows the current prices.</p>';}catch(e){}
+    if(!items.length){form.hidden=true;document.getElementById('co-empty').hidden=false;return;}
+    var total=0,g=groupBy(items);document.getElementById('co-items').innerHTML=note+Object.keys(g).map(function(sel){return '<div class="co-sel"><h3>'+esc(sel)+'</h3>'+g[sel].map(function(it){total+=it.price*it.qty;var o=optTxt(it.opts);return '<div class="co-it">'+(it.img?'<img src="'+esc(it.img)+'" alt="">':'<span class="co-ph"></span>')+'<span class="co-n">'+esc(it.name)+(o?'<small>'+o+'</small>':'')+'<small>Qty '+it.qty+'</small></span><b>'+gbp(it.price*it.qty)+'</b></div>';}).join('')+'</div>';}).join('');
+    document.getElementById('co-tot').innerHTML='<dl class="co-tot"><div><dt>Items</dt><dd>'+gbp(total)+'</dd></div><div><dt>Delivery</dt><dd>Confirmed by the seller</dd></div><div class="grand"><dt>Total</dt><dd>'+gbp(total)+'</dd></div></dl>';
+    form.addEventListener('submit',async function(e){e.preventDefault();var m=form.querySelector('.ct-msg'),b=form.querySelector('[type=submit]');
+      var miss=!G(form,'name')?'Please add your name.':!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(G(form,'email'))?'Please check your email address.':!G(form,'address_line1')||!G(form,'town')||!G(form,'postcode')?'Please add your delivery address, town and postcode.':!form.agree.checked?'Please tick the box to agree to the terms.':'';
+      if(miss){m.textContent=miss;m.className='ct-msg bad';return;}
+      b.disabled=true;m.className='ct-msg';m.textContent='Placing your order…';
+      var cust={};['name','email','phone','address_line1','address_line2','town','county','postcode','notes'].forEach(function(n){cust[n]=G(form,n);});
+      try{var r=await fetch('/api/order',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customer:cust,items:B.get().map(function(i){return {slug:i.slug,qty:i.qty,opts:i.opts};}),cc_hp:G(form,'cc_hp')})});var j=await r.json().catch(function(){return{};});
+        if(!r.ok)throw new Error(j.error||'Sorry, we couldn\\'t place your order. Please try again.');B.clear();
+        document.querySelector('.co-steps').outerHTML=${JSON.stringify(steps(3))};form.hidden=true;var d=document.getElementById('co-done');d.hidden=false;
+        d.innerHTML='<div class="co-done"><span class="co-tick">✓</span><h2>Thank you, your order '+esc(j.ref)+' is placed</h2><p>We’ve emailed a confirmation to <strong>'+esc(cust.email)+'</strong>. The seller'+(Object.keys(g).length>1?'s':'')+' will confirm stock and delivery, then we’ll send you a secure link to pay. Nothing has been charged yet.</p><p class="co-total">Order total: <b>'+gbp(j.total)+'</b></p><p><a class="btn red" href="/shop">Back to the shop</a></p></div>';window.scrollTo(0,0);}
+      catch(err){m.textContent=err.message;m.className='ct-msg bad';b.disabled=false;}});});</script>`].join("\n");
+  return shell({ title: "Checkout | Cars and Coffee UK shop", description: "Checkout.", path: "/checkout", noindex: true, ld: ld(crumbs), partners, main });
 }
 
 export async function shopSitemap() {
