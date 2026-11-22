@@ -151,7 +151,7 @@ export async function productPage(slug) {
     more.length ? `<section class="lp-sec"><div class="wrap"><div class="head"><h2>More from ${E(seller)}</h2>${shop ? `<a class="more" href="/shops/${E(shop.slug)}">Visit the shop ${ARROW}</a>` : ""}</div>${grid(more, byId)}</div></section>` : "",
     rel.length ? `<section class="lp-sec"><div class="wrap"><h2>You might also like</h2>${grid(rel, byId)}</div></section>` : "",
     `<script>(function(){var m=document.querySelector('.shp-main');document.querySelectorAll('.shp-thumbs button').forEach(function(b){b.onclick=function(){m.src=b.dataset.src;m.alt=b.dataset.alt;document.querySelectorAll('.shp-thumbs button').forEach(function(x){x.removeAttribute('aria-current');});b.setAttribute('aria-current','true');};});})();</script>`].join("\n");
-  return shell({ title: p.meta_title || `${p.name} | ${seller} | Cars and Coffee UK shop`, description: p.meta_description || p.summary || `${p.name} from ${seller}, ${money(p.price_pence)}.`, path: `/shop/${p.slug}`, image: pics[0]?.src, ld: [ld(crumbs), prodLd], partners, ogType: "product", main });
+  return shell({ title: p.meta_title || (shop ? `${p.name} | ${shop.name} | Cars and Coffee UK shop` : `${p.name} | Cars and Coffee UK shop`), description: p.meta_description || p.summary || `${p.name} from ${seller}, ${money(p.price_pence)}.`, path: `/shop/${p.slug}`, image: pics[0]?.src, ld: [ld(crumbs), prodLd], partners, ogType: "product", main });
 }
 
 // ---------- /shops ----------
