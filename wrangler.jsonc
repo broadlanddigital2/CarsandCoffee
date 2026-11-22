@@ -19,5 +19,7 @@
   "workers_dev": true,
   // Workers AI: powers "Ask Cars and Coffee" (header search and the help chat). See src/assist.js.
   "ai": { "binding": "AI" },
+  // Cloudflare Turnstile spam protection. The site key is public; the secret is the Worker secret TURNSTILE_SECRET (set in the dashboard).
+  "vars": { "TURNSTILE_SITE_KEY": "0x4AAAAAAGNo2CWYmXQTgJ1O" },
   "rules": [{ "type": "Text", "globs": ["**/*.html"], "fallthrough": true }]
 }
