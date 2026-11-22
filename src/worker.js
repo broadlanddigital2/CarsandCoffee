@@ -5,6 +5,7 @@
 // - Everything else is served from ./public.
 import { loadHome, renderHome } from "./home.js";
 import { loadPage, renderLocation } from "./pages.js";
+import { loadContent, renderContent, sitemap } from "./content.js";
 
 const FRESH_SECONDS = 60;       // how long a rendered homepage is reused
 const STALE_SECONDS = 86400;    // how long the last good copy is kept as a fallback
@@ -19,12 +20,19 @@ export default {
     if (/^\/car-meets(\/[a-z0-9-]+){0,2}\/?$/.test(url.pathname) && (request.method === "GET" || request.method === "HEAD")) {
       return contentPage(request, env, ctx, url);
     }
+    if (/^\/(events|news|guides)(\/[a-z0-9-]+(\.ics)?)?\/?$/.test(url.pathname) && (request.method === "GET" || request.method === "HEAD")) {
+      return contentPage(request, env, ctx, url, true);
+    }
+    if (url.pathname === "/sitemap.xml") {
+      try { return new Response(await sitemap(), { headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=3600" } }); }
+      catch { return env.ASSETS.fetch(request); }
+    }
     return env.ASSETS.fetch(request);
   },
 };
 
 // Location and other content pages from site.pages, cached like the homepage.
-async function contentPage(request, env, ctx, url) {
+async function contentPage(request, env, ctx, url, rich = false) {
   const path = url.pathname.replace(/\/+$/, "") || "/";
   if (path !== url.pathname) return Response.redirect(url.origin + path + url.search, 301);
   const cache = caches.default;
@@ -33,9 +41,18 @@ async function contentPage(request, env, ctx, url) {
   const hit = await cache.match(freshKey);
   if (hit) return withHeaders(hit, "HIT");
   try {
-    const page = await loadPage(path);
-    if (!page) return env.ASSETS.fetch(new Request(new URL("/__missing__", url), request));
-    const res = new Response(await renderLocation(page), { headers: { "Content-Type": "text/html; charset=utf-8" } });
+    let res;
+    if (rich) {
+      const what = await loadContent(path);
+      const out = what && (await renderContent(what));
+      if (!out) return env.ASSETS.fetch(new Request(new URL("/__missing__", url), request));
+      res = typeof out === "string" ? new Response(out, { headers: { "Content-Type": "text/html; charset=utf-8" } })
+        : new Response(out.ics, { headers: { "Content-Type": "text/calendar; charset=utf-8", "Content-Disposition": `attachment; filename="${out.filename}"` } });
+    } else {
+      const page = await loadPage(path);
+      if (!page) return env.ASSETS.fetch(new Request(new URL("/__missing__", url), request));
+      res = new Response(await renderLocation(page), { headers: { "Content-Type": "text/html; charset=utf-8" } });
+    }
     ctx.waitUntil(Promise.all([cache.put(freshKey, withCache(res.clone(), FRESH_SECONDS)), cache.put(staleKey, withCache(res.clone(), STALE_SECONDS))]));
     return withHeaders(res, "MISS");
   } catch (err) {

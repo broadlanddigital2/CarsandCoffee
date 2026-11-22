@@ -1,6 +1,7 @@
 // Cars and Coffee admin (admin.carsandcoffee.uk): website pages and SEO, Google Ads landing pages, homepage content, and club moderation.
 // Plain ES modules, no build step. CoreUI provides the styling. Data: "Cars and Coffee Community" Supabase project.
 import { analyse, slugify, labelType, LIMITS, utmUrl, md } from "/seo.js";
+import { richField, wireRich, cleanHTML } from "/editor.js";
 
 const SUPABASE_URL = "https://auth.carsandcoffee.uk";
 const SUPABASE_KEY = "sb_publishable_O9p-X8To8z-GisYYSBKoxg_RxAe1-cU"; // publishable key: safe in the browser
@@ -88,6 +89,7 @@ function navHTML() {
     ${item("/content/events", "cal", "Events")}
     ${item("/content/venues", "pin", "Venues")}
     ${item("/content/articles", "news", "News")}
+    ${item("/content/guides", "page", "Guides")}
     ${item("/content/faqs", "faq", "FAQs")}
     ${item("/content/partners", "star", "Partners")}
     ${item("/content/partner_features", "star", "Partner features")}
@@ -461,15 +463,25 @@ const CONTENT = {
   homepage_blocks: { title: "Homepage blocks", pk: "key", order: ["position", true], list: ["title", "position", "enabled"], noCreate: true, noDelete: true,
     help: "Turn homepage sections on or off and change their order (lower numbers appear first). Schedule a block by setting start and end times.",
     fields: [F("key", "Key", "readonly"), F("title", "Name"), F("position", "Position", "number"), F("enabled", "Shown on the homepage", "bool"), F("starts_at", "Show from", "datetime"), F("ends_at", "Show until", "datetime")] },
-  events: { title: "Events", order: ["starts_at", true], list: ["title", "starts_at", "venue", "ticket_status", "published"],
-    fields: [F("title", "Title", "text", { required: true }), F("slug", "Address (slug)", "slug", { from: "title" }), F("event_type", "Type", "select", { options: ["meet", "tour", "garage", "watch", "race", "track", "show"] }),
+  events: { title: "Events", order: ["starts_at", true], list: ["title", "starts_at", "venue", "ticket_status", "published"], view: "/events/",
+    help: "The homepage shows the short card (title, date, venue, price). Clicking it opens the full event page with everything below.",
+    fields: [F("h_basics", "The basics", "heading"), F("title", "Title", "text", { required: true }), F("slug", "Address (slug)", "slug", { from: "title" }), F("event_type", "Type", "select", { options: ["meet", "tour", "garage", "watch", "race", "track", "show"] }),
       F("starts_at", "Starts", "datetime", { required: true }), F("ends_at", "Ends", "datetime", { required: true }), F("venue_id", "Venue (for the map and directions)", "ref", { table: "venues", show: "name" }), F("venue", "Venue name as shown on cards", "text", { required: true }), F("county", "County", "select", { options: ["Norfolk", "Suffolk", "Cambridgeshire", "Essex"] }), F("town", "Town"), F("region", "Region"),
       F("price_pence", "Price (pence, 0 for free)", "number"), F("ticket_status", "Tickets", "select", { options: ["free_rsvp", "on_sale", "selling_fast", "sold_out"] }),
-      F("members_only", "Members only", "bool"), F("image_path", "Image", "image"), F("image_alt", "Image description"), F("published", "Published", "bool", { def: true })] },
-  articles: { title: "News", order: ["published_at", false], list: ["title", "category", "published_at", "status", "featured"],
-    fields: [F("title", "Headline", "text", { required: true }), F("slug", "Address (slug)", "slug", { from: "title" }), F("category", "Category", "text", { required: true, ph: "Restoration, WEC, Technical…" }),
-      F("excerpt", "Summary", "textarea"), F("body", "Article (Markdown)", "markdown"), F("image_path", "Image", "image"), F("image_alt", "Image description"), F("read_minutes", "Reading time (minutes)", "number"),
-      F("featured", "Featured on the homepage", "bool"), F("status", "Status", "select", { options: ["draft", "published"] }), F("published_at", "Publish date", "date")] },
+      F("ticket_url", "Booking or RSVP link", "text", { ph: "https://… (leave empty if booking isn't open yet)" }), F("members_only", "Members only", "bool"), F("image_path", "Image", "image"), F("image_alt", "Image description"), F("published", "Published", "bool", { def: true }),
+      F("h_page", "Event page", "heading", { note: "Shown on the event's own page." }), F("summary", "Short summary (one or two sentences, shown at the top)", "textarea"), F("body_html", "Full description", "rich"),
+      F("schedule", "On the day (one line each, start with the time, e.g. 07:30 Display parking opens)", "lines"), F("what_to_bring", "What to bring (one item per line)", "lines"), F("accessibility", "Access and facilities", "textarea", { ph: "Step-free access, toilets, blue-badge parking…" }),
+      F("h_seo", "Search engines", "heading", { note: "Optional. Left empty, the title and summary are used." }), F("meta_title", "Google title"), F("meta_description", "Google description", "textarea")] },
+  articles: { title: "News", order: ["published_at", false], list: ["title", "category", "published_at", "status", "featured"], view: "/news/",
+    fields: [F("title", "Headline", "text", { required: true }), F("slug", "Address (slug)", "slug", { from: "title" }), F("category", "Category", "text", { required: true, ph: "Restoration, WEC, Technical…" }), F("author", "Author", "text", { ph: "Cars and Coffee team" }),
+      F("excerpt", "Summary (shown on cards and under the headline)", "textarea"), F("body_html", "Article", "rich"), F("image_path", "Image", "image"), F("image_alt", "Image description"), F("read_minutes", "Reading time (minutes)", "number"),
+      F("featured", "Featured on the homepage", "bool"), F("status", "Status", "select", { options: ["draft", "published"] }), F("published_at", "Publish date", "date"),
+      F("h_seo", "Search engines", "heading", { note: "Optional. Left empty, the headline and summary are used." }), F("meta_title", "Google title"), F("meta_description", "Google description", "textarea")] },
+  guides: { title: "Guides", order: ["sort", true], list: ["title", "slug", "sort", "status"], view: "/guides/",
+    help: "Practical guides such as Your first car meet. They appear at /guides and can be linked from any page.",
+    fields: [F("title", "Title", "text", { required: true }), F("slug", "Address (slug)", "slug", { from: "title" }), F("intro", "Introduction (shown under the title)", "textarea"), F("body_html", "Guide", "rich"),
+      F("image_path", "Header image", "image"), F("image_alt", "Image description"), F("read_minutes", "Reading time (minutes)", "number"), F("sort", "Order", "number", { def: 100 }), F("status", "Status", "select", { options: ["draft", "published"] }),
+      F("h_seo", "Search engines", "heading", { note: "Optional. Left empty, the title and introduction are used." }), F("meta_title", "Google title"), F("meta_description", "Google description", "textarea")] },
   faqs: { title: "FAQs", idType: "int", order: ["sort", true], list: ["question", "sort", "published"],
     fields: [F("question", "Question", "text", { required: true }), F("answer", "Answer", "textarea", { required: true }), F("sort", "Order", "number"), F("published", "Published", "bool", { def: true })] },
   partners: { title: "Partners", order: ["sort", true], list: ["name", "tagline", "sort", "active"],
@@ -526,7 +538,7 @@ function cell(v, f) {
 }
 // on/off switch shown on each row of a list: which field it flips and the "on" / "off" values
 const TOGGLE = {
-  events: { field: "published", label: "Live" }, venues: { field: "active", label: "Active" }, articles: { field: "status", on: "published", off: "draft", label: "Live" },
+  events: { field: "published", label: "Live" }, guides: { field: "status", on: "published", off: "draft", label: "Live" }, venues: { field: "active", label: "Active" }, articles: { field: "status", on: "published", off: "draft", label: "Live" },
   faqs: { field: "published", label: "Live" }, partners: { field: "active", label: "Active" }, partner_features: { field: "active", label: "Live" },
   community_highlights: { field: "active", label: "Shown" }, products: { field: "active", label: "On sale" }, gallery_items: { field: "featured", label: "On homepage" },
   directory_listings: { field: "status", on: "published", off: "pending", label: "Live" }, sponsored_slots: { field: "status", on: "approved", off: "paused", label: "Running" },
@@ -615,6 +627,8 @@ route("/content/:table/:id", async ({ table, id }) => {
       case "readonly": return `<input class="form-control" id="${id}" value="${esc(/_at$/.test(f.name) ? fmtDate(v, true) : v ?? "")}" readonly disabled>`;
       case "bool": return `<div class="form-check form-switch mt-1"><input class="form-check-input" type="checkbox" id="${id}" ${v ? "checked" : ""}><label class="form-check-label" for="${id}">${esc(f.label)}</label></div>`;
       case "textarea": return `<textarea class="form-control" id="${id}" rows="4" ${req}>${esc(v ?? "")}</textarea>`;
+      case "rich": return richField(id, v || (row.body ? md(row.body) : ""), esc);
+      case "lines": return `<textarea class="form-control" id="${id}" rows="${Math.max(3, (v || []).length + 1)}">${esc((v || []).join("\n"))}</textarea>`;
       case "markdown": return `<textarea class="form-control code" id="${id}" rows="14">${esc(v ?? "")}</textarea>`;
       case "select": return `<select class="form-select" id="${id}">${f.options.map((o) => `<option value="${o}" ${o === v ? "selected" : ""}>${esc(LABELS[o] || o)}</option>`).join("")}</select>`;
       case "ref": return `<select class="form-select" id="${id}" ${req}><option value="">Choose…</option>${refs[f.name].map((o) => `<option value="${o.id}" ${o.id === v ? "selected" : ""}>${esc(o[f.show])}</option>`).join("")}</select>`;
@@ -628,9 +642,11 @@ route("/content/:table/:id", async ({ table, id }) => {
     }
   };
   view.innerHTML = `<form id="cf" novalidate><div class="page-head"><h1>${isNew ? "Add to " + esc(c.title) : esc(row[titleKey] ?? "Edit")}</h1>
-      <div class="d-flex gap-2"><a class="btn btn-outline-secondary" href="/content/${table}" data-link>Back</a><button class="btn btn-primary" type="submit">Save</button></div></div>
+      <div class="d-flex gap-2"><a class="btn btn-outline-secondary" href="/content/${table}" data-link>Back</a>${c.view && !isNew && row.slug ? `<a class="btn btn-outline-secondary" href="${SITE}${c.view}${encodeURIComponent(row.slug)}" target="_blank" rel="noopener">View on website</a>` : ""}<button class="btn btn-primary" type="submit">Save</button></div></div>
+    ${c.help ? `<p class="text-body-secondary">${esc(c.help)}</p>` : ""}
     <div class="card"><div class="card-body"><div class="row g-3">
-      ${c.fields.map((f) => `<div class="${["textarea", "markdown"].includes(f.type) ? "col-12" : "col-md-6"}">${f.type === "bool" ? "" : `<label class="form-label" for="f_${f.name}">${esc(f.label)}${f.required ? ' <span class="text-danger">*</span>' : ""}</label>`}${input(f)}</div>`).join("")}
+      ${c.fields.map((f) => f.type === "heading" ? `<div class="col-12 form-section"><h2 class="h5 mb-0">${esc(f.label)}</h2>${f.note ? `<p class="small text-body-secondary mb-0">${esc(f.note)}</p>` : ""}</div>`
+        : `<div class="${["textarea", "markdown", "rich", "lines"].includes(f.type) ? "col-12" : "col-md-6"}">${f.type === "bool" ? "" : `<label class="form-label" for="f_${f.name}${f.type === "rich" ? "_area" : ""}">${esc(f.label)}${f.required ? ' <span class="text-danger">*</span>' : ""}</label>`}${input(f)}</div>`).join("")}
     </div></div></div>
     ${!isNew && !c.noDelete ? `<button class="btn btn-sm btn-outline-danger mt-3" type="button" id="del">Delete</button>` : ""}</form>`;
   const slugF = c.fields.find((f) => f.type === "slug");
@@ -638,6 +654,7 @@ route("/content/:table/:id", async ({ table, id }) => {
   if (slugF) $("#f_" + slugF.name).addEventListener("input", (e) => (e.target.dataset.touched = "1"));
   $("#cf").addEventListener("input", () => (dirty = true));
   wireImageInputs($("#cf"));
+  wireRich($("#cf"), { upload: uploadSiteImage, onChange: () => (dirty = true) });
   for (const b of $$("[data-pclookup]")) b.onclick = async () => {
     const id = b.dataset.pclookup, msg = $(`[data-pcmsg="${id}"]`), pc = $("#" + id).value.trim();
     if (!pc) { msg.textContent = "Enter a postcode first."; return; }
@@ -655,13 +672,15 @@ route("/content/:table/:id", async ({ table, id }) => {
     e.preventDefault();
     const out = {};
     for (const f of c.fields) {
-      if (f.type === "readonly") continue;
+      if (f.type === "readonly" || f.type === "heading") continue;
       const el = $("#f_" + f.name); let v;
       if (f.type === "bool") v = el.checked;
       else if (f.type === "number") v = el.value === "" ? null : Number(el.value);
       else if (f.type === "datetime") v = el.value ? new Date(el.value).toISOString() : null;
       else if (f.type === "array") v = el.value.split(",").map((s) => s.trim()).filter(Boolean);
       else if (f.type === "image") v = el.value.trim() || null;
+      else if (f.type === "rich") { v = cleanHTML($("#f_" + f.name + "_area").innerHTML) || null; }
+      else if (f.type === "lines") v = el.value.split("\n").map((s) => s.trim()).filter(Boolean);
       else v = el.value.trim() === "" ? null : el.value.trim();
       if (f.required && (v == null || v === "")) { toast(`${f.label} is required`, true); el.focus(); return; }
       out[f.name] = v;
@@ -679,6 +698,14 @@ route("/content/:table/:id", async ({ table, id }) => {
 });
 
 // ---------- images ----------
+async function uploadSiteImage(file) {
+  if (file.size > 5 * 1024 * 1024) throw new Error("That photo is over 5 MB. Please use a smaller one.");
+  const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const path = `uploads/${new Date().toISOString().slice(0, 10)}/${Date.now()}-${slugify(file.name.replace(/\.[^.]+$/, "")) || "image"}.${ext}`;
+  const { error } = await sb.storage.from("site-images").upload(path, file, { cacheControl: "31536000", upsert: false, contentType: file.type });
+  if (error) throw error;
+  return sb.storage.from("site-images").getPublicUrl(path).data.publicUrl;
+}
 const imgSrc = (p) => !p ? "" : /^https?:\/\//.test(p) ? p : SITE + "/" + String(p).replace(/^\//, "");
 function imageInput(id, v, req = "") {
   return `<div class="imgfield"><div class="imgprev">${v ? `<img src="${esc(imgSrc(v))}" alt="">` : '<span class="small text-body-secondary">No image</span>'}</div>

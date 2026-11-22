@@ -8,8 +8,8 @@ const SB_KEY = "sb_publishable_O9p-X8To8z-GisYYSBKoxg_RxAe1-cU"; // publishable 
 const SITE = "https://www.carsandcoffee.uk";
 const TZ = "Europe/London";
 
-const EVENT_TYPES = { meet: "Meet", race: "Race night", tour: "Tour", garage: "Garage night", watch: "Watch party", track: "Track day", show: "Show" };
-const TICKET = { free_rsvp: "Free · RSVP", selling_fast: "Selling fast", on_sale: "On sale", sold_out: "Sold out" };
+export const EVENT_TYPES = { meet: "Meet", race: "Race night", tour: "Tour", garage: "Garage night", watch: "Watch party", track: "Track day", show: "Show" };
+export const TICKET = { free_rsvp: "Free · RSVP", selling_fast: "Selling fast", on_sale: "On sale", sold_out: "Sold out" };
 export const ARROW = '<svg class="ar" viewBox="0 0 20 12" aria-hidden="true"><path d="M0 6h17M12 1l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
 const SVC_ICON = {
   restoration: '<path d="M14 6a4 4 0 0 0-5 5l-6 6 3 3 6-6a4 4 0 0 0 5-5l-2 2-2-1-1-2z"/>',
@@ -25,8 +25,8 @@ const SVC_DEFAULT = '<circle cx="12" cy="12" r="8"/><path d="M8 12h8M12 8v8"/>';
 
 export const E = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 export const img = (p) => !p ? "" : /^https?:\/\//.test(p) || p.startsWith("/") ? p : "/" + p;
-const money = (p) => !p ? "Free" : ("£" + (p / 100).toFixed(2)).replace(".00", "");
-const fmt = (d, o) => new Intl.DateTimeFormat("en-GB", { timeZone: TZ, ...o }).format(new Date(d));
+export const money = (p) => !p ? "Free" : ("£" + (p / 100).toFixed(2)).replace(".00", "");
+export const fmt = (d, o) => new Intl.DateTimeFormat("en-GB", { timeZone: TZ, ...o }).format(new Date(d));
 const dow = (d) => fmt(d, { weekday: "short" });
 const dm = (d) => fmt(d, { day: "numeric", month: "short" });
 const ukdate = (d) => `${dow(d)} ${fmt(d, { day: "numeric", month: "short", year: "numeric" })}`;
