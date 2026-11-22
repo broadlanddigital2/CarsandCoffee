@@ -573,6 +573,28 @@ a.lp-card:hover{border-color:var(--red)}
 .srch-ai-h{font-size:12px;text-transform:uppercase;letter-spacing:.1em;font-weight:800;color:var(--red);margin-bottom:6px}.srch-ai p{margin:0 0 8px}.srch-ai ul{margin:0 0 8px;padding-left:20px;list-style:disc}.srch-ai li{padding:0}
 .srch-ai a{color:var(--red);text-decoration:underline;font-weight:600}.srch-think{color:var(--soft)}.srch-src,.srch-disc{font-size:13px;color:var(--soft)}.srch-src a{color:inherit}
 @media (max-width:640px){.srch{margin:0;width:100vw;height:100dvh}.srch-in{border-radius:0;max-height:100dvh;height:100%}}
+.hb-logo{width:44px;height:43px;border-radius:8px;flex:0 0 44px}.hb-head>div{flex:1;min-width:0}
+.hb-tease{position:absolute;right:0;bottom:calc(100% + 12px);width:min(300px,calc(100vw - 24px));display:flex;gap:12px;align-items:flex-start;background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:14px;padding:14px 34px 14px 14px;box-shadow:0 16px 40px rgba(0,0,0,.22);animation:hbin .35s ease-out}
+.hb-tease::after{content:"";position:absolute;right:28px;bottom:-7px;width:12px;height:12px;background:var(--paper);border-right:1px solid var(--line);border-bottom:1px solid var(--line);transform:rotate(45deg)}
+.hb-tease[hidden]{display:none}.hb-tease img{border-radius:7px;flex:0 0 34px}.hb-tease strong{display:block;font-size:15px}.hb-tease p{margin:2px 0 8px;font-size:14px;color:var(--soft)}
+.hb-tease-go{font:inherit;font-size:14px;font-weight:800;background:var(--red);color:#fff;border:0;border-radius:999px;padding:6px 14px;cursor:pointer}
+.hb-tease-x{position:absolute;top:6px;right:8px;background:none;border:0;font-size:20px;line-height:1;color:var(--soft);cursor:pointer;padding:4px}
+.hb.on .hb-tease{display:none}
+@keyframes hbin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.hb-tease{animation:none}}
+/* search and AI result cards */
+.sc-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 4px}
+.sc{display:flex;gap:12px;align-items:center;padding:8px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:inherit;text-decoration:none;min-width:0;transition:border-color .15s,transform .15s}
+.sc:hover,.sc:focus-visible{border-color:var(--red);transform:translateY(-1px);outline:none}
+.sc-img{position:relative;flex:0 0 88px;height:66px;border-radius:8px;overflow:hidden;background:var(--line);display:grid;place-items:center}
+.sc-img img{width:100%;height:100%;object-fit:cover;display:block}.sc-ico{font-size:26px}
+.sc-img b{position:absolute;left:4px;bottom:4px;background:var(--red);color:#fff;font-size:11px;font-weight:800;padding:2px 6px;border-radius:5px;text-transform:uppercase}
+.sc-b{display:flex;flex-direction:column;min-width:0}.sc-b small{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--red)}
+.sc-b strong{font-size:15px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.sc-b span{font-size:13px;color:var(--soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sc-row{display:flex;gap:8px;overflow-x:auto;padding:4px 0 6px;margin:6px 0;scrollbar-width:thin}
+.sc.sm{flex:0 0 220px;padding:6px;background:var(--paper)}.sc.sm .sc-img{flex-basis:56px;height:44px}.sc.sm .sc-b strong{font-size:13px}
+.hb-m .sc-row{margin:8px -4px 4px}.hb-m .sc.sm{flex-basis:190px}.hb-m a.sc,.srch-ai a.sc{color:var(--ink);text-decoration:none;font-weight:400}
+@media (max-width:640px){.sc-grid{grid-template-columns:1fr}}
 /* help chat */
 .hb{position:fixed;right:18px;bottom:18px;z-index:55;font:15px/1.5 Inter,Arial,sans-serif}
 body:has(.mbar.show) .hb{bottom:84px}
@@ -1022,9 +1044,10 @@ const mbar=$('#mbar'),heroEl=$('#hero')||$('.phero');if(mbar&&heroEl){const hero
 
 <!-- Help chat -->
 <div class="hb" id="hb">
+<div class="hb-tease" id="hb-tease" hidden><button type="button" class="hb-tease-x" aria-label="Dismiss">×</button><img src="/favicon.svg" width="34" height="33" alt=""><div><strong>Got a question?</strong><p>Ask about meets, tickets, the club or local car services.</p><button type="button" class="hb-tease-go">Ask us</button></div></div>
 <button class="hb-fab" id="hb-fab" type="button" aria-expanded="false" aria-controls="hb-panel"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 10h8M8 13h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Questions?</span></button>
 <section class="hb-panel" id="hb-panel" role="dialog" aria-label="Help and enquiries" hidden>
-<header class="hb-head"><div><strong>Cars and Coffee</strong><span>Ask a question or message the team</span></div><button type="button" class="hb-close" id="hb-close" aria-label="Close">×</button></header>
+<header class="hb-head"><img class="hb-logo" src="/favicon.svg" width="44" height="43" alt=""><div><strong>Cars and Coffee</strong><span>Ask a question or message the team</span></div><button type="button" class="hb-close" id="hb-close" aria-label="Close">×</button></header>
 <div class="hb-chat" id="hb-chat">
 <div class="hb-log" id="hb-log" aria-live="polite"><div class="hb-m bot"><p>Hi! I can help with meets, tickets, the club and anything on this site. What would you like to know?</p></div></div>
 <div class="hb-chips" id="hb-chips"><button type="button">When's the next meet?</button><button type="button">Are meets free?</button><button type="button">Can I bring my car?</button><button type="button">How do I join the club?</button></div>
@@ -1053,6 +1076,10 @@ const mbar=$('#mbar'),heroEl=$('#hero')||$('.phero');if(mbar&&heroEl){const hero
       l=l.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\[([^\]]+)\]\(((?:\/|https:\/\/)[^\s)]*)\)/g,function(m,a,h){var ext=/^https:/.test(h)&&!/carsandcoffee\.uk/.test(h);return '<a href="'+h+'"'+(ext?' target="_blank" rel="noopener"':'')+'>'+a+'</a>';});
       if(li){if(!inList){out+='<ul>';inList=true;}out+='<li>'+l+'</li>';}else{if(inList){out+='</ul>';inList=false;}if(l.trim())out+='<p>'+l+'</p>';}});
     return out+(inList?'</ul>':'');}
+  var ICO={'Event':'📅','Local hub':'📍','Guide':'📘','News':'📰','Directory':'🔧','FAQ':'❓'};
+  function card(r,small){var im=r.img?'<img src="'+esc(r.img)+'" alt="" loading="lazy">':'<span class="sc-ico" aria-hidden="true">'+(ICO[r.type]||'•')+'</span>';
+    return '<a class="sc'+(small?' sm':'')+'" href="'+esc(r.url)+'"><span class="sc-img">'+im+(r.badge?'<b>'+esc(r.badge)+'</b>':'')+'</span><span class="sc-b"><small>'+esc(r.type)+'</small><strong>'+esc(r.title)+'</strong>'+(r.text&&!small?'<span>'+esc(r.text)+'</span>':'')+'</span></a>';}
+  function srcCards(list,n){list=(list||[]).slice(0,n||4);return list.length?'<div class="sc-row">'+list.map(function(r){return card(r,true);}).join('')+'</div>':'';}
   async function askAI(q,history){var r=await fetch('/api/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({q:q,history:history||[]})});var j=await r.json().catch(function(){return{};});if(!r.ok||!j.answer)throw new Error(j.error||'Sorry, something went wrong.');return j;}
   window.CACask=askAI;
 
@@ -1068,13 +1095,13 @@ const mbar=$('#mbar'),heroEl=$('#hero')||$('.phero');if(mbar&&heroEl){const hero
   function render(q,list){if(!q){res.innerHTML='';hint.hidden=false;return;}hint.hidden=true;
     var html=aiRow(q);
     if(list&&list.length){var groups={};list.forEach(function(r){(groups[r.type]=groups[r.type]||[]).push(r);});
-      Object.keys(groups).forEach(function(g){html+='<h3>'+esc(g)+'</h3><ul>'+groups[g].map(function(r){return '<li><a href="'+esc(r.url)+'"><strong>'+esc(r.title)+'</strong>'+(r.text?'<span>'+esc(r.text)+'</span>':'')+'</a></li>';}).join('')+'</ul>';});}
+      var order=['Event','Local hub','Guide','News','Directory','FAQ'];Object.keys(groups).sort(function(a,b){return order.indexOf(a)-order.indexOf(b);}).forEach(function(g){html+='<h3>'+esc(g==='Local hub'?'Local hubs':g==='News'?'News':g==='Directory'?'Local businesses':g+'s')+'</h3><div class="sc-grid">'+groups[g].map(function(r){return card(r);}).join('')+'</div>';});}
     else if(list)html+='<p class="srch-none">No pages match “'+esc(q)+'” yet. Try Ask AI above, or a different word.</p>';
     res.innerHTML=html;}
   inp.addEventListener('input',function(){var q=inp.value.trim();clearTimeout(timer);ai.hidden=true;if(!q){render('');return;}render(q,null);
     timer=setTimeout(async function(){if(q===last)return;last=q;try{if(ctl)ctl.abort();ctl=new AbortController();var r=await fetch('/api/search?q='+encodeURIComponent(q),{signal:ctl.signal});var j=await r.json();if(inp.value.trim()===q)render(q,j.results||[]);}catch(e){}},180);});
   async function doAsk(q){if(!q)return;inp.value=q;ai.hidden=false;ai.innerHTML='<div class="srch-ai-h"><span class="srch-spark">✦</span> AI answer</div><p class="srch-think">Thinking…</p>';
-    try{var j=await askAI(q);ai.innerHTML='<div class="srch-ai-h"><span class="srch-spark">✦</span> AI answer</div>'+md(j.answer)+(j.sources&&j.sources.length?'<p class="srch-src">From: '+j.sources.map(function(s){return '<a href="'+esc(s.url)+'">'+esc(s.title)+'</a>';}).join(' · ')+'</p>':'')+'<p class="srch-disc">AI answers can be wrong. Check event pages for final details.</p>';}
+    try{var j=await askAI(q);ai.innerHTML='<div class="srch-ai-h"><span class="srch-spark">✦</span> AI answer</div>'+md(j.answer)+srcCards(j.sources,4)+'<p class="srch-disc">AI answers can be wrong. Check event pages for final details.</p>';}
     catch(e){ai.innerHTML='<p class="srch-think">'+esc(e.message)+'</p>';}
     if(!last||last!==q){last='';inp.dispatchEvent(new Event('input'));}}
   document.getElementById('srch-f').addEventListener('submit',function(e){e.preventDefault();var q=inp.value.trim();if(!q)return;var a=res.querySelector('a');if(/\?$|^(what|when|where|how|can|is|are|do|does|who|why)\b/i.test(q)||!a)doAsk(q);else location.href=a.getAttribute('href');});
@@ -1083,11 +1110,17 @@ const mbar=$('#mbar'),heroEl=$('#hero')||$('.phero');if(mbar&&heroEl){const hero
   // ---------- help chat ----------
   var fab=document.getElementById('hb-fab'),panel=document.getElementById('hb-panel'),log=document.getElementById('hb-log'),f=document.getElementById('hb-f'),q=document.getElementById('hb-q'),chips=document.getElementById('hb-chips'),chat=document.getElementById('hb-chat'),enq=document.getElementById('hb-enq'),hist=[];
   function toggle(on){panel.hidden=!on;fab.setAttribute('aria-expanded',on);document.getElementById('hb').classList.toggle('on',on);if(on)setTimeout(function(){(enq.hidden?q:enq.querySelector('input')).focus();},40);}
-  fab.onclick=function(){toggle(panel.hidden);};document.getElementById('hb-close').onclick=function(){toggle(false);fab.focus();};
+  var tease=document.getElementById('hb-tease'),TK='cac-hb-tease';
+  function teaseOff(){tease.hidden=true;try{localStorage.setItem(TK,'1');}catch(e){}}
+  var seen=false;try{seen=localStorage.getItem(TK)==='1';}catch(e){}
+  if(!seen){var tries=0,tt=setInterval(function(){var ck=document.getElementById('cookie');if(++tries>40){clearInterval(tt);return;}if(ck&&!ck.hidden)return;if(!panel.hidden){clearInterval(tt);return;}clearInterval(tt);tease.hidden=false;},800);}
+  tease.querySelector('.hb-tease-x').onclick=function(e){e.stopPropagation();teaseOff();};
+  tease.querySelector('.hb-tease-go').onclick=function(){teaseOff();toggle(true);};
+  fab.onclick=function(){teaseOff();toggle(panel.hidden);};document.getElementById('hb-close').onclick=function(){toggle(false);fab.focus();};
   document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!panel.hidden)toggle(false);});
   function add(role,html){var m=document.createElement('div');m.className='hb-m '+role;m.innerHTML=html;log.appendChild(m);log.scrollTop=log.scrollHeight;return m;}
   async function send(text){text=String(text||'').trim();if(!text)return;chips.hidden=true;add('me','<p>'+esc(text)+'</p>');q.value='';var w=add('bot typing','<p><span></span><span></span><span></span></p>');
-    try{var j=await askAI(text,hist);w.className='hb-m bot';w.innerHTML=md(j.answer)+'<p class="hb-more">Not what you needed? <button type="button" class="hb-link" data-team>Send us a message</button></p>';hist.push({role:'user',content:text},{role:'assistant',content:j.answer});hist=hist.slice(-6);}
+    try{var j=await askAI(text,hist);w.className='hb-m bot';w.innerHTML=md(j.answer)+srcCards(j.sources,3)+'<p class="hb-more">Not what you needed? <button type="button" class="hb-link" data-team>Send us a message</button></p>';hist.push({role:'user',content:text},{role:'assistant',content:j.answer});hist=hist.slice(-6);}
     catch(e){w.className='hb-m bot';w.innerHTML='<p>'+esc(e.message)+'</p><p><button type="button" class="hb-link" data-team>Send the team a message instead</button></p>';}
     log.scrollTop=log.scrollHeight;}
   f.addEventListener('submit',function(e){e.preventDefault();send(q.value);});

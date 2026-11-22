@@ -11,6 +11,8 @@ const TZ = "Europe/London";
 const json = (data, status = 200, extra = {}) => new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", ...extra } });
 const plain = (html) => String(html || "").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&#39;|&rsquo;/g, "'").replace(/\s+/g, " ").trim();
 const when = (d) => new Intl.DateTimeFormat("en-GB", { timeZone: TZ, weekday: "short", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(d));
+const pic = (p) => (!p ? null : /^https?:\/\//.test(p) || p.startsWith("/") ? p : "/" + p);
+const dm = (d) => new Intl.DateTimeFormat("en-GB", { timeZone: TZ, day: "numeric", month: "short" }).format(new Date(d));
 const money = (p) => (!p ? "Free" : "£" + (p / 100).toFixed(2).replace(".00", ""));
 
 export async function handleAssist(request, env, url) {
@@ -31,20 +33,20 @@ export async function findAll(text, limit = 6) {
   const now = new Date().toISOString();
   const safe = (p) => q(p).catch(() => []);
   const [events, articles, guides, pages, listings, faqs] = await Promise.all([
-    safe(`events?select=slug,title,summary,venue,town,starts_at,price_pence,ticket_status&ends_at=gte.${now}&${ors(["title", "summary", "venue", "town", "event_type"], ws)}&order=starts_at&limit=${limit}`),
-    safe(`articles?select=slug,title,excerpt,category,published_at&${ors(["title", "excerpt", "category"], ws)}&order=published_at.desc&limit=${limit}`),
-    safe(`guides?select=slug,title,intro&${ors(["title", "intro", "body_html"], ws)}&order=sort&limit=${limit}`),
-    safe(`pages?select=path,title,intro,town,county&status=eq.published&page_type=eq.location&${ors(["title", "intro", "town", "county"], ws)}&limit=${limit}`),
-    safe(`directory_listings?select=slug,name,town,services&${ors(["name", "town", "region"], ws)}&limit=${limit}`),
+    safe(`events?select=slug,title,summary,venue,town,starts_at,price_pence,ticket_status,image_path&ends_at=gte.${now}&${ors(["title", "summary", "venue", "town", "event_type"], ws)}&order=starts_at&limit=${limit}`),
+    safe(`articles?select=slug,title,excerpt,category,published_at,image_path&${ors(["title", "excerpt", "category"], ws)}&order=published_at.desc&limit=${limit}`),
+    safe(`guides?select=slug,title,intro,image_path&${ors(["title", "intro", "body_html"], ws)}&order=sort&limit=${limit}`),
+    safe(`pages?select=path,title,intro,town,county,hero_image_path&status=eq.published&page_type=eq.location&${ors(["title", "intro", "town", "county"], ws)}&limit=${limit}`),
+    safe(`directory_listings?select=slug,name,town,services,image_path&${ors(["name", "town", "region"], ws)}&limit=${limit}`),
     safe(`faqs?select=question,answer&${ors(["question", "answer"], ws)}&order=sort&limit=4`),
   ]);
   const score = (title, body) => { const t = title.toLowerCase(), b = (body || "").toLowerCase(); return ws.reduce((n, w) => n + (t.includes(w) ? 3 : 0) + (b.includes(w) ? 1 : 0), 0); };
   const out = [
-    ...events.map((e) => ({ type: "Event", title: e.title, url: `/events/${e.slug}`, text: `${when(e.starts_at)} · ${e.venue} · ${money(e.price_pence)}`, s: score(e.title, `${e.summary} ${e.venue} ${e.town}`) + 1 })),
-    ...pages.map((p) => ({ type: "Car meets", title: p.title, url: p.path, text: (p.intro || "").slice(0, 140), s: score(p.title, `${p.intro} ${p.town} ${p.county}`) + 1 })),
-    ...guides.map((g) => ({ type: "Guide", title: g.title, url: `/guides/${g.slug}`, text: (g.intro || "").slice(0, 140), s: score(g.title, g.intro) })),
-    ...articles.map((a) => ({ type: "News", title: a.title, url: `/news/${a.slug}`, text: (a.excerpt || "").slice(0, 140), s: score(a.title, `${a.excerpt} ${a.category}`) })),
-    ...listings.map((l) => ({ type: "Directory", title: l.name, url: `/directory/${l.slug}`, text: [(l.services || []).slice(0, 3).join(", "), l.town].filter(Boolean).join(" · "), s: score(l.name, `${l.town} ${(l.services || []).join(" ")}`) })),
+    ...events.map((e) => ({ type: "Event", title: e.title, url: `/events/${e.slug}`, img: pic(e.image_path), badge: dm(e.starts_at), text: `${when(e.starts_at)} · ${e.venue} · ${money(e.price_pence)}`, s: score(e.title, `${e.summary} ${e.venue} ${e.town}`) + 1 })),
+    ...pages.map((p) => ({ type: "Local hub", title: p.title, url: p.path, img: pic(p.hero_image_path) || "/homepage/hero.webp", text: (p.intro || "").slice(0, 140), s: score(p.title, `${p.intro} ${p.town} ${p.county}`) + 1 })),
+    ...guides.map((g) => ({ type: "Guide", title: g.title, url: `/guides/${g.slug}`, img: pic(g.image_path), text: (g.intro || "").slice(0, 140), s: score(g.title, g.intro) })),
+    ...articles.map((a) => ({ type: "News", title: a.title, url: `/news/${a.slug}`, img: pic(a.image_path), text: (a.excerpt || "").slice(0, 140), s: score(a.title, `${a.excerpt} ${a.category}`) })),
+    ...listings.map((l) => ({ type: "Directory", title: l.name, url: `/directory/${l.slug}`, img: pic(l.image_path), text: [(l.services || []).slice(0, 3).join(", "), l.town].filter(Boolean).join(" · "), s: score(l.name, `${l.town} ${(l.services || []).join(" ")}`) })),
     ...faqs.map((f) => ({ type: "FAQ", title: f.question, url: "/#faqs", text: plain(f.answer).slice(0, 200), s: score(f.question, f.answer) })),
   ];
   return out.sort((a, b) => b.s - a.s).slice(0, 12).map(({ s, ...r }) => r);
@@ -107,7 +109,7 @@ ${context}`;
     try { const r = await env.AI.run(m, { messages, max_tokens: 450, temperature: 0.2 }); answer = String(r?.response || "").trim(); if (answer) break; } catch (e) { console.error("ai", m, e && e.message); }
   }
   if (!answer) return json({ error: "Sorry, I couldn't answer just now. Try the search, or send us a message." }, 502);
-  return json({ answer, sources: found.slice(0, 4) });
+  return json({ answer, sources: found.filter((r) => r.type !== "FAQ").slice(0, 4) });
 }
 
 // ---------- enquiries ----------
