@@ -683,18 +683,18 @@ const CONTENT = {
   products: { title: "Products", order: ["created_at", false], list: ["name", "shop_id", "price_pence", "stock_status", "featured", "active"], view: "/shop/", seo: true,
     help: "Every product in the shop. Products with no shop are club merch; partner products also show on their shop page. Featured products appear on the shop home.",
     fields: [F("h_basics", "The product", "heading"), F("name", "Product name", "text", { required: true }), F("slug", "Address (slug)", "slug", { from: "name" }),
-      F("shop_id", "Shop (leave empty for club merch)", "ref", { table: "shops", show: "name", empty: "Club merch" }), F("category_id", "Category", "ref", { table: "product_categories", show: "name" }),
+      F("shop_id", "Shop (leave empty for club merch)", "ref", { table: "shops", show: "name", empty: "Club merch", short: "Shop" }), F("category_id", "Category", "ref", { table: "product_categories", show: "name" }),
       F("summary", "Short description (shown under the price and in Google)", "textarea", { ai: "summary" }), F("body_html", "Full details", "rich", { ai: "body" }),
       F("image_path", "Main photo", "image"), F("image_alt", "Photo description"), F("gallery", "More photos", "gallery"),
-      F("h_price", "Price and stock", "heading"), F("price_pence", "Price (pence, e.g. 2200 for £22)", "number", { required: true }), F("compare_at_pence", "Was price (pence, shows as a sale)", "number"), F("member_price_pence", "Member price (pence)", "number"),
+      F("h_price", "Price and stock", "heading"), F("price_pence", "Price (pence, e.g. 2200 for £22)", "number", { required: true, short: "Price" }), F("compare_at_pence", "Was price (pence, shows as a sale)", "number"), F("member_price_pence", "Member price (pence)", "number"),
       F("stock_status", "Availability", "select", { options: ["in_stock", "low", "out", "preorder"] }), F("stock_qty", "Stock count (optional, not shown)", "number"), F("condition", "Condition", "select", { options: ["new", "used", "refurbished"] }),
       F("options", "Options (one per line, e.g. Size: S, M, L, XL)", "options"), F("brand", "Brand"), F("sku", "Part number or SKU"), F("tags", "Search tags (comma separated)", "array"),
       F("buy_url", "Buy link (the product on the shop's own website; leave empty to show an enquiry button)", "text", { ph: "https://…" }),
-      F("h_status", "Promotion and status", "heading"), F("badge", "Badge on the photo", "text", { ph: "Best seller, New…" }), F("featured", "Featured on the shop home", "bool"), F("sort", "Order (lower first)", "number", { def: 100 }), F("units_sold_30d", "Sold in the last 30 days (homepage best sellers)", "number"), F("active", "On sale", "bool", { def: true }),
+      F("h_status", "Promotion and status", "heading"), F("badge", "Badge on the photo", "text", { ph: "Best seller, New…" }), F("featured", "Featured on the shop home", "bool", { short: "Featured" }), F("sort", "Order (lower first)", "number", { def: 100 }), F("units_sold_30d", "Sold in the last 30 days (homepage best sellers)", "number"), F("active", "On sale", "bool", { def: true }),
       F("h_seo", "Search engines", "heading", { note: "Optional. Left empty, the name and short description are used." }), F("meta_title", "Google title", "text", { ai: "meta_title" }), F("meta_description", "Google description", "textarea", { ai: "meta_description" })] },
   product_categories: { title: "Shop categories", order: ["sort", true], list: ["name", "parent_id", "sort", "active"], view: "/shop/category/",
     help: "Top-level categories show as tiles on the shop home. Give a category a parent to make it a sub-category.",
-    fields: [F("name", "Category name", "text", { required: true }), F("slug", "Address (slug)", "slug", { from: "name" }), F("parent_id", "Parent category (leave empty for a top-level category)", "ref", { table: "product_categories", show: "name" }),
+    fields: [F("name", "Category name", "text", { required: true }), F("slug", "Address (slug)", "slug", { from: "name" }), F("parent_id", "Parent category (leave empty for a top-level category)", "ref", { table: "product_categories", show: "name", short: "Parent", empty: "Top level" }),
       F("description", "Description (shown on the category page)", "textarea"), F("image_path", "Tile image (optional)", "image"), F("sort", "Order", "number", { def: 100 }), F("active", "Shown", "bool", { def: true }),
       F("meta_title", "Google title"), F("meta_description", "Google description", "textarea")] },
   shops: { title: "Partner shops", order: ["name", true], list: ["name", "town", "status", "featured"], view: "/shops/",
@@ -704,16 +704,16 @@ const CONTENT = {
       F("h_contact", "Contact and links", "heading"), F("website", "Website"), F("email", "Public email"), F("phone", "Public phone"), F("socials", "Social links (one per line, e.g. instagram: https://instagram.com/…)", "socials"),
       F("town", "Town"), F("county", "County", "select", { options: ["", "Norfolk", "Suffolk", "Cambridgeshire", "Essex"] }),
       F("partner_id", "Linked partner (optional)", "ref", { table: "partners", show: "name" }), F("directory_listing_id", "Linked directory listing (optional)", "ref", { table: "directory_listings", show: "name" }),
-      F("h_status", "Status and promotion", "heading"), F("status", "Status", "select", { options: ["draft", "live", "paused"] }), F("featured", "Featured shop on the shop home", "bool"), F("featured_order", "Featured order (lower first)", "number", { def: 0 }),
+      F("h_status", "Status and promotion", "heading"), F("status", "Status", "select", { options: ["draft", "live", "paused"] }), F("featured", "Featured shop on the shop home", "bool", { short: "Featured" }), F("featured_order", "Featured order (lower first)", "number", { def: 0 }),
       F("meta_title", "Google title"), F("meta_description", "Google description", "textarea")] },
   my_products: { title: "My products", table: "products", noAi: true, order: ["created_at", false], list: ["name", "shop_id", "price_pence", "stock_status", "active"], view: "/shop/",
     filter: (qq) => qq.in("shop_id", state.myShops.map((x) => x.id)),
     help: "Your products show on your shop page and across the Cars and Coffee UK shop. Switch “On sale” off to hide a product without deleting it.",
     fields: [F("h_basics", "The product", "heading"), F("name", "Product name", "text", { required: true }), F("slug", "Address (slug)", "slug", { from: "name" }),
-      F("shop_id", "Shop", "ref", { table: "shops", show: "name", required: true, rows: () => state.myShops }), F("category_id", "Category", "ref", { table: "product_categories", show: "name" }),
+      F("shop_id", "Shop", "ref", { table: "shops", show: "name", required: true, rows: () => state.myShops, short: "Shop" }), F("category_id", "Category", "ref", { table: "product_categories", show: "name" }),
       F("summary", "Short description (shown under the price and in Google)", "textarea"), F("body_html", "Full details", "rich"),
       F("image_path", "Main photo", "image"), F("image_alt", "Photo description"), F("gallery", "More photos", "gallery"),
-      F("h_price", "Price and stock", "heading"), F("price_pence", "Price (pence, e.g. 2200 for £22)", "number", { required: true }), F("compare_at_pence", "Was price (pence, shows as a sale)", "number"),
+      F("h_price", "Price and stock", "heading"), F("price_pence", "Price (pence, e.g. 2200 for £22)", "number", { required: true, short: "Price" }), F("compare_at_pence", "Was price (pence, shows as a sale)", "number"),
       F("stock_status", "Availability", "select", { options: ["in_stock", "low", "out", "preorder"] }), F("stock_qty", "Stock count (optional, not shown)", "number"), F("condition", "Condition", "select", { options: ["new", "used", "refurbished"] }),
       F("options", "Options (one per line, e.g. Size: S, M, L, XL)", "options"), F("brand", "Brand"), F("sku", "Part number or SKU"), F("tags", "Search tags (comma separated)", "array"),
       F("buy_url", "Buy link (this product on your own website; leave empty to show an enquiry button)", "text", { ph: "https://…" }),
@@ -787,7 +787,7 @@ route("/content/:table", async ({ table }) => {
     ${c.help ? `<p class="text-body-secondary">${esc(c.help)}</p>` : ""}
     ${table === "events" ? `<div class="pill-tabs">${filterTab("upcoming", "Upcoming")}${filterTab("past", "Past")}${filterTab("all", "All")}</div>` : ""}
     <div class="card">${(all || []).length > 8 ? `<div class="card-body pb-0"><form id="lsearch" class="mb-3"><input class="form-control" name="q" value="${esc(search)}" placeholder="Search ${esc(c.title.toLowerCase())}"></form></div>` : ""}
-    ${data.length ? `<div class="table-responsive"><table class="table table-hover mb-0 align-middle"><thead><tr>${cols.map((k) => `<th>${esc(fmap[k]?.label || k)}</th>`).join("")}${tg ? `<th>${esc(tg.label)}</th>` : ""}<th class="text-end">Actions</th></tr></thead><tbody>
+    ${data.length ? `<div class="table-responsive"><table class="table table-hover mb-0 align-middle"><thead><tr>${cols.map((k) => `<th>${esc(fmap[k]?.short || fmap[k]?.label || k)}</th>`).join("")}${tg ? `<th>${esc(tg.label)}</th>` : ""}<th class="text-end">Actions</th></tr></thead><tbody>
       ${data.map((r) => `<tr data-pk="${esc(r[pk])}" class="${tg && !isOn(tg, r) ? "row-off" : ""}">${cols.map((k, i) => `<td>${i === 0 ? `<a class="rowlink" href="/content/${table}/${encodeURIComponent(r[pk])}" data-link>${esc(r[k] ?? "(untitled)")}</a>` : cell(r[k], fmap[k])}</td>`).join("")}
         ${tg ? `<td><div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" data-toggle ${isOn(tg, r) ? "checked" : ""} aria-label="${esc(tg.label)}"></div></td>` : ""}
         <td class="text-end text-nowrap"><a class="btn btn-sm btn-outline-secondary" href="/content/${table}/${encodeURIComponent(r[pk])}" data-link>Edit</a>
