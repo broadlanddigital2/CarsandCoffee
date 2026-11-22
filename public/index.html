@@ -336,6 +336,14 @@ footer{background:var(--esp);color:var(--cream);padding:48px 0 24px}
 }
 @media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
 </style>
+<style id="reveal-css">
+/* scroll reveal: only active once JS adds .js-rv to <html>, so content is never hidden without JS */
+.js-rv .rv{opacity:0;transform:translateY(28px);transition:opacity .7s cubic-bezier(.2,.7,.2,1),transform .7s cubic-bezier(.2,.7,.2,1);transition-delay:var(--rvd,0ms);will-change:opacity,transform}
+.js-rv .rv.rv-l{transform:translateX(-36px)}.js-rv .rv.rv-r{transform:translateX(36px)}.js-rv .rv.rv-z{transform:scale(.96)}
+.js-rv .rv.in{opacity:1;transform:none}
+.js-rv img.imf{opacity:0;transition:opacity .8s ease}.js-rv img.imf.ld{opacity:1}
+@media (prefers-reduced-motion:reduce){.js-rv .rv,.js-rv img.imf{opacity:1!important;transform:none!important;transition:none!important}}
+</style>
 </head>
 <body>
 <!-- Google Tag Manager (noscript) -->
@@ -658,6 +666,34 @@ $('#nl').addEventListener('submit',async ev=>{ev.preventDefault();const em=$('#n
   else if(r.status===409){m.textContent='You’re already subscribed. Thanks!'}
   else{m.textContent='Sorry, something went wrong. Please try again later.'}
  }catch(e){m.textContent='Sorry, we couldn’t connect. Please try again later.'}});
+
+// scroll reveal: blocks fade/slide in as they enter the viewport; images fade in once loaded
+(()=>{if(!('IntersectionObserver' in window)||matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+ const root=document.documentElement;root.classList.add('js-rv');
+ const hero=$('#hero'),mark=(el,cls)=>{if(!el||hero.contains(el)||el.classList.contains('rv'))return;el.classList.add('rv');if(cls)el.classList.add(cls)};
+ // headings and single blocks
+ $$('main .head, main .galintro, .intro > div, .quick, .joinbox, .dirtop, .dirsearch, .dirhead, .dirlinks, .listcta, .strip h2, .adv-band .wrap, .news-band .wrap, .faq > div, .spon > div, .why > div').forEach(el=>mark(el));
+ mark($('.spon > img'),'rv-r');mark($('.why > img'),'rv-l');
+ // card grids: stagger children
+ const grids=['.evs','.newsgrid','.posts','.prods','.svcgrid','.bizs','.wrap.gal','.benefits','.stats','.strip','.faq > div:last-child','.quick'];
+ const gset=new Set();grids.forEach(g=>$$(g).forEach(p=>{let i=0;gset.add(p);for(const c of p.children){if(c.matches('h2,.galintro,script'))continue;
+  if(c.classList.contains('rv')&&!p.matches('.quick'))continue;c.classList.add('rv');c.classList.remove('rv-l','rv-r');
+  if(p.matches('.wrap.gal'))c.classList.add('rv-z');c.style.setProperty('--rvd',Math.min(i++,7)*80+'ms')}}));
+ // partner/feature bands
+ $$('main section').forEach(sec=>{if(sec===hero)return;for(const a of $$(':scope > .wrap > article, :scope > article, :scope .feat',sec))mark(a)});
+ // grids are observed as a whole (works for sideways-scrolling rows on mobile); everything else on its own
+ const io=new IntersectionObserver(es=>{for(const e of es)if(e.isIntersecting){const t=e.target;
+  t.classList.add('in');if(gset.has(t))for(const c of t.children){if(c.classList.contains('rv'))c.classList.add('in')};io.unobserve(t)}},{rootMargin:'0px 0px -8% 0px',threshold:.08});
+ gset.forEach(g=>io.observe(g));
+ $$('.rv').forEach(el=>{if(!gset.has(el.parentElement)&&!gset.has(el))io.observe(el)});
+ // clear the stagger delay after it has played so hover effects aren't delayed
+ document.addEventListener('transitionend',e=>{const t=e.target;if(t.classList&&t.classList.contains('in')&&e.propertyName==='opacity')t.style.removeProperty('--rvd')});
+ // image fade-in (skip hero and anything already loaded)
+ $$('main img').forEach(im=>{if(hero.contains(im)||im.complete&&im.naturalWidth)return;im.classList.add('imf');
+  const done=()=>im.classList.add('ld');im.addEventListener('load',done,{once:true});im.addEventListener('error',done,{once:true})});
+ // jump links: show anything already on screen straight away
+ addEventListener('hashchange',()=>$$('.rv:not(.in)').forEach(el=>{if(el.getBoundingClientRect().top<innerHeight)el.classList.add('in')}));
+})();
 
 // sticky mobile join bar after the hero
 const mbar=$('#mbar');const heroObs=new IntersectionObserver(([e])=>mbar.classList.toggle('show',!e.isIntersecting));heroObs.observe($('#hero'));
