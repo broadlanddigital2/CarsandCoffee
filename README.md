@@ -13,7 +13,8 @@ Main website for **www.carsandcoffee.uk**: UK car meets, motorsport news, member
 | `public/_headers` | Security and caching headers. |
 | `tools/` | Generator: `data.py` (content) + `template.html` (layout) → `index.html`. |
 | `supabase/` | CRM schema (`cac`) and seed data, in the Race Car Graphics CRM project. |
-| `wrangler.jsonc` | Cloudflare config: serves `./public`. |
+| `wrangler.jsonc` | Cloudflare config: serves `./public`, attaches www.carsandcoffee.uk and carsandcoffee.uk. |
+| `src/worker.js` | Redirects carsandcoffee.uk to www.carsandcoffee.uk, then serves the site. |
 
 ## Deploying on Cloudflare
 
