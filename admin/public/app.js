@@ -463,7 +463,7 @@ const CONTENT = {
     fields: [F("key", "Key", "readonly"), F("title", "Name"), F("position", "Position", "number"), F("enabled", "Shown on the homepage", "bool"), F("starts_at", "Show from", "datetime"), F("ends_at", "Show until", "datetime")] },
   events: { title: "Events", order: ["starts_at", true], list: ["title", "starts_at", "venue", "ticket_status", "published"],
     fields: [F("title", "Title", "text", { required: true }), F("slug", "Address (slug)", "slug", { from: "title" }), F("event_type", "Type", "select", { options: ["meet", "tour", "garage", "watch", "race", "track", "show"] }),
-      F("starts_at", "Starts", "datetime", { required: true }), F("ends_at", "Ends", "datetime", { required: true }), F("venue_id", "Venue (for the map and directions)", "ref", { table: "venues", label: "name" }), F("venue", "Venue name as shown on cards", "text", { required: true }), F("county", "County", "select", { options: ["Norfolk", "Suffolk", "Cambridgeshire", "Essex"] }), F("town", "Town"), F("region", "Region"),
+      F("starts_at", "Starts", "datetime", { required: true }), F("ends_at", "Ends", "datetime", { required: true }), F("venue_id", "Venue (for the map and directions)", "ref", { table: "venues", show: "name" }), F("venue", "Venue name as shown on cards", "text", { required: true }), F("county", "County", "select", { options: ["Norfolk", "Suffolk", "Cambridgeshire", "Essex"] }), F("town", "Town"), F("region", "Region"),
       F("price_pence", "Price (pence, 0 for free)", "number"), F("ticket_status", "Tickets", "select", { options: ["free_rsvp", "on_sale", "selling_fast", "sold_out"] }),
       F("members_only", "Members only", "bool"), F("image_path", "Image", "image"), F("image_alt", "Image description"), F("published", "Published", "bool", { def: true })] },
   articles: { title: "News", order: ["published_at", false], list: ["title", "category", "published_at", "status", "featured"],
@@ -476,7 +476,7 @@ const CONTENT = {
     fields: [F("name", "Name", "text", { required: true }), F("slug", "Slug", "slug", { from: "name" }), F("tagline", "Tagline"), F("page_path", "Website"), F("logo_path", "Logo (for light backgrounds)", "image"), F("logo_dark_path", "Logo (for dark backgrounds)", "image"), F("sort", "Order", "number"), F("active", "Active", "bool", { def: true })] },
   partner_features: { title: "Partner features", order: ["starts_at", false], list: ["title", "block_key", "starts_at", "active"],
     help: "The Detail of the Month, Livery of the Week and Race Night blocks on the homepage.",
-    fields: [F("partner_id", "Partner", "ref", { table: "partners", label: "name", required: true }), F("block_key", "Homepage block", "select", { options: ["detail_of_month", "livery_of_week", "race_night"] }), F("title", "Title", "text", { required: true }),
+    fields: [F("partner_id", "Partner", "ref", { table: "partners", show: "name", required: true }), F("block_key", "Homepage block", "select", { options: ["detail_of_month", "livery_of_week", "race_night"] }), F("title", "Title", "text", { required: true }),
       F("body", "Text", "textarea"), F("extra", "Extra line"), F("image_path", "Image", "image"), F("image_alt", "Image description"), F("cta_label", "Button 1 text"), F("cta_url", "Button 1 link"),
       F("cta2_label", "Button 2 text"), F("cta2_url", "Button 2 link"), F("countdown_to", "Countdown to", "datetime"), F("starts_at", "Show from", "datetime"), F("ends_at", "Show until", "datetime"), F("active", "Active", "bool", { def: true })] },
   directory_listings: { title: "Directory", order: ["created_at", false], list: ["name", "town", "status", "featured"],
@@ -499,7 +499,7 @@ const CONTENT = {
   products: { title: "Shop", order: ["units_sold_30d", false], list: ["name", "price_pence", "units_sold_30d", "active"],
     help: "The homepage shows the four best sellers (most sold in the last 30 days).",
     fields: [F("name", "Product name", "text", { required: true }), F("slug", "Slug", "slug", { from: "name" }), F("price_pence", "Price (pence)", "number", { required: true }), F("member_price_pence", "Member price (pence)", "number"),
-      F("badge", "Badge", "text", { ph: "Best seller, New…" }), F("image_path", "Image", "image"), F("image_alt", "Image description"), F("units_sold_30d", "Sold in the last 30 days", "number"), F("partner_id", "Partner product", "ref", { table: "partners", label: "name" }), F("active", "On sale", "bool", { def: true })] },
+      F("badge", "Badge", "text", { ph: "Best seller, New…" }), F("image_path", "Image", "image"), F("image_alt", "Image description"), F("units_sold_30d", "Sold in the last 30 days", "number"), F("partner_id", "Partner product", "ref", { table: "partners", show: "name" }), F("active", "On sale", "bool", { def: true })] },
   gallery_items: { title: "Gallery", order: ["sort", true], list: ["title", "sort", "featured"],
     help: "The homepage shows the first five featured galleries.",
     fields: [F("title", "Title", "text", { required: true }), F("slug", "Slug", "slug", { from: "title" }), F("image_path", "Image", "image", { required: true }), F("image_alt", "Image description", "text", { required: true }), F("sort", "Order", "number"), F("featured", "Show on the homepage", "bool", { def: true })] },
@@ -606,7 +606,7 @@ route("/content/:table/:id", async ({ table, id }) => {
   if (!isNew) { const { data, error } = await site().from(table).select("*").eq(pk, c.idType === "int" ? Number(id) : decodeURIComponent(id)).maybeSingle(); if (error) throw error; if (!data) throw new Error("Not found"); row = data; }
   else c.fields.forEach((f) => { if (f.def !== undefined) row[f.name] = f.def; if (f.type === "select") row[f.name] = row[f.name] ?? f.options[0]; });
   const refs = {};
-  for (const f of c.fields.filter((f) => f.type === "ref")) { const { data } = await site().from(f.table).select(`id,${f.label}`).order(f.label); refs[f.name] = data || []; }
+  for (const f of c.fields.filter((f) => f.type === "ref")) { const { data } = await site().from(f.table).select(`id,${f.show}`).order(f.show); refs[f.name] = data || []; }
   const titleKey = c.list[0];
   crumbs([[c.title, `/content/${table}`], [isNew ? "Add" : String(row[titleKey] ?? "Edit")]]);
   const input = (f) => {
@@ -617,7 +617,7 @@ route("/content/:table/:id", async ({ table, id }) => {
       case "textarea": return `<textarea class="form-control" id="${id}" rows="4" ${req}>${esc(v ?? "")}</textarea>`;
       case "markdown": return `<textarea class="form-control code" id="${id}" rows="14">${esc(v ?? "")}</textarea>`;
       case "select": return `<select class="form-select" id="${id}">${f.options.map((o) => `<option value="${o}" ${o === v ? "selected" : ""}>${esc(LABELS[o] || o)}</option>`).join("")}</select>`;
-      case "ref": return `<select class="form-select" id="${id}" ${req}><option value="">Choose…</option>${refs[f.name].map((o) => `<option value="${o.id}" ${o.id === v ? "selected" : ""}>${esc(o[f.label])}</option>`).join("")}</select>`;
+      case "ref": return `<select class="form-select" id="${id}" ${req}><option value="">Choose…</option>${refs[f.name].map((o) => `<option value="${o.id}" ${o.id === v ? "selected" : ""}>${esc(o[f.show])}</option>`).join("")}</select>`;
       case "number": return `<input class="form-control" type="number" ${f.step ? `step="${f.step}"` : ""} id="${id}" value="${esc(v ?? "")}" ${req}>`;
       case "postcode": return `<div class="input-group"><input class="form-control" id="${id}" value="${esc(v ?? "")}" placeholder="e.g. NR1 3DD" autocapitalize="characters"><button class="btn btn-outline-secondary" type="button" data-pclookup="${id}">Look up</button></div><div class="form-text" data-pcmsg="${id}">Fills in the map position from the postcode.</div>`;
       case "date": return `<input class="form-control" type="date" id="${id}" value="${esc(v ? String(v).slice(0, 10) : "")}" ${req}>`;

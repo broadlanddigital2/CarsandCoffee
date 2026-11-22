@@ -3,10 +3,14 @@
   --cui-primary: #c00d0d; --cui-primary-rgb: 192, 13, 13;
   --cui-link-color: #a10b0b; --cui-link-color-rgb: 161, 11, 11; --cui-link-hover-color: #7d0808;
   --cui-body-font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-  --cui-body-bg: #f4f1ec;
+  --cui-body-bg: #ffffff; --cui-body-color: #241712; --cui-body-color-rgb: 36, 23, 18;
+  --cui-secondary-color: #5e4c42; --cui-secondary-color-rgb: 94, 76, 66; --cui-tertiary-bg: #f7f3ee;
+  --cui-border-color: #d9cdbf; --cui-card-bg: #ffffff; --cui-emphasis-color: #1d130f;
+  --cac-page: #f4f1ec;
   --cac-sidebar: 256px;
 }
-body { font-family: var(--cui-body-font-family); background: var(--cui-body-bg); }
+body { font-family: var(--cui-body-font-family); background: var(--cac-page); color: var(--cui-body-color); }
+.wrapper, .body { background: var(--cac-page); }
 .btn-primary { --cui-btn-bg: #c00d0d; --cui-btn-border-color: #c00d0d; --cui-btn-hover-bg: #a10b0b; --cui-btn-hover-border-color: #a10b0b; --cui-btn-active-bg: #8a0909; --cui-btn-disabled-bg: #c00d0d; --cui-btn-disabled-border-color: #c00d0d; --cui-btn-color: #fff; --cui-btn-hover-color: #fff; }
 .btn-outline-primary { --cui-btn-color: #c00d0d; --cui-btn-border-color: #c00d0d; --cui-btn-hover-bg: #c00d0d; --cui-btn-hover-border-color: #c00d0d; --cui-btn-hover-color: #fff; }
 .form-control:focus, .form-select:focus { border-color: #e6a23c; box-shadow: 0 0 0 .2rem rgba(230, 162, 60, .25); }
@@ -98,3 +102,17 @@ h1, h2, h3, .h4, .h5 { color: #1d130f; }
 .imgprev img { width: 100%; height: 100%; object-fit: cover; }
 .row-off td { color: #8a7b70; }
 .row-off .rowlink { color: #8a7b70; }
+
+/* readable inputs and cards */
+.form-control, .form-select { background-color: #fff; color: #241712; border: 1px solid #cbbcad; }
+.form-control::placeholder { color: #8a7b70; opacity: 1; }
+.form-control:disabled, .form-control[readonly] { background-color: #f3eee8; color: #5e4c42; }
+.form-label { font-weight: 600; color: #241712; }
+.form-text, .text-body-secondary { color: #5e4c42 !important; }
+.input-group-text { background: #f3eee8; color: #5e4c42; border-color: #cbbcad; }
+.card, .card-header, .list-group-item { background-color: #fff; color: #241712; }
+.card-header { border-bottom: 1px solid #ece4da; }
+.table { --cui-table-bg: #fff; --cui-table-color: #241712; }
+.btn-outline-secondary { --cui-btn-color: #3b2e26; --cui-btn-border-color: #b9a998; --cui-btn-hover-bg: #3b2e26; --cui-btn-hover-color: #fff; --cui-btn-hover-border-color: #3b2e26; }
+.signin-card { background: #fff; }
+.pill-tabs a { color: #241712; }
