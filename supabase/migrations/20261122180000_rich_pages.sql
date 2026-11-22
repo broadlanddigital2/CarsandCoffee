@@ -45,3 +45,8 @@ create trigger guides_touch before update on site.guides for each row execute fu
 -- article photo galleries: [{ "src": "...", "alt": "...", "caption": "..." }]
 alter table site.articles add column if not exists gallery jsonb not null default '[]'::jsonb;
 alter table site.articles add constraint articles_gallery_is_array check (jsonb_typeof(gallery) = 'array');
+
+-- focus keywords so events, news and guides can be scored in Admin → Marketing
+alter table site.events add column if not exists focus_keyword text;
+alter table site.articles add column if not exists focus_keyword text;
+alter table site.guides add column if not exists focus_keyword text;

@@ -85,9 +85,12 @@ function navHTML() {
   const pend = state.stats?.pending_applications || 0;
   const item = (href, ic, label, badge = "") => `<li class="nav-item"><a class="nav-link" href="${href}" data-link>${icon(ic)}${label}${badge}</a></li>`;
   return `<li class="nav-item"><a class="nav-link" href="/" data-link>${icon("dash")}Dashboard</a></li>
-    <li class="nav-title">Website</li>
-    ${item("/pages", "page", "SEO pages")}
+    <li class="nav-title">Marketing</li>
+    ${item("/marketing", "dash", "SEO overview")}
+    ${item("/pages?type=location", "pin", "Location pages")}
     ${item("/pages?type=landing", "ad", "Ad landing pages")}
+    ${item("/pages", "page", "All SEO pages")}
+    <li class="nav-title">Website</li>
     ${item("/homepage", "home", "Homepage blocks")}
     ${item("/content/events", "cal", "Events")}
     ${item("/content/venues", "pin", "Venues")}
@@ -228,6 +231,73 @@ route("/", async () => {
 const statusBadge = (s) => `<span class="badge ${{ published: "text-bg-success", draft: "text-bg-secondary", review: "text-bg-warning", archived: "text-bg-light border" }[s] || "text-bg-light"}">${esc({ published: "Live", draft: "Draft", review: "In review", archived: "Archived" }[s] || s)}</span>`;
 const scoreBadge = (n) => n == null ? "" : `<span class="badge ${n >= 80 ? "text-bg-success" : n >= 55 ? "text-bg-warning" : "text-bg-danger"}" title="SEO score">SEO ${n}</span>`;
 
+// ---------- SEO scoring shared by the page editor, content editors and the Marketing overview ----------
+const htmlText = (h) => String(h || "").replace(/<\/(p|h[1-6]|li|blockquote)>/gi, "\n\n").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&#39;|&rsquo;/g, "'").replace(/[ \t]+/g, " ").trim();
+const htmlHeadings = (h) => [...String(h || "").matchAll(/<h([23])[^>]*>([\s\S]*?)<\/h\1>/gi)].map((m) => "#".repeat(+m[1]) + " " + htmlText(m[2])).join("\n\n");
+const htmlLinks = (h) => [...String(h || "").matchAll(/<a [^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)].map((m) => `[${htmlText(m[2])}](${m[1]})`).join(" ");
+function locationScoreInput(d) {
+  const lcx = d.content || {};
+  return { ...d, body_md: [d.body_md, ...(lcx.scene || []).map((x, i) => (i === 0 ? "## The local car scene\n\n" : "") + x), (lcx.drives || []).length ? "## Best drives\n\n" + lcx.drives.map((x) => x.title + ". " + x.text).join("\n\n") : "", (lcx.faqs || []).length ? "## Frequently asked questions\n\n" + lcx.faqs.map(([qq, an]) => qq + " " + an).join("\n\n") : "", "[events](/events) [club](/club)"].filter(Boolean).join("\n\n") };
+}
+// events / news / guides → the shape analyse() expects
+const SEO_KINDS = {
+  events: { label: "Event", path: (r) => `/events/${r.slug}`, type: "standard", intro: (r) => r.summary, h1: (r) => r.title },
+  articles: { label: "News", path: (r) => `/news/${r.slug}`, type: "standard", intro: (r) => r.excerpt, h1: (r) => r.title },
+  guides: { label: "Guide", path: (r) => `/guides/${r.slug}`, type: "guide", intro: (r) => r.intro, h1: (r) => r.title },
+};
+function contentScoreInput(kind, r) {
+  const k = SEO_KINDS[kind];
+  const html = r.body_html || "";
+  return { page_type: k.type, title: r.title, h1: k.h1(r), meta_title: r.meta_title || `${r.title} | Cars and Coffee UK`, meta_description: r.meta_description || "", focus_keyword: r.focus_keyword || "",
+    path: k.path(r), intro: k.intro(r) || "", body_md: [htmlHeadings(html), htmlText(html), htmlLinks(html), (r.gallery || []).length || r.image_path ? "![photo](x)" : ""].filter(Boolean).join("\n\n"),
+    hero_image_path: r.image_path, hero_image_alt: r.image_alt, og_image_path: r.image_path };
+}
+const scoreOf = (kind, r) => { try { return kind === "pages" ? analyse(r.page_type === "location" ? locationScoreInput(r) : r) : analyse(contentScoreInput(kind, r)); } catch { return { score: 0, grade: "bad", checks: [] }; } };
+
+// ---------- Marketing: SEO overview of every public page ----------
+route("/marketing", async () => {
+  crumbs([["Marketing"], ["SEO overview"]]);
+  const now = new Date().toISOString();
+  const [pg, ev, ar, gu] = await Promise.all([
+    site().from("pages").select("*").limit(500),
+    site().from("events").select("id,slug,title,summary,body_html,meta_title,meta_description,focus_keyword,image_path,image_alt,published,ends_at").limit(500),
+    site().from("articles").select("id,slug,title,excerpt,body_html,meta_title,meta_description,focus_keyword,image_path,image_alt,gallery,status").limit(500),
+    site().from("guides").select("id,slug,title,intro,body_html,meta_title,meta_description,focus_keyword,image_path,image_alt,status").limit(200),
+  ]);
+  for (const r of [pg, ev, ar, gu]) if (r.error) throw r.error;
+  const rows = [
+    ...(pg.data || []).filter((p) => p.status !== "archived").map((p) => ({ kind: p.page_type === "location" ? "Location" : labelType(p.page_type), title: p.title, path: p.path, kw: p.focus_keyword, live: p.status === "published", noindex: p.noindex, edit: `/pages/${p.id}`, r: scoreOf("pages", p) })),
+    ...(ev.data || []).filter((e) => e.ends_at >= now).map((e) => ({ kind: "Event", title: e.title, path: `/events/${e.slug}`, kw: e.focus_keyword, live: e.published, edit: `/content/events/${e.id}#seo`, r: scoreOf("events", e) })),
+    ...(ar.data || []).map((a) => ({ kind: "News", title: a.title, path: `/news/${a.slug}`, kw: a.focus_keyword, live: a.status === "published", edit: `/content/articles/${a.id}#seo`, r: scoreOf("articles", a) })),
+    ...(gu.data || []).map((g) => ({ kind: "Guide", title: g.title, path: `/guides/${g.slug}`, kw: g.focus_keyword, live: g.status === "published", edit: `/content/guides/${g.id}#seo`, r: scoreOf("guides", g) })),
+  ];
+  const kindF = qs().get("kind") || "", sort = qs().get("sort") || "score";
+  const kinds = [...new Set(rows.map((x) => x.kind))];
+  let list = rows.filter((x) => !kindF || x.kind === kindF);
+  list.sort((a, b) => sort === "score" ? a.r.score - b.r.score : a.title.localeCompare(b.title));
+  const live = rows.filter((x) => x.live);
+  const avg = live.length ? Math.round(live.reduce((n, x) => n + x.r.score, 0) / live.length) : 0;
+  const weak = live.filter((x) => x.r.score < 55).length, noKw = live.filter((x) => !x.kw).length;
+  const noDesc = live.filter((x) => x.r.checks.some((c) => /meta description/i.test(c.label) && c.status === "fail")).length;
+  const topIssue = (r) => { const c = r.checks.filter((c) => c.status === "fail").sort((a, b) => b.weight - a.weight)[0] || r.checks.filter((c) => c.status === "warn").sort((a, b) => b.weight - a.weight)[0]; return c ? c.label : "All checks passed"; };
+  const tab = (k, l) => `<a href="/marketing${k ? "?kind=" + encodeURIComponent(k) : ""}" data-link class="${kindF === k ? "on" : ""}">${esc(l)}</a>`;
+  view.innerHTML = `<div class="page-head"><h1>SEO overview</h1><div class="d-flex gap-2"><a class="btn btn-outline-secondary" href="/pages/new?type=location" data-link>New location page</a><a class="btn btn-primary" href="/pages/new?type=landing" data-link>New ad landing page</a></div></div>
+    <p class="text-body-secondary">Every public page on the website, scored by the SEO optimiser. Lowest scores first: open one to see exactly what to fix.</p>
+    <div class="row g-3 mb-3">
+      <div class="col-6 col-lg-3"><div class="card stat"><div class="card-body"><div class="value ${avg >= 80 ? "" : avg >= 55 ? "" : "text-danger"}">${avg}</div><div class="label">Average score (live pages)</div></div></div></div>
+      <div class="col-6 col-lg-3"><div class="card stat"><div class="card-body"><div class="value ${weak ? "text-danger" : ""}">${weak}</div><div class="label">Live pages scoring under 55</div></div></div></div>
+      <div class="col-6 col-lg-3"><div class="card stat"><div class="card-body"><div class="value ${noKw ? "text-danger" : ""}">${noKw}</div><div class="label">Live pages without a focus keyword</div></div></div></div>
+      <div class="col-6 col-lg-3"><div class="card stat"><div class="card-body"><div class="value ${noDesc ? "text-danger" : ""}">${noDesc}</div><div class="label">Missing a Google description</div></div></div></div>
+    </div>
+    <div class="pill-tabs">${tab("", "All")}${kinds.map((k) => tab(k, k)).join("")}</div>
+    <div class="card">${list.length ? `<div class="table-responsive"><table class="table table-hover mb-0 align-middle"><thead><tr><th>Page</th><th>Type</th><th>Focus keyword</th><th>Score</th><th>Biggest fix</th><th></th></tr></thead><tbody>
+      ${list.map((x) => `<tr class="${x.live ? "" : "row-off"}"><td><a class="rowlink" href="${x.edit}" data-link>${esc(x.title)}</a><div class="small text-body-secondary">${esc(x.path)}${x.live ? "" : " · not live"}${x.noindex ? " · hidden from Google" : ""}</div></td>
+        <td>${esc(x.kind)}</td><td class="small">${x.kw ? esc(x.kw) : '<span class="text-danger">None</span>'}</td><td>${scoreBadge(x.r.score)}</td><td class="small">${esc(topIssue(x.r))}</td>
+        <td class="text-end text-nowrap"><a class="btn btn-sm btn-primary" href="${x.edit}" data-link>Optimise</a> <a class="btn btn-sm btn-outline-secondary" href="${SITE}${esc(x.path)}" target="_blank" rel="noopener">View</a></td></tr>`).join("")}
+    </tbody></table></div>` : '<div class="empty">Nothing here yet.</div>'}</div>
+    <p class="small text-body-secondary mt-3">Scores use the same checks as the page editor: focus keyword, Google title and description, headings, word count, links and images. Past events aren't listed.</p>`;
+});
+
 // ---------- SEO pages ----------
 const TYPES = ["location", "sector", "audience", "guide", "landing", "standard"];
 const TYPE_HELP = {
@@ -239,14 +309,14 @@ const PATH_PREFIX = { location: "/car-meets/", sector: "/cars/", audience: "/for
 
 route("/pages", async () => {
   const type = qs().get("type") || "", status = qs().get("status") || "", q = (qs().get("q") || "").trim();
-  crumbs(type === "landing" ? [["Ad landing pages"]] : [["SEO pages"]]);
+  crumbs([["Marketing", "/marketing"], [type === "landing" ? "Ad landing pages" : type === "location" ? "Location pages" : "All SEO pages"]]);
   let query = site().from("pages").select("id,title,path,page_type,status,seo_score,focus_keyword,town,county,updated_at").order("updated_at", { ascending: false }).limit(500);
   if (type) query = query.eq("page_type", type);
   if (status) query = query.eq("status", status);
   const { data, error } = await query; if (error) throw error;
   const rows = (data || []).filter((p) => !q || (p.title + " " + p.path + " " + (p.focus_keyword || "")).toLowerCase().includes(q.toLowerCase()));
   const tab = (t, label) => `<a href="/pages${t ? "?type=" + t : ""}" data-link class="${type === t ? "on" : ""}">${label}</a>`;
-  view.innerHTML = `<div class="page-head"><h1>${type === "landing" ? "Ad landing pages" : "SEO pages"}</h1>
+  view.innerHTML = `<div class="page-head"><h1>${type === "landing" ? "Ad landing pages" : type === "location" ? "Location pages" : "All SEO pages"}</h1>
       <a class="btn btn-primary" href="/pages/new${type ? "?type=" + type : ""}" data-link>New ${type ? labelType(type).toLowerCase() + " " : ""}page</a></div>
     <div class="pill-tabs">${tab("", "All")}${TYPES.map((t) => tab(t, labelType(t))).join("")}</div>
     <div class="card"><div class="card-body pb-0"><form class="row g-2 mb-3" id="filt"><div class="col-md-6"><input class="form-control" name="q" placeholder="Search title, address or keyword" value="${esc(q)}"></div>
@@ -416,7 +486,7 @@ route("/pages/:id", async ({ id }) => {
     $("#serp").innerHTML = `<div class="site"><img src="/favicon.svg" alt=""><span>Cars and Coffee UK<small>${esc(url.replace("https://", "").replace(/\//g, " › ").replace(" › ", " › ").slice(0, 70))}</small></span></div>
       <div class="t">${esc(d.meta_title || d.title || "Your SEO title")}</div><div class="d">${esc((d.meta_description || "Write a meta description to control the text Google shows here.").slice(0, 160))}${(d.meta_description || "").length > 160 ? "…" : ""}</div>`;
     const lcx = d.content || {};
-    const r = analyse(t === "location" ? { ...d, body_md: [d.body_md, ...(lcx.scene || []).map((x, i) => (i === 0 ? "## The local car scene\n\n" : "") + x), (lcx.drives || []).length ? "## Best drives\n\n" + lcx.drives.map((x) => x.title + ". " + x.text).join("\n\n") : "", (lcx.faqs || []).length ? "## Frequently asked questions\n\n" + lcx.faqs.map(([qq, an]) => qq + " " + an).join("\n\n") : "", "[events](/events) [club](/club)"].filter(Boolean).join("\n\n") } : d);
+    const r = analyse(t === "location" ? locationScoreInput(d) : d);
     const ring = $("#ring"); ring.textContent = r.score; ring.className = "score-ring " + r.grade;
     $("#grade").textContent = { good: "Good to go", ok: "Nearly there", bad: "Needs work" }[r.grade];
     $("#checks").innerHTML = r.checks.map((c) => `<li class="${c.status}"><span class="dot">${{ pass: "✓", warn: "!", fail: "✕", info: "i" }[c.status]}</span><span>${esc(c.label)}${c.tip ? `<span class="tip">${esc(c.tip)}</span>` : ""}</span></li>`).join("");
@@ -493,18 +563,18 @@ const CONTENT = {
       F("ticket_url", "Booking or RSVP link", "text", { ph: "https://… (leave empty if booking isn't open yet)" }), F("members_only", "Members only", "bool"), F("image_path", "Image", "image"), F("image_alt", "Image description"), F("published", "Published", "bool", { def: true }),
       F("h_page", "Event page", "heading", { note: "Shown on the event's own page." }), F("summary", "Short summary (one or two sentences, shown at the top)", "textarea"), F("body_html", "Full description", "rich"),
       F("schedule", "On the day (one line each, start with the time, e.g. 07:30 Display parking opens)", "lines"), F("what_to_bring", "What to bring (one item per line)", "lines"), F("accessibility", "Access and facilities", "textarea", { ph: "Step-free access, toilets, blue-badge parking…" }),
-      F("h_seo", "Search engines", "heading", { note: "Optional. Left empty, the title and summary are used." }), F("meta_title", "Google title"), F("meta_description", "Google description", "textarea")] },
+      F("h_seo", "Search engines", "heading", { note: "Optional. Left empty, the title and summary are used. The SEO score below updates as you type." }), F("focus_keyword", "Focus keyword", "text", { ph: "e.g. car meet Norfolk" }), F("meta_title", "Google title"), F("meta_description", "Google description", "textarea")] },
   articles: { title: "News", order: ["published_at", false], list: ["title", "category", "published_at", "status", "featured"], view: "/news/",
     fields: [F("title", "Headline", "text", { required: true }), F("slug", "Address (slug)", "slug", { from: "title" }), F("category", "Category", "text", { required: true, ph: "Restoration, WEC, Technical…" }), F("author", "Author", "text", { ph: "Cars and Coffee team" }),
       F("excerpt", "Summary (shown on cards and under the headline)", "textarea"), F("body_html", "Article", "rich"), F("image_path", "Main photo (the header)", "image"), F("image_alt", "Main photo description"),
       F("gallery", "Photo gallery (shown under the article; visitors can open each photo full screen)", "gallery"), F("read_minutes", "Reading time (minutes)", "number"),
       F("featured", "Featured on the homepage", "bool"), F("status", "Status", "select", { options: ["draft", "published"] }), F("published_at", "Publish date", "date"),
-      F("h_seo", "Search engines", "heading", { note: "Optional. Left empty, the headline and summary are used." }), F("meta_title", "Google title"), F("meta_description", "Google description", "textarea")] },
+      F("h_seo", "Search engines", "heading", { note: "Optional. Left empty, the headline and summary are used. The SEO score below updates as you type." }), F("focus_keyword", "Focus keyword", "text", { ph: "e.g. classic car restoration" }), F("meta_title", "Google title"), F("meta_description", "Google description", "textarea")] },
   guides: { title: "Guides", order: ["sort", true], list: ["title", "slug", "sort", "status"], view: "/guides/",
     help: "Practical guides such as Your first car meet. They appear at /guides and can be linked from any page.",
     fields: [F("title", "Title", "text", { required: true }), F("slug", "Address (slug)", "slug", { from: "title" }), F("intro", "Introduction (shown under the title)", "textarea"), F("body_html", "Guide", "rich"),
       F("image_path", "Header image", "image"), F("image_alt", "Image description"), F("read_minutes", "Reading time (minutes)", "number"), F("sort", "Order", "number", { def: 100 }), F("status", "Status", "select", { options: ["draft", "published"] }),
-      F("h_seo", "Search engines", "heading", { note: "Optional. Left empty, the title and introduction are used." }), F("meta_title", "Google title"), F("meta_description", "Google description", "textarea")] },
+      F("h_seo", "Search engines", "heading", { note: "Optional. Left empty, the title and introduction are used. The SEO score below updates as you type." }), F("focus_keyword", "Focus keyword", "text", { ph: "e.g. first car meet" }), F("meta_title", "Google title"), F("meta_description", "Google description", "textarea")] },
   faqs: { title: "FAQs", idType: "int", order: ["sort", true], list: ["question", "sort", "published"],
     fields: [F("question", "Question", "text", { required: true }), F("answer", "Answer", "textarea", { required: true }), F("sort", "Order", "number"), F("published", "Published", "bool", { def: true })] },
   partners: { title: "Partners", order: ["sort", true], list: ["name", "tagline", "sort", "active"],
@@ -677,6 +747,11 @@ route("/content/:table/:id", async ({ table, id }) => {
       ${c.fields.map((f) => f.type === "heading" ? `<div class="col-12 form-section"><h2 class="h5 mb-0">${esc(f.label)}</h2>${f.note ? `<p class="small text-body-secondary mb-0">${esc(f.note)}</p>` : ""}</div>`
         : `<div class="${["textarea", "markdown", "rich", "lines", "gallery", "readonly_long"].includes(f.type) ? "col-12" : "col-md-6"}">${f.type === "bool" ? "" : `<label class="form-label" for="f_${f.name}${f.type === "rich" ? "_area" : ""}">${esc(f.label)}${f.required ? ' <span class="text-danger">*</span>' : ""}</label>`}${input(f)}</div>`).join("")}
     </div></div></div>
+    ${SEO_KINDS[table] ? `<div class="card mt-3" id="seo"><div class="card-body"><div class="row g-4">
+      <div class="col-lg-6"><h2 class="h5">SEO score</h2><div class="d-flex align-items-center gap-3 mb-2"><div class="score-ring" id="ring">–</div><div><div class="fw-semibold" id="grade"></div><div class="small text-body-secondary">Updates as you type · <span id="wc"></span></div></div></div>
+        <ul class="checks" id="checks"></ul></div>
+      <div class="col-lg-6"><h2 class="h5">Google preview</h2><div class="serp" id="serp"></div><p class="small text-body-secondary mt-2">Shows roughly how this page will look in Google search results.</p></div>
+    </div></div></div>` : ""}
     ${!isNew && !c.noDelete ? `<button class="btn btn-sm btn-outline-danger mt-3" type="button" id="del">Delete</button>` : ""}</form>`;
   const slugF = c.fields.find((f) => f.type === "slug");
   if (slugF && isNew) $("#f_" + slugF.from).addEventListener("input", (e) => { if (!$("#f_" + slugF.name).dataset.touched) $("#f_" + slugF.name).value = slugify(e.target.value); });
@@ -685,6 +760,21 @@ route("/content/:table/:id", async ({ table, id }) => {
   wireImageInputs($("#cf"));
   wireRich($("#cf"), { upload: uploadSiteImage, onChange: () => (dirty = true) });
   wireGallery($("#cf"));
+  if (SEO_KINDS[table]) {
+    const cur = () => { const r = { ...row }; for (const f of c.fields) { const el = $("#f_" + f.name); if (!el) continue;
+      if (f.type === "rich") r[f.name] = $("#f_" + f.name + "_area").innerHTML; else if (f.type === "gallery") { try { r[f.name] = JSON.parse(el.value || "[]"); } catch {} } else if (f.type !== "bool" && f.type !== "readonly" && f.type !== "heading") r[f.name] = el.value; }
+      if (!r.slug) r.slug = slugify(r.title || ""); return r; };
+    const upd = () => {
+      const d = cur(), inp = contentScoreInput(table, d), r = analyse(inp);
+      const ring = $("#ring"); ring.textContent = r.score; ring.className = "score-ring " + r.grade;
+      $("#grade").textContent = { good: "Good to go", ok: "Nearly there", bad: "Needs work" }[r.grade]; $("#wc").textContent = `${r.words} words`;
+      $("#checks").innerHTML = r.checks.map((x) => `<li class="${x.status}"><span class="dot">${{ pass: "✓", warn: "!", fail: "✕", info: "i" }[x.status]}</span><span>${esc(x.label)}${x.tip ? `<span class="tip">${esc(x.tip)}</span>` : ""}</span></li>`).join("");
+      const url = SITE + inp.path, desc = inp.meta_description || inp.intro || "";
+      $("#serp").innerHTML = `<div class="site"><img src="/favicon.svg" alt=""><span>Cars and Coffee UK<small>${esc(url.replace("https://", "").replace(/\//g, " › ").slice(0, 70))}</small></span></div><div class="t">${esc(inp.meta_title)}</div><div class="d">${esc(desc.slice(0, 160))}${desc.length > 160 ? "…" : ""}</div>`;
+    };
+    let t; $("#cf").addEventListener("input", () => { clearTimeout(t); t = setTimeout(upd, 150); }); upd();
+    if (location.hash === "#seo") setTimeout(() => $("#seo").scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+  }
   for (const b of $$("[data-pclookup]")) b.onclick = async () => {
     const id = b.dataset.pclookup, msg = $(`[data-pcmsg="${id}"]`), pc = $("#" + id).value.trim();
     if (!pc) { msg.textContent = "Enter a postcode first."; return; }
