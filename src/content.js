@@ -5,6 +5,7 @@ import { sanitize, safeUrl } from "./sanitize.js";
 import { carsIndex } from "./standard.js";
 import { shareBar, galleryOf, galleryHTML } from "./ui.js";
 import { findAll } from "./assist.js";
+import { shopHome, productPage, categoryPage as shopCategory, shopsIndex, storefront, sellPage, shopSitemap } from "./shop.js";
 import { directoryHome, businessPage, servicePage, servicesIndex, regionPage, listYourBusiness } from "./directory.js";
 export { sanitize };
 
@@ -34,6 +35,8 @@ const body = (row) => (row.body_html ? sanitize(row.body_html) : row.body ? sani
 // ---------- routing ----------
 export async function loadContent(path) {
   if (path === "/cars") return { kind: "cars" };
+  const sm = path.match(/^\/(shop|shops)(?:\/([a-z0-9-]+))?(?:\/([a-z0-9-]+))?$/);
+  if (sm) return { kind: sm[1], a: sm[2], b: sm[3] };
   const dm = path.match(/^\/directory(?:\/([a-z0-9-]+))?(?:\/([a-z0-9-]+))?$/);
   if (dm) return { kind: "directory", a: dm[1], b: dm[2] };
   const m = path.match(/^\/(events|news|guides|galleries)(?:\/([a-z0-9-]+))?(\.ics)?$/);
@@ -54,6 +57,12 @@ export async function renderContent({ kind, slug, ics }) {
     if (a === "service" && b) return servicePage(b);
     if (a === "region" && b) return regionPage(b);
     return b ? null : businessPage(a); }
+  if (kind === "shop") { const { a, b, params } = arguments[0];
+    if (!a) return shopHome(params || {});
+    if (a === "category" && b) return shopCategory(b);
+    if (a === "sell" && !b) return sellPage();
+    return b ? null : productPage(a); }
+  if (kind === "shops") { const { a, b } = arguments[0]; return a ? storefront(a, b) : shopsIndex(); }
   if (kind === "search") return searchPage(arguments[0].q);
   if (kind === "guides") return slug ? guidePage(slug) : guidesList();
   return null;
@@ -269,7 +278,7 @@ export async function sitemap() {
   const urls = [["/", now, "daily", "1.0"], ["/events", now, "daily", "0.9"], ["/news", now, "daily", "0.7"], ["/guides", now, "weekly", "0.5"], ["/galleries", now, "weekly", "0.4"], ["/directory", now, "weekly", "0.8"], ["/directory/services", now, "monthly", "0.5"], ["/directory/list-your-business", now, "monthly", "0.5"],
     ...biz.map((b) => [`/directory/${b.slug}`, b.updated_at, "monthly", "0.6"]), ...svcs.map((s) => [`/directory/service/${s.slug}`, now, "weekly", "0.6"]), ["/cars", now, "monthly", "0.5"], ...gals.map((g) => [`/galleries/${g.slug}`, now, "monthly", "0.3"]),
     ...evs.map((e) => [`/events/${e.slug}`, e.created_at, "weekly", "0.8"]), ...arts.map((a) => [`/news/${a.slug}`, a.published_at, "monthly", "0.6"]),
-    ...guides.map((g) => [`/guides/${g.slug}`, g.updated_at, "monthly", "0.6"]), ...pages.map((p) => [p.path, p.updated_at, "weekly", "0.7"])];
+    ...guides.map((g) => [`/guides/${g.slug}`, g.updated_at, "monthly", "0.6"]), ...pages.map((p) => [p.path, p.updated_at, "weekly", "0.7"]), ...(await shopSitemap().catch(() => []))];
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map(([u, m, f, pr]) => `  <url><loc>${SITE}${E(u)}</loc><lastmod>${d(m)}</lastmod><changefreq>${f}</changefreq><priority>${pr}</priority></url>`).join("\n")}\n</urlset>\n`;
 }
 

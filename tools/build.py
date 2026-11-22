@@ -71,7 +71,7 @@ community_html = "".join(f'''<article class="post"><a href="/community/posts/{i}
     for i, (h, t, ex, im, alt, when) in enumerate(COMMUNITY, 1))
 shop_html = "".join(f'''<article class="prod"><div class="ph"><img src="{img(im)}" alt="{E(alt)}" width="436" height="254" loading="lazy">{f'<span class="tag">{b}</span>' if b else ''}</div>
 <h3><a href="/shop/{s}">{E(n)}</a></h3><p class="price"><b>{money(p)}</b>{f' <span>Members {money(mp)}</span>' if mp else ''}</p>
-<button class="add" type="button" data-name="{E(n)}">Add to basket</button></article>''' for s, n, p, mp, b, im, alt in PRODUCTS)
+<a class="add" href="/shop/{E(s)}">View product</a></article>''' for s, n, p, mp, b, im, alt in PRODUCTS)
 gallery_html = "".join(f'<a class="g g{i}" href="/galleries/{s}"><img src="{img(im)}" alt="{E(alt)}" loading="lazy"><span>{E(t)}</span></a>' for i, (s, t, im, alt) in enumerate(GALLERY))
 slug = lambda x: x.lower().replace(" and ", "-").replace(" ", "-")
 SVC_ICON = {

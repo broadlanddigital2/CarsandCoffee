@@ -186,7 +186,7 @@ export function renderHome(d) {
 
   const shop = d.products.map((p) => `<article class="prod"><div class="ph"><img src="${E(img(p.image_path))}" alt="${E(p.image_alt)}" width="436" height="254" loading="lazy">${p.badge ? `<span class="tag">${E(p.badge)}</span>` : ""}</div>
 <h3><a href="/shop/${E(p.slug)}">${E(p.name)}</a></h3><p class="price"><b>${money(p.price_pence)}</b>${p.member_price_pence ? ` <span>Members ${money(p.member_price_pence)}</span>` : ""}</p>
-<button class="add" type="button" data-name="${E(p.name)}">Add to basket</button></article>`).join("");
+<a class="add" href="/shop/${E(p.slug)}">View product</a></article>`).join("");
 
   const gallery = d.gallery.map((g, i) => `<a class="g g${i}" href="/galleries/${E(g.slug)}"><img src="${E(img(g.image_path))}" alt="${E(g.image_alt)}" loading="lazy"><span>${E(g.title)}</span></a>`).join("");
 

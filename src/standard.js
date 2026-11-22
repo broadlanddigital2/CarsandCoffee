@@ -56,14 +56,14 @@ function contactSection(body) {
     <div class="ct-form-wrap"><h2>Send us a message</h2>
       <form class="ct-form" id="ctf" novalidate>
         <div class="ct-row"><label>Your name<input name="name" autocomplete="name" required maxlength="120"></label><label>Email<input name="email" type="email" autocomplete="email" required maxlength="200"></label></div>
-        <label>What's it about?<select name="topic"><option value="general">General question</option><option value="events">Events and tickets</option><option value="club">The members' club</option><option value="directory">Business directory and listings</option><option value="advertising">Advertising and partnerships</option><option value="other">Something else</option></select></label>
+        <label>What's it about?<select name="topic"><option value="general">General question</option><option value="events">Events and tickets</option><option value="club">The members' club</option><option value="directory">Business directory and listings</option><option value="shop">The shop and partner shops</option><option value="advertising">Advertising and partnerships</option><option value="other">Something else</option></select></label>
         <label>Message<textarea name="message" rows="6" required maxlength="4000" placeholder="How can we help?"></textarea></label>
         <label class="hb-hp" aria-hidden="true">Leave this blank<input name="cc_hp" tabindex="-1" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"></label>
         <p class="ct-small">We'll only use your details to reply to you. See our <a href="/privacy">privacy policy</a>.</p>
         <button class="btn red" type="submit">Send message ${ARROW}</button>
         <p class="ct-msg" role="status"></p>
       </form>
-      <script>(function(){function G(f,n){var a=f.querySelectorAll('[name="'+n+'"]');for(var i=0;i<a.length;i++){var v=(a[i].value||'').trim();if(v)return v;}return '';}var f=document.getElementById('ctf');var t=new URLSearchParams(location.search).get('topic');if(t&&f.topic.querySelector('option[value="'+t+'"]'))f.topic.value=t;
+      <script>(function(){function G(f,n){var a=f.querySelectorAll('[name="'+n+'"]');for(var i=0;i<a.length;i++){var v=(a[i].value||'').trim();if(v)return v;}return '';}var f=document.getElementById('ctf');var t=new URLSearchParams(location.search).get('topic');if(t&&f.topic.querySelector('option[value="'+t+'"]'))f.topic.value=t;var ab=new URLSearchParams(location.search).get('about');if(ab&&!f.message.value)f.message.value='About: '+ab.slice(0,150)+'\\n\\n';
         f.addEventListener('submit',async function(e){e.preventDefault();var m=f.querySelector('.ct-msg'),b=f.querySelector('[type=submit]');
           var miss=!G(f,'name')?'Please add your name.':!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(G(f,'email'))?'Please check your email address.':G(f,'message').length<5?'Please add a message (at least a few words).':'';if(miss){m.textContent=miss;m.className='ct-msg bad';return;}
           b.disabled=true;m.className='ct-msg';m.textContent='Sending…';
