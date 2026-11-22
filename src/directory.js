@@ -179,7 +179,7 @@ export async function businessPage(slug) {
 
 // tracking, number reveal, opening status, distance, video, review and enquiry forms
 function bizScript(slug) {
-  return `<script>(function(){var S=${JSON.stringify(slug)};
+  return `<script>(function(){function G(f,n){var a=f.querySelectorAll('[name="'+n+'"]');for(var i=0;i<a.length;i++){var v=(a[i].value||'').trim();if(v)return v;}return '';}var S=${JSON.stringify(slug)};
   function t(type){try{var b=JSON.stringify({slug:S,type:type});if(navigator.sendBeacon)navigator.sendBeacon('/api/track',new Blob([b],{type:'application/json'}));else fetch('/api/track',{method:'POST',headers:{'Content-Type':'application/json'},body:b,keepalive:true});}catch(e){}
     try{window.dataLayer=window.dataLayer||[];window.dataLayer.push({event:'directory_'+type,business:S});}catch(e){}}
   try{var k='cac-v-'+S;if(!sessionStorage.getItem(k)){sessionStorage.setItem(k,'1');t('view');}}catch(e){t('view');}
@@ -207,11 +207,11 @@ function bizScript(slug) {
     fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}).then(function(r){return r.json().catch(function(){return{};}).then(function(j){if(!r.ok)throw new Error(j.error||'Sorry, that didn\\'t send. Please try again.');form.outerHTML=okHtml;});})
       .catch(function(err){m.textContent=err.message;m.className='ct-msg bad';btn.disabled=false;});}
   var L=document.getElementById('lead');if(L)L.addEventListener('submit',function(e){e.preventDefault();var m=L.querySelector('.ct-msg');
-    if(!L.name.value.trim()||!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(L.email.value.trim())||L.message.value.trim().length<5){m.textContent='Please add your name, a valid email and a message.';m.className='ct-msg bad';return;}
-    send(L,'/api/lead',{slug:S,name:L.name.value,email:L.email.value,phone:L.phone.value,message:L.message.value,cc_hp:L.cc_hp.value},'<div class="ct-sent"><h3>Enquiry sent.</h3><p>The business will reply to you directly by email or phone.</p></div>');});
+    if(!G(L,'name')||!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(G(L,'email'))||G(L,'message').length<5){m.textContent='Please add your name, a valid email and a message.';m.className='ct-msg bad';return;}
+    send(L,'/api/lead',{slug:S,name:G(L,'name'),email:G(L,'email'),phone:G(L,'phone'),message:G(L,'message'),cc_hp:G(L,'cc_hp')},'<div class="ct-sent"><h3>Enquiry sent.</h3><p>The business will reply to you directly by email or phone.</p></div>');});
   var R=document.getElementById('rvf');if(R)R.addEventListener('submit',function(e){e.preventDefault();var m=R.querySelector('.ct-msg'),rt=R.querySelector('[name=rating]:checked');
-    if(!rt||!R.name.value.trim()||!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(R.email.value.trim())||R.body.value.trim().length<10){m.textContent='Please choose a rating and add your name, email and a few words.';m.className='ct-msg bad';return;}
-    send(R,'/api/review',{slug:S,name:R.name.value,email:R.email.value,rating:+rt.value,body:R.body.value},'<div class="ct-sent"><h3>Thanks for your review.</h3><p>Our team will check it and it will appear here soon.</p></div>');});
+    if(!rt||!G(R,'name')||!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(G(R,'email'))||G(R,'body').length<10){m.textContent='Please choose a rating and add your name, email and a few words.';m.className='ct-msg bad';return;}
+    send(R,'/api/review',{slug:S,name:G(R,'name'),email:G(R,'email'),rating:+rt.value,body:G(R,'body')},'<div class="ct-sent"><h3>Thanks for your review.</h3><p>Our team will check it and it will appear here soon.</p></div>');});
 })();</script>`;
 }
 
@@ -281,12 +281,12 @@ export async function listYourBusiness() {
       <label class="lyb-chk"><input type="checkbox" name="agree" required> I run or represent this business, and I agree to the <a href="/terms">terms</a> and <a href="/privacy">privacy policy</a>.</label>
       <button class="btn red" type="submit">Submit my listing ${ARROW}</button><p class="ct-msg" role="status"></p>
     </form>
-    <script>(function(){var f=document.getElementById('lyb');f.addEventListener('submit',async function(e){e.preventDefault();var m=f.querySelector('.ct-msg'),b=f.querySelector('[type=submit]');
-      var svcs=[].slice.call(f.querySelectorAll('[name=services]:checked')).map(function(x){return x.value;});if(f.other.value.trim())svcs.push(f.other.value.trim());
-      var bad=!f.name.value.trim()?'Please add your business name.':!svcs.length?'Please choose at least one service.':!f.town.value.trim()?'Please add your town.':!f.contact_name.value.trim()?'Please add your name.':!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(f.contact_email.value.trim())?'Please check your email address.':!f.agree.checked?'Please confirm you represent the business.':'';
+    <script>(function(){var f=document.getElementById('lyb');function G(f,n){var a=f.querySelectorAll('[name="'+n+'"]');for(var i=0;i<a.length;i++){var v=(a[i].value||'').trim();if(v)return v;}return '';}f.addEventListener('submit',async function(e){e.preventDefault();var m=f.querySelector('.ct-msg'),b=f.querySelector('[type=submit]');
+      var svcs=[].slice.call(f.querySelectorAll('[name=services]:checked')).map(function(x){return x.value;});if(G(f,'other'))svcs.push(G(f,'other'));
+      var bad=!G(f,'name')?'Please add your business name.':!svcs.length?'Please choose at least one service.':!G(f,'town')?'Please add your town.':!G(f,'contact_name')?'Please add your name.':!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(G(f,'contact_email'))?'Please check your email address.':!f.agree.checked?'Please confirm you represent the business.':'';
       if(bad){m.textContent=bad;m.className='ct-msg bad';return;}
       b.disabled=true;m.className='ct-msg';m.textContent='Sending…';
-      var data={name:f.name.value,services:svcs,town:f.town.value,county:f.county.value,address:f.address.value,postcode:f.postcode.value,website:f.website.value,phone:f.phone.value,public_email:f.public_email.value,summary:f.summary.value,contact_name:f.contact_name.value,contact_email:f.contact_email.value,notes:f.notes.value,cc_hp:f.cc_hp.value};
+      var data={name:G(f,'name'),services:svcs,town:G(f,'town'),county:G(f,'county'),address:G(f,'address'),postcode:G(f,'postcode'),website:G(f,'website'),phone:G(f,'phone'),public_email:G(f,'public_email'),summary:G(f,'summary'),contact_name:G(f,'contact_name'),contact_email:G(f,'contact_email'),notes:G(f,'notes'),cc_hp:G(f,'cc_hp')};
       try{var r=await fetch('/api/listing',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});var j=await r.json().catch(function(){return{};});if(!r.ok)throw new Error(j.error||'Sorry, that didn\\'t send. Please try again.');
         f.outerHTML='<div class="ct-sent"><h3>Thanks, we\\'ve got your listing.</h3><p>Our team will check it and email you when it\\'s live, usually within a few days.</p><p><a class="btn ghost small" href="/directory">Back to the directory</a></p></div>';window.scrollTo(0,0);}
       catch(err){m.textContent=err.message;m.className='ct-msg bad';b.disabled=false;}});})();</script>

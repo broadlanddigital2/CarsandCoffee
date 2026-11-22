@@ -1193,6 +1193,7 @@ const mbar=$('#mbar'),heroEl=$('#hero')||$('.phero');if(mbar&&heroEl){const hero
   d.addEventListener('click',function(e){var b=e.target.closest('[data-ask]');if(b){doAsk(b.getAttribute('data-ask'));return;}var t=e.target.closest('[data-try]');if(t){inp.value=t.getAttribute('data-try');inp.dispatchEvent(new Event('input'));inp.focus();}});
 
   // ---------- help chat ----------
+  function G(f,n){var a=f.querySelectorAll('[name="'+n+'"]');for(var i=0;i<a.length;i++){var v=(a[i].value||'').trim();if(v)return v;}return '';}
   var fab=document.getElementById('hb-fab'),panel=document.getElementById('hb-panel'),log=document.getElementById('hb-log'),f=document.getElementById('hb-f'),q=document.getElementById('hb-q'),chips=document.getElementById('hb-chips'),chat=document.getElementById('hb-chat'),enq=document.getElementById('hb-enq'),hist=[];
   function toggle(on){panel.hidden=!on;fab.setAttribute('aria-expanded',on);document.getElementById('hb').classList.toggle('on',on);if(on)setTimeout(function(){(enq.hidden?q:enq.querySelector('input')).focus();},40);}
   var tease=document.getElementById('hb-tease'),TK='cac-hb-tease';
@@ -1210,13 +1211,13 @@ const mbar=$('#mbar'),heroEl=$('#hero')||$('.phero');if(mbar&&heroEl){const hero
     log.scrollTop=log.scrollHeight;}
   f.addEventListener('submit',function(e){e.preventDefault();send(q.value);});
   chips.addEventListener('click',function(e){if(e.target.tagName==='BUTTON')send(e.target.textContent);});
-  function team(on){chat.hidden=on;enq.hidden=!on;if(on){var last=hist.filter(function(m){return m.role==='user';}).map(function(m){return m.content;}).pop();if(last&&!enq.message.value)enq.message.value=last;enq.name.focus();}else q.focus();}
+  function team(on){chat.hidden=on;enq.hidden=!on;if(on){var last=hist.filter(function(m){return m.role==='user';}).map(function(m){return m.content;}).pop();if(last&&!G(enq,'message'))enq.message.value=last;enq.name.focus();}else q.focus();}
   document.getElementById('hb-team').onclick=function(){team(true);};document.getElementById('hb-back').onclick=function(){team(false);};
   log.addEventListener('click',function(e){if(e.target.closest('[data-team]'))team(true);});
   enq.addEventListener('submit',async function(e){e.preventDefault();var m=enq.querySelector('.hb-msg'),btn=enq.querySelector('[type=submit]');
-    if(!enq.name.value.trim()||!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(enq.email.value.trim())||enq.message.value.trim().length<5){m.textContent='Please add your name, a valid email and a message.';return;}
+    if(!G(enq,'name')||!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(G(enq,'email'))||G(enq,'message').length<5){m.textContent='Please add your name, a valid email and a message.';return;}
     btn.disabled=true;m.textContent='Sending…';
-    try{var r=await fetch('/api/enquiry',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:enq.name.value,email:enq.email.value,topic:enq.topic.value,message:enq.message.value,cc_hp:enq.cc_hp.value,page:location.pathname})});var j=await r.json().catch(function(){return{};});
+    try{var r=await fetch('/api/enquiry',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:G(enq,'name'),email:G(enq,'email'),topic:G(enq,'topic'),message:G(enq,'message'),cc_hp:G(enq,'cc_hp'),page:location.pathname})});var j=await r.json().catch(function(){return{};});
       if(!r.ok)throw new Error(j.error||'Sorry, that didn\'t send. Please try again.');
       enq.innerHTML='<div class="hb-sent"><strong>Thanks, message sent.</strong><p>We\'ll reply to you by email, usually within a day or two.</p><button type="button" class="btn ghost small" id="hb-done">Back to questions</button></div>';
       document.getElementById('hb-done').onclick=function(){location.reload();};}

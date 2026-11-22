@@ -63,11 +63,11 @@ function contactSection(body) {
         <button class="btn red" type="submit">Send message ${ARROW}</button>
         <p class="ct-msg" role="status"></p>
       </form>
-      <script>(function(){var f=document.getElementById('ctf');var t=new URLSearchParams(location.search).get('topic');if(t&&f.topic.querySelector('option[value="'+t+'"]'))f.topic.value=t;
+      <script>(function(){function G(f,n){var a=f.querySelectorAll('[name="'+n+'"]');for(var i=0;i<a.length;i++){var v=(a[i].value||'').trim();if(v)return v;}return '';}var f=document.getElementById('ctf');var t=new URLSearchParams(location.search).get('topic');if(t&&f.topic.querySelector('option[value="'+t+'"]'))f.topic.value=t;
         f.addEventListener('submit',async function(e){e.preventDefault();var m=f.querySelector('.ct-msg'),b=f.querySelector('[type=submit]');
-          if(!f.name.value.trim()||!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(f.email.value.trim())||f.message.value.trim().length<5){m.textContent='Please add your name, a valid email address and a message.';m.className='ct-msg bad';return;}
+          var miss=!G(f,'name')?'Please add your name.':!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(G(f,'email'))?'Please check your email address.':G(f,'message').length<5?'Please add a message (at least a few words).':'';if(miss){m.textContent=miss;m.className='ct-msg bad';return;}
           b.disabled=true;m.className='ct-msg';m.textContent='Sending…';
-          try{var r=await fetch('/api/enquiry',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:f.name.value,email:f.email.value,topic:f.topic.value,message:f.message.value,cc_hp:f.cc_hp.value,page:'/contact'})});var j=await r.json().catch(function(){return{};});
+          try{var r=await fetch('/api/enquiry',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:G(f,'name'),email:G(f,'email'),topic:G(f,'topic'),message:G(f,'message'),cc_hp:G(f,'cc_hp'),page:'/contact'})});var j=await r.json().catch(function(){return{};});
             if(!r.ok)throw new Error(j.error||'Sorry, that didn\\'t send. Please try again.');
             f.outerHTML='<div class="ct-sent"><h3>Thanks, your message is on its way.</h3><p>We\\'ll reply by email, usually within a day or two.</p></div>';}
           catch(err){m.textContent=err.message;m.className='ct-msg bad';b.disabled=false;}});})();</script>
