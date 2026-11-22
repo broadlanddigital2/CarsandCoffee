@@ -60,9 +60,14 @@ export function richField(id, value, esc, opts = {}) {
       <span class="rte-sep"></span>
       ${B("undo", SVG('<path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/>'), "Undo")}${B("redo", SVG('<path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/>'), "Redo")}
       ${B("removeFormat", SVG('<path d="M6 4h12M10 4 7 20M14 4l-1.5 7M4 20l16-16" />'), "Clear formatting")}
+      ${opts.ai ? `<span class="rte-sep"></span><button type="button" class="btn btn-sm rte-ai" data-ai="${opts.ai}" title="Write with AI">✦ Write with AI</button>` : ""}
       <span class="ms-auto rte-words small text-body-secondary"></span>
     </div>
     <div class="rte-pop" hidden><input class="form-control form-control-sm" placeholder="Paste a web address, e.g. /events or https://…"><button type="button" class="btn btn-sm btn-primary" data-pop-ok>Add link</button><button type="button" class="btn btn-sm btn-outline-secondary" data-pop-cancel>Cancel</button></div>
+    ${opts.ai ? `<div class="rte-pop rte-aipop" hidden><input class="form-control form-control-sm" data-brief placeholder="Anything to include? e.g. mention the monthly breakfast meet (optional)" aria-label="Instructions for the AI">
+      <select class="form-select form-select-sm" data-mode aria-label="Where to put it"><option value="replace">Replace the text</option><option value="append">Add to the end</option></select>
+      <button type="button" class="btn btn-sm btn-primary" data-ai-go>Write it</button><button type="button" class="btn btn-sm btn-outline-secondary" data-ai-cancel>Cancel</button>
+      <span class="small text-body-secondary w-100">AI drafts can be wrong. Check facts and fill in anything in [square brackets] before saving.</span></div>` : ""}
     <div class="rte-pop rte-alt" hidden><input class="form-control form-control-sm" data-alt placeholder="Describe the photo (for people who can't see it)" aria-label="Photo description"><input class="form-control form-control-sm" data-cap placeholder="Caption (optional, shown under the photo)" aria-label="Photo caption"><button type="button" class="btn btn-sm btn-primary" data-alt-ok>Save</button><button type="button" class="btn btn-sm btn-outline-danger" data-img-rm>Remove photo</button></div>
     <div class="rte-area form-control" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Write-up" id="${id}_area">${cleanHTML(value || "") || "<p><br></p>"}</div>
     <input type="hidden" id="${id}" value="${esc(value || "")}">
@@ -70,10 +75,10 @@ export function richField(id, value, esc, opts = {}) {
   </div>`;
 }
 
-export function wireRich(root, { upload, onChange }) {
+export function wireRich(root, { upload, onChange, ai }) {
   for (const box of root.querySelectorAll("[data-rte]")) {
     const area = box.querySelector(".rte-area"), hidden = box.querySelector('input[type="hidden"]');
-    const [linkPop, altPop] = box.querySelectorAll(".rte-pop");
+    const linkPop = box.querySelector(".rte-pop:not(.rte-alt):not(.rte-aipop)"), altPop = box.querySelector(".rte-alt"), aiPop = box.querySelector(".rte-aipop");
     const blockSel = box.querySelector(".rte-block"), words = box.querySelector(".rte-words");
     let saved = null, lastImg = null;
     try { document.execCommand("defaultParagraphSeparator", false, "p"); } catch {}
@@ -134,6 +139,28 @@ export function wireRich(root, { upload, onChange }) {
     };
     altPop.querySelector("[data-img-rm]").onclick = () => { if (lastImg) (lastImg.closest("figure") || lastImg).remove(); lastImg = null; altPop.hidden = true; sync(); };
     for (const inp of altPop.querySelectorAll("input")) inp.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); altPop.querySelector("[data-alt-ok]").click(); } };
+    const aiBtn = box.querySelector("[data-ai]");
+    if (aiBtn && aiPop && ai) {
+      aiBtn.onclick = () => { aiPop.hidden = !aiPop.hidden; aiPop.querySelector("[data-mode]").value = area.innerText.trim() ? "replace" : "replace"; if (!aiPop.hidden) aiPop.querySelector("[data-brief]").focus(); };
+      aiPop.querySelector("[data-ai-cancel]").onclick = () => { aiPop.hidden = true; };
+      const go = async () => {
+        const btn = aiPop.querySelector("[data-ai-go]"); const mode = aiPop.querySelector("[data-mode]").value;
+        btn.disabled = true; aiBtn.disabled = true; const label = aiBtn.textContent; aiBtn.textContent = "✦ Writing…"; box.classList.add("rte-busy");
+        try {
+          const html = cleanHTML(await ai(aiBtn.dataset.ai, aiPop.querySelector("[data-brief]").value.trim()));
+          if (!html) throw new Error("The AI didn't return any text. Try again.");
+          const before = area.innerHTML;
+          if (mode === "replace") area.innerHTML = html; else area.insertAdjacentHTML("beforeend", html);
+          aiPop.hidden = true; sync();
+          const u = document.createElement("button"); u.type = "button"; u.className = "btn btn-link btn-sm p-0 ms-2 rte-undo"; u.textContent = "Undo AI text";
+          u.onclick = () => { area.innerHTML = before; sync(); u.remove(); };
+          box.querySelectorAll(".rte-undo").forEach((x) => x.remove()); words.after(u); setTimeout(() => u.remove(), 120000);
+        } catch (err) { words.textContent = err.message || "AI failed"; }
+        finally { btn.disabled = false; aiBtn.disabled = false; aiBtn.textContent = label; box.classList.remove("rte-busy"); }
+      };
+      aiPop.querySelector("[data-ai-go]").onclick = go;
+      aiPop.querySelector("[data-brief]").onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); go(); } };
+    }
     const fi = box.querySelector("[data-rteimg]");
     fi.addEventListener("mousedown", keep);
     fi.onchange = async () => {

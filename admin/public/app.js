@@ -1,6 +1,6 @@
 // Cars and Coffee admin (admin.carsandcoffee.uk): website pages and SEO, Google Ads landing pages, homepage content, and club moderation.
 // Plain ES modules, no build step. CoreUI provides the styling. Data: "Cars and Coffee Community" Supabase project.
-import { analyse, slugify, labelType, LIMITS, utmUrl, md } from "/seo.js";
+import { analyse, slugify, labelType, LIMITS, MIN_WORDS, utmUrl, md } from "/seo.js";
 import { richField, wireRich, cleanHTML } from "/editor.js";
 
 const SUPABASE_URL = "https://auth.carsandcoffee.uk";
@@ -231,6 +231,38 @@ route("/", async () => {
 const statusBadge = (s) => `<span class="badge ${{ published: "text-bg-success", draft: "text-bg-secondary", review: "text-bg-warning", archived: "text-bg-light border" }[s] || "text-bg-light"}">${esc({ published: "Live", draft: "Draft", review: "In review", archived: "Archived" }[s] || s)}</span>`;
 const scoreBadge = (n) => n == null ? "" : `<span class="badge ${n >= 80 ? "text-bg-success" : n >= 55 ? "text-bg-warning" : "text-bg-danger"}" title="SEO score">SEO ${n}</span>`;
 
+// ---------- AI writing help (admin Worker /api/generate) ----------
+async function aiCall(field, context, brief = "") {
+  if (MOCK) { await new Promise((r) => setTimeout(r, 300));
+    if (["body", "scene", "getting_car", "getting_nocar"].includes(field)) return { html: `<h2>Sample AI section</h2><p>This is sample AI text about ${esc(context.place || context.title || "the page")} with the keyword ${esc(context.focus_keyword || "")}.</p><ul><li>First point</li><li>Second point</li></ul>` };
+    if (field === "faqs") return { faqs: [["Are meets free?", "Most breakfast meets are free; just RSVP."], ["Can I bring my car?", "Yes, all cars are welcome."]] };
+    return { options: [1, 2, 3].map((i) => `${context.focus_keyword || context.title || "Sample"} suggestion ${i}`) }; }
+  const { data: { session } } = await sb.auth.getSession();
+  const r = await fetch("/api/generate", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token || ""}` }, body: JSON.stringify({ field, context, brief }) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || "AI request failed");
+  return j;
+}
+const aiBtn = (field, target, label = "Suggest") => `<button type="button" class="btn btn-link btn-sm ai-btn p-0 ms-2" data-ai-field="${field}" data-ai-target="${target}">✦ ${label}</button>`;
+// Shows AI options under a field; clicking one fills it in.
+function wireAiSuggest(root, getCtx) {
+  root.addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-ai-field]"); if (!b) return;
+    e.preventDefault();
+    const field = b.dataset.aiField, target = $("#" + b.dataset.aiTarget, root) || $("#" + b.dataset.aiTarget);
+    let box = root.querySelector(`.ai-sugg[data-for="${b.dataset.aiTarget}"]`);
+    if (!box) { box = document.createElement("div"); box.className = "ai-sugg"; box.dataset.for = b.dataset.aiTarget; (target.closest(".input-group") || target).insertAdjacentElement("afterend", box); }
+    const old = b.textContent; b.textContent = "✦ Thinking…"; b.disabled = true;
+    try {
+      const res = await aiCall(field, getCtx());
+      const opts = res.options || [];
+      box.innerHTML = `<div class="small text-body-secondary mb-1">Pick one to use it (you can edit it after):</div>` + opts.map((o, i) => `<button type="button" class="ai-opt" data-i="${i}">${esc(o)}${["meta_title", "meta_description"].includes(field) ? ` <span class="ai-len">${o.length}</span>` : ""}</button>`).join("") + `<button type="button" class="btn btn-link btn-sm p-0 ai-close">Close</button>`;
+      box.onclick = (ev) => { const o = ev.target.closest(".ai-opt"); if (o) { target.value = opts[+o.dataset.i]; target.dispatchEvent(new Event("input", { bubbles: true })); box.remove(); } if (ev.target.closest(".ai-close")) box.remove(); };
+    } catch (err) { box.innerHTML = `<div class="small text-danger">${esc(err.message)}</div>`; }
+    finally { b.textContent = old; b.disabled = false; }
+  });
+}
+
 // ---------- SEO scoring shared by the page editor, content editors and the Marketing overview ----------
 const htmlText = (h) => String(h || "").replace(/<\/(p|h[1-6]|li|blockquote)>/gi, "\n\n").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&#39;|&rsquo;/g, "'").replace(/[ \t]+/g, " ").trim();
 const htmlHeadings = (h) => [...String(h || "").matchAll(/<h([23])[^>]*>([\s\S]*?)<\/h\1>/gi)].map((m) => "#".repeat(+m[1]) + " " + htmlText(m[2])).join("\n\n");
@@ -369,9 +401,9 @@ route("/pages/:id", async ({ id }) => {
           <div class="col-md-6 loc-only"><label class="form-label" for="county">County</label><select class="form-select" id="county"><option value="">Choose…</option>${["Norfolk", "Suffolk", "Cambridgeshire", "Essex"].map((c) => `<option ${c === p.county ? "selected" : ""}>${c}</option>`).join("")}</select></div>
           <div class="col-md-6 loc-only"><label class="form-label" for="town">Town or area</label><input class="form-control" id="town" value="${esc(p.town || "")}" placeholder="e.g. Norwich"></div>
           <div class="col-12"><label class="form-label" for="h1">Main heading (H1)</label><input class="form-control" id="h1" maxlength="120" value="${esc(p.h1 || "")}" placeholder="Leave blank to use the page name"></div>
-          <div class="col-12"><label class="form-label" for="intro">Opening paragraph</label><textarea class="form-control" id="intro" rows="3" placeholder="One or two sentences that answer the search straight away. Use the focus keyword.">${esc(p.intro || "")}</textarea></div>
+          <div class="col-12"><label class="form-label" for="intro">Opening paragraph ${aiBtn("intro", "intro")}</label><textarea class="form-control" id="intro" rows="3" placeholder="One or two sentences that answer the search straight away. Use the focus keyword.">${esc(p.intro || "")}</textarea></div>
           <div class="col-12"><label class="form-label d-flex justify-content-between" for="body_html_area"><span>Page content</span><span class="small text-body-secondary" id="wc"></span></label>
-            ${richField("body_html", p.body_html || (p.body_md ? md(p.body_md) : ""), esc)}</div>
+            ${richField("body_html", p.body_html || (p.body_md ? md(p.body_md) : ""), esc, { ai: "body" })}</div>
         </div></div></div>
       <div class="card mb-4"><div class="card-header bg-white fw-semibold">Image and call to action</div><div class="card-body"><div class="row g-3">
         <div class="col-12"><label class="form-label" for="hero_image_path">Main image</label>${imageInput("hero_image_path", p.hero_image_path || "")}</div>
@@ -389,18 +421,18 @@ route("/pages/:id", async ({ id }) => {
         <div class="place-only">
           <label class="form-label">At a glance <span class="small text-body-secondary">(up to 4 facts: a short value and what it means)</span></label>
           ${[0, 1, 2, 3].map((i) => `<div class="row g-2 mb-2"><div class="col-5"><input class="form-control" data-stat-n="${i}" value="${esc(lc.stats?.[i]?.[0] || "")}" placeholder="${["Monthly", "About 10 miles", "About 25 miles", "Free"][i]}"></div><div class="col-7"><input class="form-control" data-stat-l="${i}" value="${esc(lc.stats?.[i]?.[1] || "")}" placeholder="${["Breakfast meet", "To Lotus at Hethel", "To Snetterton Circuit", "Morning meets"][i]}"></div></div>`).join("")}
-          <div class="mb-3 mt-3"><label class="form-label" for="lc_scene_area">The local car scene</label>${richField("lc_scene", lc.scene_html || (lc.scene || []).map((x) => `<p>${esc(x)}</p>`).join(""), esc)}</div>
+          <div class="mb-3 mt-3"><label class="form-label" for="lc_scene_area">The local car scene</label>${richField("lc_scene", lc.scene_html || (lc.scene || []).map((x) => `<p>${esc(x)}</p>`).join(""), esc, { ai: "scene" })}</div>
           <div class="mb-3"><label class="form-label" for="lc_interests">Popular interests here <span class="small text-body-secondary">(comma separated, e.g. Classic cars, Track days)</span></label><input class="form-control" id="lc_interests" value="${esc((lc.interests || []).join(", "))}"></div>
           <label class="form-label">Best drives <span class="small text-body-secondary">(up to 4)</span></label>
           <div id="drives">${[0, 1, 2, 3].map((i) => { const d = lc.drives?.[i] || {}; return `<div class="border rounded p-3 mb-2" data-drive="${i}"><div class="row g-2"><div class="col-md-6"><input class="form-control" data-dk="title" value="${esc(d.title || "")}" placeholder="Route name, e.g. North Norfolk coast"></div><div class="col-md-6"><input class="form-control" data-dk="distance" value="${esc(d.distance || "")}" placeholder="About 25 miles"></div>
             <div class="col-12"><input class="form-control" data-dk="text" value="${esc(d.text || "")}" placeholder="One line about the route"></div><div class="col-12">${imageInput("drive_img_" + i, d.image || "")}</div></div></div>`; }).join("")}</div>
           <div class="mb-3 mt-3"><label class="form-label" for="lc_more">More places to link <span class="small text-body-secondary">(comma separated; town pages that exist are shown as cards automatically)</span></label><textarea class="form-control" id="lc_more" rows="2">${esc((lc.more_places || []).join(", "))}</textarea></div>
-          <div class="row g-3 mb-3"><div class="col-lg-6"><label class="form-label" for="lc_car_area">Getting around by car</label>${richField("lc_car", lc.getting_there?.car_html || (lc.getting_there?.car ? `<p>${esc(lc.getting_there.car)}</p>` : ""), esc, { compact: true })}</div>
-            <div class="col-lg-6"><label class="form-label" for="lc_nocar_area">Getting around without a car</label>${richField("lc_nocar", lc.getting_there?.no_car_html || (lc.getting_there?.no_car ? `<p>${esc(lc.getting_there.no_car)}</p>` : ""), esc, { compact: true })}</div></div>
+          <div class="row g-3 mb-3"><div class="col-lg-6"><label class="form-label" for="lc_car_area">Getting around by car</label>${richField("lc_car", lc.getting_there?.car_html || (lc.getting_there?.car ? `<p>${esc(lc.getting_there.car)}</p>` : ""), esc, { compact: true, ai: "getting_car" })}</div>
+            <div class="col-lg-6"><label class="form-label" for="lc_nocar_area">Getting around without a car</label>${richField("lc_nocar", lc.getting_there?.no_car_html || (lc.getting_there?.no_car ? `<p>${esc(lc.getting_there.no_car)}</p>` : ""), esc, { compact: true, ai: "getting_nocar" })}</div></div>
         </div>
         <label class="form-label">Frequently asked questions</label>
         <div id="faqs">${(lc.faqs?.length ? lc.faqs : [["", ""]]).map(([qq, a]) => faqRow(qq, a)).join("")}</div>
-        <button class="btn btn-sm btn-outline-secondary" type="button" id="addfaq">Add a question</button>
+        <button class="btn btn-sm btn-outline-secondary" type="button" id="addfaq">Add a question</button> <button class="btn btn-sm btn-outline-primary" type="button" id="aifaq">✦ Suggest FAQs with AI</button>
       </div></div>
       <div class="card mb-4 ads-only"><div class="card-header bg-white fw-semibold">Google Ads</div><div class="card-body">
         <p class="small text-body-secondary">Write the ads for this page here so the page and ad copy match. Copy them into Google Ads when you set up the campaign.</p>
@@ -409,8 +441,8 @@ route("/pages/:id", async ({ id }) => {
           <div class="col-md-6"><label class="form-label" for="ad_group">Ad group</label><input class="form-control" id="ad_group" value="${esc(a.ad_group || "")}" placeholder="e.g. Norwich"></div>
           <div class="col-12"><label class="form-label" for="ad_keywords">Keywords <span class="text-body-secondary small">(one per line)</span></label><textarea class="form-control code" id="ad_keywords" rows="4" placeholder="car meets norwich&#10;&quot;cars and coffee norfolk&quot;&#10;[car shows near me]">${esc((a.keywords || []).join("\n"))}</textarea></div>
         </div>
-        <label class="form-label">Headlines <span class="text-body-secondary small">(3 to 15, max 30 characters)</span></label>${adRows(a.headlines, 15, LIMITS.adHeadline, "headlines", "Headline")}
-        <label class="form-label mt-3">Descriptions <span class="text-body-secondary small">(2 to 4, max 90 characters)</span></label>${adRows(a.descriptions, 4, LIMITS.adDescription, "descriptions", "Description")}
+        <label class="form-label">Headlines <span class="text-body-secondary small">(3 to 15, max 30 characters)</span> <button type="button" class="btn btn-link btn-sm p-0 ms-2" id="aiheads">✦ Fill empty with AI</button></label>${adRows(a.headlines, 15, LIMITS.adHeadline, "headlines", "Headline")}
+        <label class="form-label mt-3">Descriptions <span class="text-body-secondary small">(2 to 4, max 90 characters)</span> <button type="button" class="btn btn-link btn-sm p-0 ms-2" id="aidescs">✦ Fill empty with AI</button></label>${adRows(a.descriptions, 4, LIMITS.adDescription, "descriptions", "Description")}
         <div class="row g-3 mt-1">
           <div class="col-md-6"><label class="form-label" for="ad_path1">Display path</label><div class="input-group"><span class="input-group-text">carsandcoffee.uk/</span><input class="form-control" id="ad_path1" maxlength="15" value="${esc(a.path1 || "")}" placeholder="car-meets"><span class="input-group-text">/</span><input class="form-control" id="ad_path2" maxlength="15" value="${esc(a.path2 || "")}" placeholder="norwich"></div></div>
           <div class="col-md-2"><label class="form-label" for="utm_source">Source</label><input class="form-control" id="utm_source" value="${esc(a.utm_source || "google")}"></div>
@@ -425,8 +457,8 @@ route("/pages/:id", async ({ id }) => {
       <div class="card mb-4"><div class="card-header bg-white fw-semibold">SEO optimiser</div><div class="card-body">
         <div class="mb-3"><label class="form-label" for="focus_keyword">Focus keyword</label><input class="form-control" id="focus_keyword" value="${esc(p.focus_keyword || "")}" placeholder="e.g. car meets norwich"></div>
         <div class="mb-3"><label class="form-label" for="secondary_keywords">Other keywords <span class="text-body-secondary small">(comma separated)</span></label><input class="form-control" id="secondary_keywords" value="${esc((p.secondary_keywords || []).join(", "))}" placeholder="cars and coffee norwich, norfolk car shows"></div>
-        <div class="mb-3"><label class="form-label d-flex justify-content-between" for="meta_title"><span>SEO title</span><span class="count" id="c_mt"></span></label><input class="form-control" id="meta_title" maxlength="90" value="${esc(p.meta_title || "")}" placeholder="Car Meets in Norwich | Cars and Coffee UK"></div>
-        <div class="mb-3"><label class="form-label d-flex justify-content-between" for="meta_description"><span>Meta description</span><span class="count" id="c_md"></span></label><textarea class="form-control" id="meta_description" rows="3" maxlength="220" placeholder="Find car meets in Norwich every month…">${esc(p.meta_description || "")}</textarea></div>
+        <div class="mb-3"><label class="form-label d-flex justify-content-between" for="meta_title"><span>SEO title ${aiBtn("meta_title", "meta_title")}</span><span class="count" id="c_mt"></span></label><input class="form-control" id="meta_title" maxlength="90" value="${esc(p.meta_title || "")}" placeholder="Car Meets in Norwich | Cars and Coffee UK"></div>
+        <div class="mb-3"><label class="form-label d-flex justify-content-between" for="meta_description"><span>Meta description ${aiBtn("meta_description", "meta_description")}</span><span class="count" id="c_md"></span></label><textarea class="form-control" id="meta_description" rows="3" maxlength="220" placeholder="Find car meets in Norwich every month…">${esc(p.meta_description || "")}</textarea></div>
         <label class="form-label">Google preview</label><div class="serp mb-3" id="serp"></div>
         <div class="d-flex align-items-center gap-3 mb-2"><div class="score-ring" id="ring">–</div><div><div class="fw-semibold" id="grade"></div><div class="small text-body-secondary">Updates as you type</div></div></div>
         <ul class="checks" id="checks"></ul>
@@ -445,7 +477,20 @@ route("/pages/:id", async ({ id }) => {
 
   const f = $("#pf");
   wireImageInputs(f);
-  wireRich(f, { upload: uploadSiteImage, onChange: () => { dirty = true; f.dispatchEvent(new Event("input", { bubbles: true })); } });
+  const pageCtx = () => { const d = collect(); return { kind: labelType(d.page_type) + " page", title: d.title, h1: d.h1, focus_keyword: d.focus_keyword, secondary: (d.secondary_keywords || []).join(", "), place: d.town || d.county || "", county: d.county, url: d.path,
+    intro: d.intro, existing: htmlText(richVal("body_html")).slice(0, 3000), words: MIN_WORDS[d.page_type] || 400 }; };
+  wireRich(f, { upload: uploadSiteImage, onChange: () => { dirty = true; f.dispatchEvent(new Event("input", { bubbles: true })); }, ai: async (field, brief) => (await aiCall(field, pageCtx(), brief)).html });
+  wireAiSuggest(f, pageCtx);
+  $("#aifaq").onclick = async (e) => { const b = e.target; b.disabled = true; b.textContent = "✦ Thinking…";
+    try { const { faqs } = await aiCall("faqs", pageCtx()); const blank = $$("[data-faq]").filter((r) => !$("[data-fq]", r).value.trim()); blank.forEach((r) => r.remove());
+      faqs.forEach(([qq, a]) => $("#faqs").insertAdjacentHTML("beforeend", faqRow(qq, a))); dirty = true; f.dispatchEvent(new Event("input", { bubbles: true })); toast(`${faqs.length} questions added. Check and edit them before saving.`); }
+    catch (err) { toast(err.message, true); } finally { b.disabled = false; b.textContent = "✦ Suggest FAQs with AI"; } };
+  const fillAds = (field, name) => async (e) => { const b = e.target; const t = b.textContent; b.disabled = true; b.textContent = "✦ Thinking…";
+    try { const { options } = await aiCall(field, pageCtx()); const max = name === "headlines" ? LIMITS.adHeadline : LIMITS.adDescription; const ok = options.filter((o) => o.length <= max);
+      const empty = $$(`[data-ad="${name}"]`).filter((i) => !i.value.trim()); empty.forEach((i, k) => { if (ok[k]) i.value = ok[k]; }); dirty = true; f.dispatchEvent(new Event("input", { bubbles: true }));
+      toast(ok.length ? `Filled ${Math.min(ok.length, empty.length)} empty ${name}.` : "No suggestions fitted the character limit. Try again.", !ok.length); }
+    catch (err) { toast(err.message, true); } finally { b.disabled = false; b.textContent = t; } };
+  $("#aiheads").onclick = fillAds("ad_headlines", "headlines"); $("#aidescs").onclick = fillAds("ad_descriptions", "descriptions");
   $("#addfaq").onclick = () => { $("#faqs").insertAdjacentHTML("beforeend", faqRow()); dirty = true; };
   $("#faqs").addEventListener("click", (e) => { if (e.target.matches("[data-rmfaq]")) { e.target.closest("[data-faq]").remove(); dirty = true; refresh(); } });
   const val = (id) => $("#" + id)?.value ?? "";
@@ -565,20 +610,20 @@ const CONTENT = {
       F("starts_at", "Starts", "datetime", { required: true }), F("ends_at", "Ends", "datetime", { required: true }), F("venue_id", "Venue (for the map and directions)", "ref", { table: "venues", show: "name" }), F("venue", "Venue name as shown on cards", "text", { required: true }), F("county", "County", "select", { options: ["Norfolk", "Suffolk", "Cambridgeshire", "Essex"] }), F("town", "Town"), F("region", "Region"),
       F("price_pence", "Price (pence, 0 for free)", "number"), F("ticket_status", "Tickets", "select", { options: ["free_rsvp", "on_sale", "selling_fast", "sold_out"] }),
       F("ticket_url", "Booking or RSVP link", "text", { ph: "https://… (leave empty if booking isn't open yet)" }), F("members_only", "Members only", "bool"), F("image_path", "Image", "image"), F("image_alt", "Image description"), F("published", "Published", "bool", { def: true }),
-      F("h_page", "Event page", "heading", { note: "Shown on the event's own page." }), F("summary", "Short summary (one or two sentences, shown at the top)", "textarea"), F("body_html", "Full description", "rich"),
+      F("h_page", "Event page", "heading", { note: "Shown on the event's own page." }), F("summary", "Short summary (one or two sentences, shown at the top)", "textarea", { ai: "summary" }), F("body_html", "Full description", "rich", { ai: "body" }),
       F("schedule", "On the day (one line each, start with the time, e.g. 07:30 Display parking opens)", "lines"), F("what_to_bring", "What to bring (one item per line)", "lines"), F("accessibility", "Access and facilities", "textarea", { ph: "Step-free access, toilets, blue-badge parking…" }),
-      F("h_seo", "Search engines", "heading", { note: "Optional. Left empty, the title and summary are used. The SEO score below updates as you type." }), F("focus_keyword", "Focus keyword", "text", { ph: "e.g. car meet Norfolk" }), F("meta_title", "Google title"), F("meta_description", "Google description", "textarea")] },
+      F("h_seo", "Search engines", "heading", { note: "Optional. Left empty, the title and summary are used. The SEO score below updates as you type." }), F("focus_keyword", "Focus keyword", "text", { ph: "e.g. car meet Norfolk" }), F("meta_title", "Google title", "text", { ai: "meta_title" }), F("meta_description", "Google description", "textarea", { ai: "meta_description" })] },
   articles: { title: "News", order: ["published_at", false], list: ["title", "category", "published_at", "status", "featured"], view: "/news/",
     fields: [F("title", "Headline", "text", { required: true }), F("slug", "Address (slug)", "slug", { from: "title" }), F("category", "Category", "text", { required: true, ph: "Restoration, WEC, Technical…" }), F("author", "Author", "text", { ph: "Cars and Coffee team" }),
-      F("excerpt", "Summary (shown on cards and under the headline)", "textarea"), F("body_html", "Article", "rich"), F("image_path", "Main photo (the header)", "image"), F("image_alt", "Main photo description"),
+      F("excerpt", "Summary (shown on cards and under the headline)", "textarea", { ai: "summary" }), F("body_html", "Article", "rich", { ai: "body" }), F("image_path", "Main photo (the header)", "image"), F("image_alt", "Main photo description"),
       F("gallery", "Photo gallery (shown under the article; visitors can open each photo full screen)", "gallery"), F("read_minutes", "Reading time (minutes)", "number"),
       F("featured", "Featured on the homepage", "bool"), F("status", "Status", "select", { options: ["draft", "published"] }), F("published_at", "Publish date", "date"),
-      F("h_seo", "Search engines", "heading", { note: "Optional. Left empty, the headline and summary are used. The SEO score below updates as you type." }), F("focus_keyword", "Focus keyword", "text", { ph: "e.g. classic car restoration" }), F("meta_title", "Google title"), F("meta_description", "Google description", "textarea")] },
+      F("h_seo", "Search engines", "heading", { note: "Optional. Left empty, the headline and summary are used. The SEO score below updates as you type." }), F("focus_keyword", "Focus keyword", "text", { ph: "e.g. classic car restoration" }), F("meta_title", "Google title", "text", { ai: "meta_title" }), F("meta_description", "Google description", "textarea", { ai: "meta_description" })] },
   guides: { title: "Guides", order: ["sort", true], list: ["title", "slug", "sort", "status"], view: "/guides/",
     help: "Practical guides such as Your first car meet. They appear at /guides and can be linked from any page.",
-    fields: [F("title", "Title", "text", { required: true }), F("slug", "Address (slug)", "slug", { from: "title" }), F("intro", "Introduction (shown under the title)", "textarea"), F("body_html", "Guide", "rich"),
+    fields: [F("title", "Title", "text", { required: true }), F("slug", "Address (slug)", "slug", { from: "title" }), F("intro", "Introduction (shown under the title)", "textarea", { ai: "intro" }), F("body_html", "Guide", "rich", { ai: "body" }),
       F("image_path", "Header image", "image"), F("image_alt", "Image description"), F("read_minutes", "Reading time (minutes)", "number"), F("sort", "Order", "number", { def: 100 }), F("status", "Status", "select", { options: ["draft", "published"] }),
-      F("h_seo", "Search engines", "heading", { note: "Optional. Left empty, the title and introduction are used. The SEO score below updates as you type." }), F("focus_keyword", "Focus keyword", "text", { ph: "e.g. first car meet" }), F("meta_title", "Google title"), F("meta_description", "Google description", "textarea")] },
+      F("h_seo", "Search engines", "heading", { note: "Optional. Left empty, the title and introduction are used. The SEO score below updates as you type." }), F("focus_keyword", "Focus keyword", "text", { ph: "e.g. first car meet" }), F("meta_title", "Google title", "text", { ai: "meta_title" }), F("meta_description", "Google description", "textarea", { ai: "meta_description" })] },
   faqs: { title: "FAQs", idType: "int", order: ["sort", true], list: ["question", "sort", "published"],
     fields: [F("question", "Question", "text", { required: true }), F("answer", "Answer", "textarea", { required: true }), F("sort", "Order", "number"), F("published", "Published", "bool", { def: true })] },
   partners: { title: "Partners", order: ["sort", true], list: ["name", "tagline", "sort", "active"],
@@ -729,7 +774,7 @@ route("/content/:table/:id", async ({ table, id }) => {
       case "readonly": return `<input class="form-control" id="${id}" value="${esc(/_at$/.test(f.name) ? fmtDate(v, true) : v ?? "")}" readonly disabled>`;
       case "bool": return `<div class="form-check form-switch mt-1"><input class="form-check-input" type="checkbox" id="${id}" ${v ? "checked" : ""}><label class="form-check-label" for="${id}">${esc(f.label)}</label></div>`;
       case "textarea": return `<textarea class="form-control" id="${id}" rows="4" ${req}>${esc(v ?? "")}</textarea>`;
-      case "rich": return richField(id, v || (row.body ? md(row.body) : ""), esc);
+      case "rich": return richField(id, v || (row.body ? md(row.body) : ""), esc, f.ai ? { ai: f.ai } : {});
       case "gallery": return galleryField(id, v);
       case "lines": return `<textarea class="form-control" id="${id}" rows="${Math.max(3, (v || []).length + 1)}">${esc((v || []).join("\n"))}</textarea>`;
       case "markdown": return `<textarea class="form-control code" id="${id}" rows="14">${esc(v ?? "")}</textarea>`;
@@ -749,7 +794,7 @@ route("/content/:table/:id", async ({ table, id }) => {
     ${c.help ? `<p class="text-body-secondary">${esc(c.help)}</p>` : ""}
     <div class="card"><div class="card-body"><div class="row g-3">
       ${c.fields.map((f) => f.type === "heading" ? `<div class="col-12 form-section"><h2 class="h5 mb-0">${esc(f.label)}</h2>${f.note ? `<p class="small text-body-secondary mb-0">${esc(f.note)}</p>` : ""}</div>`
-        : `<div class="${["textarea", "markdown", "rich", "lines", "gallery", "readonly_long"].includes(f.type) ? "col-12" : "col-md-6"}">${f.type === "bool" ? "" : `<label class="form-label" for="f_${f.name}${f.type === "rich" ? "_area" : ""}">${esc(f.label)}${f.required ? ' <span class="text-danger">*</span>' : ""}</label>`}${input(f)}</div>`).join("")}
+        : `<div class="${["textarea", "markdown", "rich", "lines", "gallery", "readonly_long"].includes(f.type) ? "col-12" : "col-md-6"}">${f.type === "bool" ? "" : `<label class="form-label" for="f_${f.name}${f.type === "rich" ? "_area" : ""}">${esc(f.label)}${f.required ? ' <span class="text-danger">*</span>' : ""}${f.ai && f.type !== "rich" ? aiBtn(f.ai, "f_" + f.name) : ""}</label>`}${input(f)}</div>`).join("")}
     </div></div></div>
     ${SEO_KINDS[table] ? `<div class="card mt-3" id="seo"><div class="card-body"><div class="row g-4">
       <div class="col-lg-6"><h2 class="h5">SEO score</h2><div class="d-flex align-items-center gap-3 mb-2"><div class="score-ring" id="ring">–</div><div><div class="fw-semibold" id="grade"></div><div class="small text-body-secondary">Updates as you type · <span id="wc"></span></div></div></div>
@@ -762,7 +807,14 @@ route("/content/:table/:id", async ({ table, id }) => {
   if (slugF) $("#f_" + slugF.name).addEventListener("input", (e) => (e.target.dataset.touched = "1"));
   $("#cf").addEventListener("input", () => (dirty = true));
   wireImageInputs($("#cf"));
-  wireRich($("#cf"), { upload: uploadSiteImage, onChange: () => (dirty = true) });
+  const kindLabel = { events: "event page", articles: "news article", guides: "practical guide" }[table] || "page";
+  const contentCtx = () => { const v = (n) => { const el = $("#f_" + n); return el ? el.value : ""; }; const body = $("#f_body_html_area");
+    const facts = table === "events" ? [`Title: ${v("title")}`, `Type: ${v("event_type")}`, v("starts_at") && `Starts: ${new Date(v("starts_at")).toLocaleString("en-GB", { dateStyle: "full", timeStyle: "short" })}`, v("ends_at") && `Ends: ${new Date(v("ends_at")).toLocaleTimeString("en-GB", { timeStyle: "short" })}`, `Venue: ${v("venue")}`, v("town") && `Town: ${v("town")}`, v("county") && `County: ${v("county")}`,
+      `Price: ${Number(v("price_pence")) ? "£" + (Number(v("price_pence")) / 100).toFixed(2) : "Free"}`, v("schedule") && `On the day: ${v("schedule").replace(/\n/g, "; ")}`, v("what_to_bring") && `What to bring: ${v("what_to_bring").replace(/\n/g, "; ")}`, v("accessibility") && `Access: ${v("accessibility")}`].filter(Boolean).join("\n") : "";
+    return { kind: kindLabel, title: v("title"), focus_keyword: v("focus_keyword"), place: v("town") || v("county"), county: v("county"), intro: v("summary") || v("excerpt") || v("intro"), facts, existing: body ? htmlText(body.innerHTML).slice(0, 3000) : "", words: table === "guides" ? 900 : table === "events" ? 250 : 450,
+      url: table === "events" ? `/events/${v("slug")}` : table === "articles" ? `/news/${v("slug")}` : table === "guides" ? `/guides/${v("slug")}` : "" }; };
+  wireRich($("#cf"), { upload: uploadSiteImage, onChange: () => (dirty = true), ai: async (field, brief) => (await aiCall(field, contentCtx(), brief)).html });
+  wireAiSuggest($("#cf"), contentCtx);
   wireGallery($("#cf"));
   if (SEO_KINDS[table]) {
     const cur = () => { const r = { ...row }; for (const f of c.fields) { const el = $("#f_" + f.name); if (!el) continue;
