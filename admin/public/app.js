@@ -105,6 +105,7 @@ function navHTML() {
     ${item("/content/directory_regions", "pin", "Directory areas")}
     ${item("/content/sponsored_slots", "mega", "Sponsored slots")}
     ${item("/content/newsletter_subscribers", "mail", "Newsletter")}
+    ${item("/content/enquiries", "send", "Enquiries")}
     <li class="nav-title">Club</li>
     ${item("/club/applications", "check", "Applications", pend ? `<span class="badge text-bg-danger">${pend}</span>` : "")}
     ${item("/club/moderation", "faq", "Moderation", state.stats?.reports_open ? `<span class="badge text-bg-danger">${state.stats.reports_open}</span>` : "")}
@@ -546,6 +547,10 @@ const CONTENT = {
   directory_regions: { title: "Directory areas", idType: "int", order: ["sort", true], list: ["name", "slug", "sort"],
     help: "The “Browse by region” links in the directory block.",
     fields: [F("name", "Area", "text", { required: true }), F("slug", "Slug", "slug", { from: "name" }), F("sort", "Order", "number")] },
+  enquiries: { title: "Enquiries", order: ["created_at", false], list: ["name", "topic", "created_at", "status"], noCreate: true, csv: false,
+    help: "Messages sent from the website's help chat. Admins also get each one by email. Reply by email, then mark it as replied.",
+    fields: [F("name", "Name", "readonly"), F("email", "Email", "readonly"), F("topic", "About", "readonly"), F("page", "Sent from page", "readonly"), F("created_at", "Received", "readonly"),
+      F("message", "Message", "readonly_long"), F("status", "Status", "select", { options: ["new", "replied", "closed"] }), F("notes", "Team notes (not shared)", "textarea")] },
   newsletter_subscribers: { title: "Newsletter", order: ["created_at", false], list: ["email", "source", "created_at", "unsubscribed_at"], noCreate: true, csv: true,
     fields: [F("email", "Email", "readonly"), F("source", "Signed up from", "readonly"), F("created_at", "Signed up", "readonly"), F("consent_text", "Agreed to", "readonly"), F("unsubscribed_at", "Unsubscribed", "datetime")] },
 };
@@ -646,6 +651,7 @@ route("/content/:table/:id", async ({ table, id }) => {
   const input = (f) => {
     const v = row[f.name]; const id = "f_" + f.name; const req = f.required ? "required" : "";
     switch (f.type) {
+      case "readonly_long": return `<div class="form-control readonly-long">${esc(v ?? "").replace(/\n/g, "<br>")}</div>${row.email ? `<a class="btn btn-sm btn-primary mt-2" href="mailto:${esc(row.email)}?subject=${encodeURIComponent("Re: your message to Cars and Coffee UK")}">Reply by email</a>` : ""}`;
       case "readonly": return `<input class="form-control" id="${id}" value="${esc(/_at$/.test(f.name) ? fmtDate(v, true) : v ?? "")}" readonly disabled>`;
       case "bool": return `<div class="form-check form-switch mt-1"><input class="form-check-input" type="checkbox" id="${id}" ${v ? "checked" : ""}><label class="form-check-label" for="${id}">${esc(f.label)}</label></div>`;
       case "textarea": return `<textarea class="form-control" id="${id}" rows="4" ${req}>${esc(v ?? "")}</textarea>`;
@@ -669,7 +675,7 @@ route("/content/:table/:id", async ({ table, id }) => {
     ${c.help ? `<p class="text-body-secondary">${esc(c.help)}</p>` : ""}
     <div class="card"><div class="card-body"><div class="row g-3">
       ${c.fields.map((f) => f.type === "heading" ? `<div class="col-12 form-section"><h2 class="h5 mb-0">${esc(f.label)}</h2>${f.note ? `<p class="small text-body-secondary mb-0">${esc(f.note)}</p>` : ""}</div>`
-        : `<div class="${["textarea", "markdown", "rich", "lines", "gallery"].includes(f.type) ? "col-12" : "col-md-6"}">${f.type === "bool" ? "" : `<label class="form-label" for="f_${f.name}${f.type === "rich" ? "_area" : ""}">${esc(f.label)}${f.required ? ' <span class="text-danger">*</span>' : ""}</label>`}${input(f)}</div>`).join("")}
+        : `<div class="${["textarea", "markdown", "rich", "lines", "gallery", "readonly_long"].includes(f.type) ? "col-12" : "col-md-6"}">${f.type === "bool" ? "" : `<label class="form-label" for="f_${f.name}${f.type === "rich" ? "_area" : ""}">${esc(f.label)}${f.required ? ' <span class="text-danger">*</span>' : ""}</label>`}${input(f)}</div>`).join("")}
     </div></div></div>
     ${!isNew && !c.noDelete ? `<button class="btn btn-sm btn-outline-danger mt-3" type="button" id="del">Delete</button>` : ""}</form>`;
   const slugF = c.fields.find((f) => f.type === "slug");
@@ -696,7 +702,7 @@ route("/content/:table/:id", async ({ table, id }) => {
     e.preventDefault();
     const out = {};
     for (const f of c.fields) {
-      if (f.type === "readonly" || f.type === "heading") continue;
+      if (f.type === "readonly" || f.type === "readonly_long" || f.type === "heading") continue;
       const el = $("#f_" + f.name); let v;
       if (f.type === "bool") v = el.checked;
       else if (f.type === "number") v = el.value === "" ? null : Number(el.value);

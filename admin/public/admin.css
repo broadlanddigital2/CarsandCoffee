@@ -152,3 +152,4 @@ h1, h2, h3, .h4, .h5 { color: #1d130f; }
 .galf-empty{padding:16px;border:1px dashed #cbbcad;border-radius:10px;color:#6b5a50;text-align:center;background:#fffaf3}
 .rte-area figure{margin:.8em 0}.rte-area figcaption{font-size:.9rem;color:#6b5a50;font-style:italic}
 @media (max-width:640px){.galf-item{grid-template-columns:72px 1fr}.galf-item img{width:72px;height:56px}.galf-btns{grid-column:1/-1}}
+.readonly-long{white-space:normal;background:#faf6f1;min-height:80px}

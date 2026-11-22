@@ -6,6 +6,7 @@
 import { loadHome, renderHome } from "./home.js";
 import { loadPage, renderLocation } from "./pages.js";
 import { loadContent, renderContent, sitemap } from "./content.js";
+import { handleAssist } from "./assist.js";
 
 const FRESH_SECONDS = 60;       // how long a rendered homepage is reused
 const STALE_SECONDS = 86400;    // how long the last good copy is kept as a fallback
@@ -23,6 +24,7 @@ export default {
     if (/^\/(events|news|guides)(\/[a-z0-9-]+(\.ics)?)?\/?$/.test(url.pathname) && (request.method === "GET" || request.method === "HEAD")) {
       return contentPage(request, env, ctx, url, true);
     }
+    if (url.pathname.startsWith("/api/")) return handleAssist(request, env, url);
     if (url.pathname === "/sitemap.xml") {
       try { return new Response(await sitemap(), { headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=3600" } }); }
       catch { return env.ASSETS.fetch(request); }

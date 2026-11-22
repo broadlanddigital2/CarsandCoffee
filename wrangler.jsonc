@@ -17,5 +17,7 @@
     { "pattern": "carsandcoffee.uk", "custom_domain": true }
   ],
   "workers_dev": true,
+  // Workers AI: powers "Ask Cars and Coffee" (header search and the help chat). See src/assist.js.
+  "ai": { "binding": "AI" },
   "rules": [{ "type": "Text", "globs": ["**/*.html"], "fallthrough": true }]
 }

@@ -311,7 +311,7 @@ footer{background:var(--esp);color:var(--cream);padding:48px 0 24px}
 }
 @media(max-width:600px){
  body{font-size:16px}
- .top .wrap{height:78px}.logo{width:54px}.drawer.open{top:78px}.tools .ico.search{display:none}
+ .top .wrap{height:78px}.logo{width:54px}.drawer.open{top:78px}
  .hero picture img{height:auto;aspect-ratio:487/352}
  .hero:after{display:none}
  .hero .wrap{position:static;padding-top:22px;padding-bottom:26px;background:var(--esp)}
@@ -552,6 +552,56 @@ a.lp-card:hover{border-color:var(--red)}
 .near .tw-msg{color:#f6ece0}.near .tw-msg a{color:#fff}.near .tw input{border-color:transparent}
 .tf-search .tw-msg{color:var(--red)}
 @media (max-width:520px){.tw-row{flex-direction:column}.tw .btn{width:100%;justify-content:center}}
+/* header search */
+.tools .ico.search{background:none;border:0;cursor:pointer;color:inherit;padding:0;display:inline-grid;place-items:center}
+.srch{border:0;padding:0;background:transparent;width:min(760px,calc(100vw - 24px));max-width:none;max-height:none;margin:9vh auto 0;color:var(--ink)}
+.srch::backdrop{background:rgba(20,13,10,.6);backdrop-filter:blur(3px)}
+.srch-in{background:var(--paper);border-radius:16px;box-shadow:0 30px 80px rgba(0,0,0,.35);overflow:hidden;display:flex;flex-direction:column;max-height:78vh}
+.srch-f{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line)}.srch-f svg{width:22px;height:22px;flex:0 0 22px;color:var(--soft)}
+.srch-f input{flex:1;min-width:0;border:0;background:transparent;font:inherit;font-size:19px;color:var(--ink);padding:8px 0;outline:none}.srch-f input::-webkit-search-cancel-button{display:none}
+.srch-x{font:inherit;font-size:12px;font-weight:700;border:1px solid var(--line);background:var(--bg);color:var(--soft);border-radius:6px;padding:4px 8px;cursor:pointer}
+.srch-body{overflow:auto;padding:10px 12px 16px}
+.srch-ask{display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-size:16px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:10px;padding:12px 14px;cursor:pointer;margin:4px 0 8px}
+.srch-ask:hover,.srch-ask:focus-visible{border-color:var(--red);outline:none}.srch-ask span:nth-child(2){flex:1}.srch-go{color:var(--soft)}
+.srch-spark{color:var(--red);font-size:18px}
+.srch-body h3{font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:var(--red);margin:14px 6px 6px;font-weight:800}
+.srch-body ul{list-style:none;margin:0;padding:0}.srch-body li a{display:block;padding:10px 12px;border-radius:8px;color:inherit;text-decoration:none}.srch-body li a:hover,.srch-body li a:focus-visible{background:var(--bg);outline:none}
+.srch-body li strong{display:block;font-size:16px}.srch-body li span{display:block;font-size:14px;color:var(--soft);margin-top:2px}
+.srch-none{color:var(--soft);padding:8px 12px}
+.srch-hint{padding:8px 8px 4px;color:var(--soft);font-size:15px}.srch-hint button{font:inherit;font-size:14px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:4px 12px;margin:3px 2px;cursor:pointer}.srch-hint button:hover{border-color:var(--red)}
+.srch-ai{background:linear-gradient(180deg,rgba(192,13,13,.06),transparent);border:1px solid rgba(192,13,13,.25);border-radius:12px;padding:14px 16px;margin:4px 0 10px;font-size:16px;line-height:1.55}
+.srch-ai-h{font-size:12px;text-transform:uppercase;letter-spacing:.1em;font-weight:800;color:var(--red);margin-bottom:6px}.srch-ai p{margin:0 0 8px}.srch-ai ul{margin:0 0 8px;padding-left:20px;list-style:disc}.srch-ai li{padding:0}
+.srch-ai a{color:var(--red);text-decoration:underline;font-weight:600}.srch-think{color:var(--soft)}.srch-src,.srch-disc{font-size:13px;color:var(--soft)}.srch-src a{color:inherit}
+@media (max-width:640px){.srch{margin:0;width:100vw;height:100dvh}.srch-in{border-radius:0;max-height:100dvh;height:100%}}
+/* help chat */
+.hb{position:fixed;right:18px;bottom:18px;z-index:55;font:15px/1.5 Inter,Arial,sans-serif}
+body:has(.mbar.show) .hb{bottom:84px}
+.hb-fab{display:flex;align-items:center;gap:8px;background:var(--red);color:#fff;border:0;border-radius:999px;padding:12px 18px 12px 14px;font:inherit;font-weight:800;cursor:pointer;box-shadow:0 10px 28px rgba(192,13,13,.35)}
+.hb-fab svg{width:22px;height:22px}.hb-fab:hover{transform:translateY(-2px)}.hb.on .hb-fab{display:none}
+.hb-panel{width:min(370px,calc(100vw - 24px));height:min(560px,calc(100dvh - 110px));background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,.3);display:flex;flex-direction:column;overflow:hidden}
+.hb-panel[hidden]{display:none}
+.hb-head{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--esp);color:#fff;padding:14px 16px}.hb-head strong{display:block;font-family:Anton,Impact,sans-serif;font-weight:400;text-transform:uppercase;font-size:20px;letter-spacing:.02em}.hb-head span{font-size:13px;color:#d9c9b8}
+.hb-close{background:rgba(255,255,255,.12);border:0;color:#fff;width:34px;height:34px;border-radius:50%;font-size:22px;line-height:1;cursor:pointer}
+.hb-chat{display:flex;flex-direction:column;flex:1;min-height:0}.hb-chat[hidden]{display:none}
+.hb-log{flex:1;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
+.hb-m{max-width:88%;padding:10px 13px;border-radius:14px;font-size:15px}.hb-m p{margin:0 0 6px}.hb-m p:last-child{margin:0}.hb-m ul{margin:4px 0 6px;padding-left:18px}
+.hb-m.bot{background:var(--bg);border:1px solid var(--line);border-bottom-left-radius:4px;align-self:flex-start}.hb-m.me{background:var(--red);color:#fff;border-bottom-right-radius:4px;align-self:flex-end}
+.hb-m a{color:var(--red);font-weight:700;text-decoration:underline}.hb-more{font-size:13px;color:var(--soft)}
+.hb-link{background:none;border:0;padding:0;font:inherit;color:var(--red);font-weight:700;text-decoration:underline;cursor:pointer}
+.hb-m.typing span{display:inline-block;width:7px;height:7px;margin:0 2px;border-radius:50%;background:var(--soft);animation:hbdot 1s infinite}.hb-m.typing span:nth-child(2){animation-delay:.15s}.hb-m.typing span:nth-child(3){animation-delay:.3s}
+@keyframes hbdot{0%,80%,100%{opacity:.25}40%{opacity:1}}
+.hb-chips{display:flex;flex-wrap:wrap;gap:6px;padding:0 14px 10px}.hb-chips[hidden]{display:none}.hb-chips button{font:inherit;font-size:13px;font-weight:600;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:6px 11px;cursor:pointer}.hb-chips button:hover{border-color:var(--red)}
+.hb-f{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--line)}.hb-f input{flex:1;min-width:0;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#fff;color:#241712}.hb-f .btn{min-height:44px;padding:8px 14px}
+.hb-team{background:none;border:0;border-top:1px solid var(--line);font:inherit;font-size:14px;color:var(--soft);padding:10px;cursor:pointer}.hb-team strong{color:var(--red)}
+.hb-enq{padding:14px 16px;overflow:auto;flex:1;display:grid;gap:10px;align-content:start}.hb-enq[hidden]{display:none}
+.hb-enq label{display:grid;gap:4px;font-size:13px;font-weight:700}.hb-enq input,.hb-enq select,.hb-enq textarea{font:inherit;font-size:16px;font-weight:400;border:1px solid var(--line);border-radius:8px;padding:9px 11px;background:#fff;color:#241712}
+.hb-enq-t{margin:0;font-size:14px;color:var(--soft)}.hb-small{margin:0;font-size:12px;color:var(--soft)}.hb-small a{color:inherit;text-decoration:underline}
+.hb-hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+.hb-row{display:flex;justify-content:space-between;gap:8px}.hb-msg{margin:0;font-size:14px;color:var(--red);min-height:1em}
+.hb-sent{text-align:center;padding:30px 10px}.hb-sent strong{display:block;font-size:18px;margin-bottom:6px}
+.hb-foot{margin:0;padding:6px 12px 8px;font-size:11px;color:var(--soft);text-align:center;border-top:1px solid var(--line)}
+@media (max-width:520px){.hb{right:12px;bottom:12px}.hb-fab span{display:none}.hb-fab{padding:14px}.hb.on{left:12px;right:12px}.hb-panel{width:100%;height:calc(100dvh - 90px)}}
+@media print{.hb,.srch{display:none}}
 @media (max-width:980px){.ep-grid,.guide-grid{grid-template-columns:1fr;gap:28px}.ep-card,.guide-toc{position:static}.ep-card{order:-1}.news-grid{grid-template-columns:1fr 1fr}.news-lead{grid-template-columns:1fr}.ep-venue{grid-template-columns:1fr}}
 @media (max-width:640px){.news-grid,.ep-two{grid-template-columns:1fr}.ep-first{flex-direction:column;align-items:flex-start}.news-lead img{min-height:200px}.ep-lead{font-size:19px}}
 @media (max-width:860px){.lp-stats{grid-template-columns:1fr 1fr}.lp-split,.lp-split.eq{grid-template-columns:1fr}.lp-drives,.lp-cards{grid-template-columns:1fr}.phero{min-height:380px}}
@@ -578,7 +628,7 @@ a.lp-card:hover{border-color:var(--red)}
 </svg></a>
 <nav class="nav" aria-label="Main"><a href="/events">Events</a><a href="/news">News</a><a href="https://club.carsandcoffee.uk/">Community</a><a href="/shop">Shop</a><a href="/directory">Directory</a><a href="/partners">Partners</a><a href="/advertise">Advertise</a></nav>
 <div class="tools">
-<a class="ico search" href="/search" aria-label="Search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg></a>
+<button class="ico search" type="button" id="srch-open" aria-label="Search the site" aria-haspopup="dialog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg></button>
 <a class="signin" href="https://club.carsandcoffee.uk/sign-in">Sign in</a>
 <a class="btn red" href="https://club.carsandcoffee.uk/apply">Join</a>
 <button class="ico burger" type="button" aria-expanded="false" aria-controls="drawer" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
@@ -938,6 +988,104 @@ $('#nl')&&$('#nl').addEventListener('submit',async ev=>{ev.preventDefault();cons
 const mbar=$('#mbar'),heroEl=$('#hero')||$('.phero');if(mbar&&heroEl){const heroObs=new IntersectionObserver(([e])=>mbar.classList.toggle('show',!e.isIntersecting));heroObs.observe(heroEl);}
 
 }
+</script>
+
+<!-- Site search (header) -->
+<dialog class="srch" id="srch" aria-label="Search Cars and Coffee">
+<div class="srch-in">
+<form class="srch-f" id="srch-f" role="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="m20 20-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+<input id="srch-q" type="search" placeholder="Search events, towns, guides, news…" autocomplete="off" aria-label="Search" maxlength="120"><button type="button" class="srch-x" id="srch-x" aria-label="Close search">Esc</button></form>
+<div class="srch-body" id="srch-body">
+<div class="srch-ai" id="srch-ai" hidden></div>
+<div id="srch-res" role="region" aria-live="polite"></div>
+<div class="srch-hint" id="srch-hint"><p><strong>Try:</strong> <button type="button" data-try="breakfast meet">breakfast meet</button> <button type="button" data-try="Norwich">Norwich</button> <button type="button" data-try="first car meet">first car meet</button> <button type="button" data-try="detailing">detailing</button></p>
+<p>Or ask a question, like <button type="button" data-ask="When is the next meet and is it free?">When is the next meet and is it free?</button></p></div>
+</div></div></dialog>
+
+<!-- Help chat -->
+<div class="hb" id="hb">
+<button class="hb-fab" id="hb-fab" type="button" aria-expanded="false" aria-controls="hb-panel"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 10h8M8 13h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Questions?</span></button>
+<section class="hb-panel" id="hb-panel" role="dialog" aria-label="Help and enquiries" hidden>
+<header class="hb-head"><div><strong>Cars and Coffee</strong><span>Ask a question or message the team</span></div><button type="button" class="hb-close" id="hb-close" aria-label="Close">×</button></header>
+<div class="hb-chat" id="hb-chat">
+<div class="hb-log" id="hb-log" aria-live="polite"><div class="hb-m bot"><p>Hi! I can help with meets, tickets, the club and anything on this site. What would you like to know?</p></div></div>
+<div class="hb-chips" id="hb-chips"><button type="button">When's the next meet?</button><button type="button">Are meets free?</button><button type="button">Can I bring my car?</button><button type="button">How do I join the club?</button></div>
+<form class="hb-f" id="hb-f"><input id="hb-q" placeholder="Type your question…" autocomplete="off" maxlength="400" aria-label="Your question"><button class="btn red" type="submit" aria-label="Send">Send</button></form>
+<button type="button" class="hb-team" id="hb-team">Prefer a person? <strong>Send us a message</strong></button>
+</div>
+<form class="hb-enq" id="hb-enq" hidden novalidate>
+<p class="hb-enq-t">Send a message to the team. We usually reply within a day or two.</p>
+<label>Your name<input name="name" autocomplete="name" required maxlength="120"></label>
+<label>Email<input name="email" type="email" autocomplete="email" required maxlength="200"></label>
+<label>About<select name="topic"><option value="general">General question</option><option value="events">Events and tickets</option><option value="club">The members' club</option><option value="directory">Business directory</option><option value="advertising">Advertising and partners</option><option value="other">Something else</option></select></label>
+<label>Message<textarea name="message" rows="4" required maxlength="4000"></textarea></label>
+<label class="hb-hp" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off"></label>
+<p class="hb-small">We'll only use your details to reply. See our <a href="/privacy">privacy policy</a>.</p>
+<div class="hb-row"><button type="button" class="btn ghost small" id="hb-back">Back</button><button class="btn red" type="submit">Send message</button></div>
+<p class="hb-msg" role="status"></p>
+</form>
+<p class="hb-foot">Answers are written by AI from our website and may not be perfect. Check event pages for final details.</p>
+</section></div>
+<script>
+(function(){
+  var esc=function(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});};
+  // tiny, safe markdown: links (site paths or https), **bold**, lists, paragraphs
+  function md(t){var lines=esc(t).split(/\n+/),out='',inList=false;
+    lines.forEach(function(l){var li=/^\s*[-*•]\s+/.test(l)||/^\s*\d+\.\s+/.test(l);l=l.replace(/^\s*([-*•]|\d+\.)\s+/,'');
+      l=l.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\[([^\]]+)\]\(((?:\/|https:\/\/)[^\s)]*)\)/g,function(m,a,h){var ext=/^https:/.test(h)&&!/carsandcoffee\.uk/.test(h);return '<a href="'+h+'"'+(ext?' target="_blank" rel="noopener"':'')+'>'+a+'</a>';});
+      if(li){if(!inList){out+='<ul>';inList=true;}out+='<li>'+l+'</li>';}else{if(inList){out+='</ul>';inList=false;}if(l.trim())out+='<p>'+l+'</p>';}});
+    return out+(inList?'</ul>':'');}
+  async function askAI(q,history){var r=await fetch('/api/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({q:q,history:history||[]})});var j=await r.json().catch(function(){return{};});if(!r.ok||!j.answer)throw new Error(j.error||'Sorry, something went wrong.');return j;}
+  window.CACask=askAI;
+
+  // ---------- header search ----------
+  var d=document.getElementById('srch'),open=document.getElementById('srch-open'),inp=document.getElementById('srch-q'),res=document.getElementById('srch-res'),ai=document.getElementById('srch-ai'),hint=document.getElementById('srch-hint'),timer,last='',ctl;
+  function show(){if(!d)return;d.showModal?d.showModal():d.setAttribute('open','');setTimeout(function(){inp.focus();inp.select();},30);}
+  function hide(){d.close?d.close():d.removeAttribute('open');}
+  if(open)open.addEventListener('click',show);
+  document.addEventListener('keydown',function(e){if(e.key==='/'&&!/input|textarea|select/i.test((document.activeElement||{}).tagName||'')&&!(d&&d.open)){e.preventDefault();show();}if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();show();}});
+  document.getElementById('srch-x').onclick=hide;
+  d.addEventListener('click',function(e){if(e.target===d)hide();});
+  function aiRow(q){return '<button type="button" class="srch-ask" data-ask="'+esc(q)+'"><span class="srch-spark" aria-hidden="true">✦</span><span><strong>Ask AI:</strong> '+esc(q)+'</span><span class="srch-go" aria-hidden="true">↵</span></button>';}
+  function render(q,list){if(!q){res.innerHTML='';hint.hidden=false;return;}hint.hidden=true;
+    var html=aiRow(q);
+    if(list&&list.length){var groups={};list.forEach(function(r){(groups[r.type]=groups[r.type]||[]).push(r);});
+      Object.keys(groups).forEach(function(g){html+='<h3>'+esc(g)+'</h3><ul>'+groups[g].map(function(r){return '<li><a href="'+esc(r.url)+'"><strong>'+esc(r.title)+'</strong>'+(r.text?'<span>'+esc(r.text)+'</span>':'')+'</a></li>';}).join('')+'</ul>';});}
+    else if(list)html+='<p class="srch-none">No pages match “'+esc(q)+'” yet. Try Ask AI above, or a different word.</p>';
+    res.innerHTML=html;}
+  inp.addEventListener('input',function(){var q=inp.value.trim();clearTimeout(timer);ai.hidden=true;if(!q){render('');return;}render(q,null);
+    timer=setTimeout(async function(){if(q===last)return;last=q;try{if(ctl)ctl.abort();ctl=new AbortController();var r=await fetch('/api/search?q='+encodeURIComponent(q),{signal:ctl.signal});var j=await r.json();if(inp.value.trim()===q)render(q,j.results||[]);}catch(e){}},180);});
+  async function doAsk(q){if(!q)return;inp.value=q;ai.hidden=false;ai.innerHTML='<div class="srch-ai-h"><span class="srch-spark">✦</span> AI answer</div><p class="srch-think">Thinking…</p>';
+    try{var j=await askAI(q);ai.innerHTML='<div class="srch-ai-h"><span class="srch-spark">✦</span> AI answer</div>'+md(j.answer)+(j.sources&&j.sources.length?'<p class="srch-src">From: '+j.sources.map(function(s){return '<a href="'+esc(s.url)+'">'+esc(s.title)+'</a>';}).join(' · ')+'</p>':'')+'<p class="srch-disc">AI answers can be wrong. Check event pages for final details.</p>';}
+    catch(e){ai.innerHTML='<p class="srch-think">'+esc(e.message)+'</p>';}
+    if(!last||last!==q){last='';inp.dispatchEvent(new Event('input'));}}
+  document.getElementById('srch-f').addEventListener('submit',function(e){e.preventDefault();var q=inp.value.trim();if(!q)return;var a=res.querySelector('a');if(/\?$|^(what|when|where|how|can|is|are|do|does|who|why)\b/i.test(q)||!a)doAsk(q);else location.href=a.getAttribute('href');});
+  d.addEventListener('click',function(e){var b=e.target.closest('[data-ask]');if(b){doAsk(b.getAttribute('data-ask'));return;}var t=e.target.closest('[data-try]');if(t){inp.value=t.getAttribute('data-try');inp.dispatchEvent(new Event('input'));inp.focus();}});
+
+  // ---------- help chat ----------
+  var fab=document.getElementById('hb-fab'),panel=document.getElementById('hb-panel'),log=document.getElementById('hb-log'),f=document.getElementById('hb-f'),q=document.getElementById('hb-q'),chips=document.getElementById('hb-chips'),chat=document.getElementById('hb-chat'),enq=document.getElementById('hb-enq'),hist=[];
+  function toggle(on){panel.hidden=!on;fab.setAttribute('aria-expanded',on);document.getElementById('hb').classList.toggle('on',on);if(on)setTimeout(function(){(enq.hidden?q:enq.querySelector('input')).focus();},40);}
+  fab.onclick=function(){toggle(panel.hidden);};document.getElementById('hb-close').onclick=function(){toggle(false);fab.focus();};
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!panel.hidden)toggle(false);});
+  function add(role,html){var m=document.createElement('div');m.className='hb-m '+role;m.innerHTML=html;log.appendChild(m);log.scrollTop=log.scrollHeight;return m;}
+  async function send(text){text=String(text||'').trim();if(!text)return;chips.hidden=true;add('me','<p>'+esc(text)+'</p>');q.value='';var w=add('bot typing','<p><span></span><span></span><span></span></p>');
+    try{var j=await askAI(text,hist);w.className='hb-m bot';w.innerHTML=md(j.answer)+'<p class="hb-more">Not what you needed? <button type="button" class="hb-link" data-team>Send us a message</button></p>';hist.push({role:'user',content:text},{role:'assistant',content:j.answer});hist=hist.slice(-6);}
+    catch(e){w.className='hb-m bot';w.innerHTML='<p>'+esc(e.message)+'</p><p><button type="button" class="hb-link" data-team>Send the team a message instead</button></p>';}
+    log.scrollTop=log.scrollHeight;}
+  f.addEventListener('submit',function(e){e.preventDefault();send(q.value);});
+  chips.addEventListener('click',function(e){if(e.target.tagName==='BUTTON')send(e.target.textContent);});
+  function team(on){chat.hidden=on;enq.hidden=!on;if(on){var last=hist.filter(function(m){return m.role==='user';}).map(function(m){return m.content;}).pop();if(last&&!enq.message.value)enq.message.value=last;enq.name.focus();}else q.focus();}
+  document.getElementById('hb-team').onclick=function(){team(true);};document.getElementById('hb-back').onclick=function(){team(false);};
+  log.addEventListener('click',function(e){if(e.target.closest('[data-team]'))team(true);});
+  enq.addEventListener('submit',async function(e){e.preventDefault();var m=enq.querySelector('.hb-msg'),btn=enq.querySelector('[type=submit]');
+    if(!enq.name.value.trim()||!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(enq.email.value.trim())||enq.message.value.trim().length<5){m.textContent='Please add your name, a valid email and a message.';return;}
+    btn.disabled=true;m.textContent='Sending…';
+    try{var r=await fetch('/api/enquiry',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:enq.name.value,email:enq.email.value,topic:enq.topic.value,message:enq.message.value,website:enq.website.value,page:location.pathname})});var j=await r.json().catch(function(){return{};});
+      if(!r.ok)throw new Error(j.error||'Sorry, that didn\'t send. Please try again.');
+      enq.innerHTML='<div class="hb-sent"><strong>Thanks, message sent.</strong><p>We\'ll reply to you by email, usually within a day or two.</p><button type="button" class="btn ghost small" id="hb-done">Back to questions</button></div>';
+      document.getElementById('hb-done').onclick=function(){location.reload();};}
+    catch(err){m.textContent=err.message;btn.disabled=false;}});
+})();
 </script>
 </body>
 </html>

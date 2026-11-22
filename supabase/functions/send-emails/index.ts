@@ -42,7 +42,7 @@ function layout(preheader: string, body: string, footerNote = "") {
 </td></tr></table></td></tr></table></body></html>`;
 }
 
-function render(t: string, d: Record<string, unknown>): { subject: string; html: string; text: string } | null {
+function render(t: string, d: Record<string, unknown>): { subject: string; html: string; text: string; replyTo?: string } | null {
   switch (t) {
     case "member_invite": {
       const who = s(d.inviter_name) || "A member";
@@ -100,6 +100,19 @@ function render(t: string, d: Record<string, unknown>): { subject: string; html:
           `<p>Good news: <strong>${esc(s(d.friend_first_name) || "your mate")}</strong>, who you recommended, has been approved and is now a member. You're connected as friends.</p>${button(`${CLUB}/home`, "Say hello")}`),
         text: `${s(d.friend_first_name) || "Your mate"}, who you recommended, is now a member. ${CLUB}/home`,
       };
+    case "team_new_enquiry": {
+      const topic = s(d.topic) || "general";
+      return {
+        subject: `Website enquiry (${topic}): ${s(d.name)}`,
+        html: layout(`New enquiry from ${s(d.name)}.`,
+          `<p><strong>${esc(d.name)}</strong> (<a href="mailto:${esc(d.email)}">${esc(d.email)}</a>) sent an enquiry about <strong>${esc(topic)}</strong>${s(d.page) ? ` from ${esc(d.page)}` : ""}:</p>
+          <blockquote style="margin:16px 0;padding:12px 16px;border-left:4px solid #c00d0d;background:#faf3ea;white-space:pre-wrap">${esc(d.message)}</blockquote>
+          <p>Reply to them directly at <a href="mailto:${esc(d.email)}">${esc(d.email)}</a>.</p>${button("https://admin.carsandcoffee.uk/content/enquiries", "Open enquiries in admin")}`,
+          "You're getting this because you're an admin of Cars and Coffee UK."),
+        text: `New enquiry from ${s(d.name)} <${s(d.email)}> about ${topic}:\n\n${s(d.message)}\n\nhttps://admin.carsandcoffee.uk/content/enquiries`,
+        replyTo: s(d.email),
+      };
+    }
     case "team_new_application":
       return {
         subject: `${d.fast_track ? "[Fast-track] " : ""}New application: ${s(d.applicant)}`,
@@ -131,6 +144,7 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           personalizations: [{ to: [{ email: r.to_email }] }],
           from: FROM,
+          ...(msg.replyTo && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(msg.replyTo) ? { reply_to: { email: msg.replyTo } } : {}),
           subject: msg.subject,
           content: [{ type: "text/plain", value: msg.text }, { type: "text/html", value: msg.html }],
           categories: ["club", r.template],
