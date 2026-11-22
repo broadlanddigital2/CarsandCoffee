@@ -1,5 +1,5 @@
 // Cars and Coffee UK website Worker.
-// - Redirects the bare domain to www.
+// - Redirects www to the bare domain (carsandcoffee.uk).
 // - Builds the homepage from the database (see home.js), cached for 60 seconds, so changes in admin.carsandcoffee.uk go live within a minute.
 //   If the database can't be reached it serves the last good copy, or the static public/index.html.
 // - Everything else is served from ./public.
