@@ -1,4 +1,4 @@
-// Cars and Coffee Club – Phase 1a: sign in, apply, status, welcome, recommend a mate, admin queue.
+// Cars and Coffee Club: sign in, apply, approval, feed, hubs, garage, profiles, friends, recommend a mate, team queue.
 // Plain ES modules, no build step. Data lives in the "Cars and Coffee Community" Supabase project.
 
 const SUPABASE_URL = "https://auth.carsandcoffee.uk";
@@ -48,6 +48,7 @@ const REAPPLY_DAYS = 90;
 
 // ---------- helpers ----------
 const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const app = $("#app");
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const first = (name) => esc(String(name || "").trim().split(/\s+/)[0] || "there");
@@ -99,7 +100,7 @@ function nav() {
   if (!state.session) { n.innerHTML = `<a href="/sign-in" data-link>Sign in</a>`; return; }
   const here = location.pathname;
   const link = (p, t) => `<a href="${p}" data-link class="${here === p ? "on" : ""}">${t}</a>`;
-  n.innerHTML = (state.profile?.status === "approved" ? link("/home", "Home") + link("/garage", "Garage") + link("/friends", "Friends") + link("/recommend", "Invite a mate") : "")
+  n.innerHTML = (state.profile?.status === "approved" ? link("/feed", "Feed") + link("/hubs", "Hubs") + link("/garage", "Garage") + link("/friends", "Friends") + link("/recommend", "Invite") + link("/home", "Profile") : "")
     + (isTeam() ? link("/admin", "Team") : "")
     + `<button type="button" id="signout">Sign out</button>`;
   $("#signout").onclick = async () => { await sb.auth.signOut(); toast("Signed out"); go("/", true); };
@@ -109,7 +110,7 @@ function nav() {
 function homeFor() {
   const p = state.profile;
   if (!p) return "/apply";
-  if (p.status === "approved") return "/home";
+  if (p.status === "approved") return "/feed";
   if (!state.application) return p.status === "banned" ? "/status" : "/apply";
   return "/status";
 }
@@ -131,8 +132,8 @@ async function render() {
 }
 
 // Back link at the top of every page except the landing page and members' home.
-const NO_BACK = ["/", "/home", "/auth/callback"];
-const PARENT = { "/invite": "/recommend", "/recommend": "/home", "/admin": "/home", "/garage": "/home", "/friends": "/home", "/garage/new": "/garage" };
+const NO_BACK = ["/", "/home", "/feed", "/hubs", "/auth/callback"];
+const PARENT = { "/feed": "/feed", "/invite": "/recommend", "/recommend": "/home", "/admin": "/home", "/garage": "/home", "/friends": "/home", "/garage/new": "/garage" };
 function addBack(path) {
   if (NO_BACK.includes(path) || $(".backbar", app)) return;
   const fallback = PARENT[path] || (state.profile?.status === "approved" ? "/home" : "/");
@@ -362,8 +363,8 @@ route("/home", async () => {
         <div class="panel"><h3>Coming to the club</h3><ul class="soon">
           <li><span><a href="/garage" data-link>Your garage</a></span><span class="badge ok">New</span></li>
           <li><span><a href="/friends" data-link>Friends</a></span><span class="badge ok">New</span></li>
-          <li><span>Members' feed and posts</span><span class="badge">Soon</span></li>
-          <li><span>Motorsport, car and local hubs</span><span class="badge">Soon</span></li>
+          <li><span><a href="/feed" data-link>Members' feed and posts</a></span><span class="badge ok">New</span></li>
+          <li><span><a href="/hubs" data-link>Motorsport, car and local hubs</a></span><span class="badge ok">New</span></li>
           <li><span>The Forecourt and Parts Bin</span><span class="badge">Soon</span></li>
         </ul></div>
       </div>
@@ -680,6 +681,271 @@ route("/friends", async () => {
     if (r.error) { b.disabled = false; return toast(r.error.message); }
     toast(b.dataset.acc ? "You're now friends" : "Done"); render();
   };
+});
+
+
+// ---------- feed ----------
+const ago = (d) => { const m = Math.round((Date.now() - new Date(d)) / 6e4); if (m < 1) return "just now"; if (m < 60) return `${m}m`; if (m < 1440) return `${Math.round(m / 60)}h`; if (m < 10080) return `${Math.round(m / 1440)}d`; return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short" }); };
+const linkify = (t) => esc(t).replace(/(https?:\/\/[^\s<]+[^\s<.,;:!?)\]'"])/g, '<a href="$1" target="_blank" rel="noopener nofollow ugc">$1</a>').replace(/\n/g, "<br>");
+const ytId = (u) => (String(u || "").match(/(?:v=|youtu\.be\/|shorts\/)([A-Za-z0-9_-]{6,})/) || [])[1];
+const REASONS = { spam: "Spam or advertising", abuse: "Abusive or hateful", unsafe: "Dangerous driving or unsafe", illegal: "Illegal", privacy: "Shares someone's private details or number plate", other: "Something else" };
+let HUB_LIST = null;
+async function hubsList() { if (!HUB_LIST) { const { data } = await sb.rpc("get_hubs"); HUB_LIST = data || []; } return HUB_LIST; }
+const HUB_CATS = { motorsport: "Motorsport", car_interests: "Car interests", activities: "Activities", local: "Local" };
+
+function postHTML(p, opts = {}) {
+  const who = p.author_name || (p.author_handle ? "@" + p.author_handle : "Member");
+  const profile = p.author_handle ? `/u/${esc(p.author_handle)}` : null;
+  const ph = p.photo_paths || [], yt = ytId(p.video_url);
+  return `<article class="post${p.status === "hidden" ? " hidden-post" : ""}" data-post="${p.id}">
+    <header class="phead">${profile ? `<a class="avatar" href="${profile}" data-link>${avatarHTML({ avatar_path: p.author_avatar, display_name: who }, 40)}</a>` : `<span class="avatar">${avatarHTML({ display_name: who }, 40)}</span>`}
+      <div class="pmeta"><strong>${profile ? `<a href="${profile}" data-link>${esc(who)}</a>` : esc(who)}</strong>
+        <span class="muted small">${p.hub_slug && !opts.inHub ? `in <a href="/hubs/${esc(p.hub_slug)}" data-link>${esc(p.hub_name)}</a> · ` : ""}<a href="/post/${p.id}" data-link class="muted">${ago(p.created_at)}</a>${p.edited_at ? " · edited" : ""}${p.visibility === "friends" ? " · friends only" : ""}${p.pinned ? ` · <span class="badge fast">Pinned</span>` : ""}</span></div>
+      <div class="pmenu"><button type="button" class="dots" data-menu aria-label="Post options" aria-expanded="false">⋯</button>
+        <div class="menu" hidden>${p.is_mine ? `<button type="button" data-edit>Edit</button><button type="button" data-del>Delete</button>` : `<button type="button" data-report>Report</button>`}${isTeam() ? `<button type="button" data-pin>${p.pinned ? "Unpin" : "Pin in hub"}</button><button type="button" data-hide>${p.status === "hidden" ? "Restore" : "Hide (team)"}</button>` : ""}<button type="button" data-copy>Copy link</button></div></div>
+    </header>
+    ${p.status === "hidden" ? `<p class="notice small">Hidden by the team. Only you and the team can see this.</p>` : ""}
+    ${p.body ? `<div class="pbody">${linkify(p.body)}</div>` : ""}
+    ${p.car_id && p.car_name && p.author_handle ? `<a class="carlink" href="/u/${esc(p.author_handle)}/car/${p.car_id}" data-link>🚗 ${esc(p.car_name)}</a>` : ""}
+    ${ph.length ? `<div class="pphotos n${Math.min(ph.length, 4)}">${ph.slice(0, 4).map((k, i) => `<button type="button" class="pph" data-view="${i}">${i === 3 && ph.length > 4 ? `<span class="more">+${ph.length - 4}</span>` : ""}<img src="${esc(mediaUrl(k))}" alt="Photo ${i + 1}${p.car_name ? " of " + esc(p.car_name) : ""}" loading="lazy"></button>`).join("")}</div>` : ""}
+    ${yt ? `<div class="pvideo"><iframe src="https://www.youtube-nocookie.com/embed/${yt}" title="YouTube video" loading="lazy" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>` : ""}
+    <footer class="pfoot"><button type="button" class="pact${p.liked ? " on" : ""}" data-like aria-pressed="${p.liked}">${p.liked ? "♥" : "♡"} <span>${p.like_count || ""}</span> Like</button>
+      <button type="button" class="pact" data-comments>💬 <span>${p.comment_count || ""}</span> Comment</button></footer>
+    <div class="pcomments" hidden></div>
+  </article>`;
+}
+
+function composerHTML(hubs, opts = {}) {
+  return `<form class="panel composer" id="composer" novalidate>
+    <div class="crow"><span class="avatar">${avatarHTML(state.profile, 40)}</span><textarea id="cbody" maxlength="5000" rows="2" placeholder="${opts.hub ? `Share something in ${esc(opts.hubName)}…` : "Share a photo, a build update or a question…"}"></textarea></div>
+    <div class="cphotos" id="cphotos"></div>
+    <div class="copts" id="copts" hidden>
+      <label class="f small">YouTube link <small>(optional)</small><input type="text" id="cvideo" placeholder="https://youtu.be/…"></label>
+      <div class="row3">
+        <label class="f">Hub<select id="chub"><option value="">No hub (everyone)</option>${Object.entries(HUB_CATS).map(([k, v]) => `<optgroup label="${v}">${hubs.filter((h) => h.category === k).map((h) => `<option value="${h.id}" ${opts.hub === h.slug ? "selected" : ""}>${esc(h.name)}</option>`).join("")}</optgroup>`).join("")}</select></label>
+        <label class="f">About one of your cars<select id="ccar"><option value="">No car</option></select></label>
+        <label class="f">Who can see it<select id="cvis"><option value="members">All members</option><option value="friends">Friends only</option></select></label></div>
+    </div>
+    <div class="cbar"><label class="btn ghost small" style="cursor:pointer">📷 Photos<input type="file" id="cfile" accept="image/*" multiple hidden></label>
+      <button type="button" class="btn ghost small" id="cmore">More options</button><span class="muted small" id="cmsg"></span>
+      <button class="btn red small" type="submit" id="cpost" style="margin-left:auto">Post</button></div>
+  </form>`;
+}
+
+function wireComposer(onPosted, hubs) {
+  const f = $("#composer"); if (!f) return;
+  let photos = [];
+  const draw = () => { $("#cphotos").innerHTML = photos.map((k, i) => `<div class="ph"><img src="${esc(mediaUrl(k))}" alt=""><button type="button" data-rmph="${i}" aria-label="Remove photo">&times;</button></div>`).join(""); };
+  const open = () => { $("#copts").hidden = false; $("#cmore").hidden = true; };
+  $("#cbody").addEventListener("focus", () => { $("#cbody").rows = 4; }, { once: true });
+  $("#cmore").onclick = async () => {
+    open();
+    const { data: cars } = await sb.from("garage_cars").select("id,make,model,year,nickname").eq("owner_id", state.profile.id).order("sort");
+    $("#ccar").innerHTML = `<option value="">No car</option>` + (cars || []).map((c) => `<option value="${c.id}">${esc(carName(c))}</option>`).join("");
+  };
+  $("#cphotos").onclick = (e) => { const b = e.target.closest("[data-rmph]"); if (b) { deletePhoto(photos.splice(Number(b.dataset.rmph), 1)[0]); draw(); } };
+  $("#cfile").onchange = async (e) => {
+    const files = [...e.target.files].slice(0, 10 - photos.length); e.target.value = "";
+    for (const [n, file] of files.entries()) {
+      $("#cmsg").textContent = `Uploading ${n + 1} of ${files.length}…`;
+      try { const up = await uploadPhoto(file); photos.push(up.key); draw(); } catch (err) { $("#cmsg").textContent = err.message; return; }
+    }
+    $("#cmsg").textContent = "";
+  };
+  f.onsubmit = async (e) => {
+    e.preventDefault();
+    const body = $("#cbody").value.trim(), video = $("#cvideo").value.trim();
+    if (!body && !photos.length && !video) { $("#cmsg").textContent = "Write something or add a photo."; return; }
+    if (video && !ytId(video)) { open(); $("#cmsg").textContent = "That doesn't look like a YouTube link."; return; }
+    $("#cpost").disabled = true; $("#cmsg").textContent = "Posting…";
+    const row = { author_id: state.profile.id, body, photo_paths: photos, video_url: video ? `https://youtu.be/${ytId(video)}` : null,
+      hub_id: $("#chub").value || null, car_id: $("#ccar").value || null, visibility: $("#cvis").value };
+    const { error } = await sb.from("posts").insert(row);
+    $("#cpost").disabled = false;
+    if (error) { $("#cmsg").textContent = /a lot today/.test(error.message) ? error.message : "We couldn't post that. Please try again."; return; }
+    toast("Posted"); onPosted();
+  };
+}
+
+function wirePosts(container, reload) {
+  container.onclick = async (e) => {
+    const art = e.target.closest("[data-post]"); if (!art) return;
+    const id = art.dataset.post, t = e.target;
+    const menu = art.querySelector(".menu");
+    if (t.closest("[data-menu]")) { const open = menu.hidden; $$(".menu").forEach((m) => (m.hidden = true)); menu.hidden = !open; t.closest("[data-menu]").setAttribute("aria-expanded", open); return; }
+    if (t.closest("[data-like]")) {
+      const b = t.closest("[data-like]"), on = b.getAttribute("aria-pressed") !== "true", span = b.querySelector("span");
+      const n = Number(span.textContent || 0) + (on ? 1 : -1);
+      b.setAttribute("aria-pressed", on); b.classList.toggle("on", on); b.firstChild.textContent = on ? "♥ " : "♡ "; span.textContent = n || "";
+      const { error } = on ? await sb.from("post_likes").insert({ post_id: id, user_id: state.profile.id }) : await sb.from("post_likes").delete().eq("post_id", id).eq("user_id", state.profile.id);
+      if (error && !/duplicate/i.test(error.message)) toast("Couldn't save that like");
+      return;
+    }
+    if (t.closest("[data-comments]")) { const box = art.querySelector(".pcomments"); box.hidden = !box.hidden; if (!box.hidden) loadComments(id, box, art); return; }
+    if (t.closest("[data-view]")) { openViewer(art, Number(t.closest("[data-view]").dataset.view)); return; }
+    if (t.closest("[data-copy]")) { try { await navigator.clipboard.writeText(`${location.origin}/post/${id}`); toast("Link copied"); } catch {} menu.hidden = true; return; }
+    if (t.closest("[data-del]")) {
+      const b = t.closest("[data-del]"); if (!b.dataset.armed) { b.dataset.armed = "1"; b.textContent = "Tap again to delete"; return; }
+      const { data: row } = await sb.from("posts").select("photo_paths").eq("id", id).maybeSingle();
+      const { error } = await sb.from("posts").delete().eq("id", id); if (error) return toast("Couldn't delete the post");
+      (row?.photo_paths || []).forEach(deletePhoto); art.remove(); toast("Post deleted"); return;
+    }
+    if (t.closest("[data-edit]")) {
+      menu.hidden = true;
+      const body = art.querySelector(".pbody"); const { data: row } = await sb.from("posts").select("body").eq("id", id).maybeSingle();
+      const ed = document.createElement("form"); ed.className = "pedit";
+      ed.innerHTML = `<textarea maxlength="5000" rows="4">${esc(row?.body || "")}</textarea><div class="btns"><button class="btn red small">Save</button><button type="button" class="btn ghost small" data-cancel>Cancel</button></div>`;
+      (body || art.querySelector(".phead")).after(ed); if (body) body.hidden = true;
+      ed.querySelector("[data-cancel]").onclick = () => { ed.remove(); if (body) body.hidden = false; };
+      ed.onsubmit = async (ev) => { ev.preventDefault(); const v = ed.querySelector("textarea").value.trim();
+        const { error } = await sb.from("posts").update({ body: v }).eq("id", id); if (error) return toast("Couldn't save");
+        toast("Saved"); reload(); };
+      return;
+    }
+    if (t.closest("[data-report]")) { menu.hidden = true; reportDialog({ post_id: id }); return; }
+    if (t.closest("[data-hide]")) { const hide = !art.classList.contains("hidden-post"); const { error } = await sb.rpc("moderate_content", { p_post: id, p_comment: null, p_action: hide ? "hide" : "restore", p_reason: "Hidden from the feed" }); if (error) return toast(error.message); toast(hide ? "Post hidden" : "Post restored"); reload(); return; }
+    if (t.closest("[data-pin]")) { const { error } = await sb.rpc("pin_post", { p_post: id, p_pinned: !t.closest("[data-pin]").textContent.startsWith("Unpin") }); if (error) return toast(error.message); toast("Updated"); reload(); return; }
+  };
+}
+document.addEventListener("click", (e) => { if (!e.target.closest(".pmenu")) $$(".menu").forEach((m) => (m.hidden = true)); });
+
+async function loadComments(postId, box, art) {
+  box.innerHTML = `<p class="muted small">Loading comments…</p>`;
+  const { data } = await sb.rpc("get_comments", { p_post: postId });
+  const rows = data || [];
+  box.innerHTML = `<ul class="clist">${rows.map((c) => `<li data-comment="${c.id}"><span class="avatar">${avatarHTML({ avatar_path: c.author_avatar, display_name: c.author_name || c.author_handle }, 30)}</span>
+      <div class="cbub${c.status === "hidden" ? " hidden-post" : ""}"><strong>${c.author_handle ? `<a href="/u/${esc(c.author_handle)}" data-link>${esc(c.author_name || "@" + c.author_handle)}</a>` : esc(c.author_name || "Member")}</strong> <span class="muted small">${ago(c.created_at)}</span>
+        <div>${linkify(c.body)}</div>
+        <div class="cacts">${c.is_mine || art.querySelector("[data-edit]") ? `<button type="button" data-cdel>Delete</button>` : ""}${!c.is_mine ? `<button type="button" data-creport>Report</button>` : ""}${isTeam() ? `<button type="button" data-chide>${c.status === "hidden" ? "Restore" : "Hide"}</button>` : ""}</div></div></li>`).join("")}</ul>
+    <form class="cform"><input type="text" maxlength="2000" placeholder="Write a comment…" aria-label="Write a comment" required><button class="btn red small">Send</button></form>`;
+  box.querySelector(".cform").onsubmit = async (e) => {
+    e.preventDefault(); const inp = e.target.querySelector("input"), v = inp.value.trim(); if (!v) return;
+    inp.disabled = true;
+    const { error } = await sb.from("comments").insert({ post_id: postId, author_id: state.profile.id, body: v });
+    inp.disabled = false; if (error) return toast(/a lot today/.test(error.message) ? error.message : "Couldn't post the comment");
+    const cnt = art.querySelector("[data-comments] span"); cnt.textContent = Number(cnt.textContent || 0) + 1;
+    loadComments(postId, box, art);
+  };
+  box.querySelector(".clist").onclick = async (e) => {
+    const li = e.target.closest("[data-comment]"); if (!li) return; const cid = li.dataset.comment;
+    if (e.target.matches("[data-cdel]")) { const { error } = await sb.from("comments").delete().eq("id", cid); if (error) return toast("Couldn't delete"); li.remove(); const cnt = art.querySelector("[data-comments] span"); cnt.textContent = Math.max(0, Number(cnt.textContent || 0) - 1) || ""; }
+    if (e.target.matches("[data-creport]")) reportDialog({ comment_id: cid });
+    if (e.target.matches("[data-chide]")) { const hide = e.target.textContent === "Hide"; const { error } = await sb.rpc("moderate_content", { p_post: null, p_comment: cid, p_action: hide ? "hide" : "restore", p_reason: null }); if (error) return toast(error.message); loadComments(postId, box, art); }
+  };
+}
+
+function reportDialog(target) {
+  const d = document.createElement("div"); d.className = "overlay";
+  d.innerHTML = `<form class="panel dialog" role="dialog" aria-modal="true" aria-labelledby="rep-h"><h3 id="rep-h">Report ${target.post_id ? "post" : "comment"}</h3>
+    <p class="muted small">The team will take a look. The member won't know who reported it.</p>
+    ${Object.entries(REASONS).map(([k, v], i) => `<label class="check"><input type="radio" name="reason" value="${k}" ${i === 0 ? "checked" : ""}> <span>${v}</span></label>`).join("")}
+    <label class="f">Anything else? <small>(optional)</small><textarea maxlength="1000" rows="3" name="details"></textarea></label>
+    <div class="btns"><button class="btn red">Send report</button><button type="button" class="btn ghost" data-close>Cancel</button></div></form>`;
+  document.body.append(d); d.querySelector("input").focus();
+  const close = () => d.remove();
+  d.onclick = (e) => { if (e.target === d || e.target.matches("[data-close]")) close(); };
+  d.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+  d.querySelector("form").onsubmit = async (e) => {
+    e.preventDefault(); const fd = new FormData(e.target);
+    const { error } = await sb.from("reports").insert({ reporter_id: state.profile.id, ...target, reason: fd.get("reason"), details: fd.get("details") || null });
+    close(); toast(error && /duplicate/i.test(error.message) ? "You've already reported this" : error ? "Couldn't send the report" : "Thanks. The team will review it.");
+  };
+}
+
+function openViewer(art, start) {
+  const imgs = [...art.querySelectorAll(".pph img")].map((i) => i.src);
+  sb.from("posts").select("photo_paths").eq("id", art.dataset.post).maybeSingle().then(({ data }) => { if (data?.photo_paths?.length) { all = data.photo_paths.map(mediaUrl); show(); } });
+  let all = imgs, i = start;
+  const d = document.createElement("div"); d.className = "overlay viewer"; d.tabIndex = -1;
+  const show = () => { d.innerHTML = `<img src="${esc(all[i])}" alt="Photo ${i + 1} of ${all.length}"><button class="vclose" aria-label="Close">&times;</button>${all.length > 1 ? `<button class="vprev" aria-label="Previous">&larr;</button><button class="vnext" aria-label="Next">&rarr;</button><span class="vcount">${i + 1} / ${all.length}</span>` : ""}`; };
+  show(); document.body.append(d); d.focus();
+  d.onclick = (e) => { if (e.target.matches(".vnext")) { i = (i + 1) % all.length; show(); } else if (e.target.matches(".vprev")) { i = (i - 1 + all.length) % all.length; show(); } else if (e.target === d || e.target.matches(".vclose")) d.remove(); };
+  d.onkeydown = (e) => { if (e.key === "Escape") d.remove(); if (e.key === "ArrowRight") { i = (i + 1) % all.length; show(); } if (e.key === "ArrowLeft") { i = (i - 1 + all.length) % all.length; show(); } };
+}
+
+async function feedList(container, args, opts = {}) {
+  let before = null, done = false;
+  const more = async () => {
+    const { data, error } = await sb.rpc("get_feed", { p_scope: args.scope || "all", p_hub: args.hub || null, p_author: args.author || null, p_post: args.post || null, p_before: before, p_limit: 20 });
+    if (error) { container.insertAdjacentHTML("beforeend", `<div class="notice red">We couldn't load posts. Please refresh.</div>`); return; }
+    const rows = data || [];
+    if (!before && !rows.length) container.innerHTML = opts.empty || `<div class="empty panel"><p>Nothing here yet.</p></div>`;
+    container.insertAdjacentHTML("beforeend", rows.map((p) => postHTML(p, opts)).join(""));
+    if (rows.length) before = rows[rows.length - 1].created_at;
+    done = rows.length < 20 || !!args.post;
+    $("#loadmore") && ($("#loadmore").hidden = done);
+  };
+  container.innerHTML = "";
+  await more();
+  if (!args.post) container.insertAdjacentHTML("afterend", `<button class="btn ghost" id="loadmore" ${done ? "hidden" : ""} style="display:block;margin:18px auto">Load more</button>`);
+  if ($("#loadmore")) $("#loadmore").onclick = more;
+  wirePosts(container, () => render());
+}
+
+route("/feed", async () => {
+  if (!state.session) return go("/sign-in", true);
+  if (state.profile?.status !== "approved") return go(homeFor(), true);
+  const scope = new URLSearchParams(location.search).get("scope") || "all";
+  const hubs = await hubsList();
+  const p = state.profile, fresh = p.approved_at && Date.now() - new Date(p.approved_at).getTime() < 7 * 864e5;
+  const joined = hubs.filter((h) => h.joined);
+  app.innerHTML = `<div class="feedwrap"><div class="feedmain">
+    ${fresh && (!p.handle || !p.avatar_path || !joined.length) ? `<div class="panel welcome"><h3>Welcome to the club, ${first(p.display_name)}</h3><ul class="wsteps">
+      <li class="${p.handle && p.avatar_path ? "done" : ""}"><a href="/home" data-link>Add a photo and choose a username</a></li>
+      <li class="${joined.length ? "done" : ""}"><a href="/hubs" data-link>Join the hubs you're into</a></li>
+      <li><a href="/garage/new" data-link>Add your car to your garage</a></li></ul></div>` : ""}
+    ${composerHTML(hubs)}
+    <div class="tabs" role="tablist"><a href="/feed" data-link class="${scope === "all" ? "on" : ""}" role="tab" aria-selected="${scope === "all"}">All members</a><a href="/feed?scope=following" data-link class="${scope === "following" ? "on" : ""}" role="tab" aria-selected="${scope === "following"}">Following</a></div>
+    <div id="posts"></div></div>
+    <aside class="feedside"><div class="panel"><h3>Your hubs</h3>${joined.length ? `<ul class="hublinks">${joined.map((h) => `<li><a href="/hubs/${esc(h.slug)}" data-link>${esc(h.name)}</a></li>`).join("")}</ul>` : `<p class="muted small">You haven't joined any hubs yet.</p>`}<a class="btn ghost small" href="/hubs" data-link>Browse all hubs</a></div>
+      <div class="panel"><h3>Meets coming up</h3><p class="muted small">See what's on at <a href="https://www.carsandcoffee.uk/events" target="_blank" rel="noopener">carsandcoffee.uk</a>.</p></div></aside></div>`;
+  wireComposer(() => render(), hubs);
+  await feedList($("#posts"), { scope }, { empty: scope === "following" ? `<div class="empty panel"><p>Nothing from your hubs or friends yet. <a href="/hubs" data-link>Join some hubs</a> or switch to <a href="/feed" data-link>All members</a>.</p></div>` : `<div class="empty panel"><p>No posts yet. Be the first: share a photo of your car.</p></div>` });
+});
+
+route("/hubs", async () => {
+  if (!state.session) return go("/sign-in", true);
+  if (state.profile?.status !== "approved") return go(homeFor(), true);
+  HUB_LIST = null; const hubs = await hubsList();
+  app.innerHTML = `<span class="eyebrow">Hubs</span><h1>Find your people</h1><p class="muted">Join the hubs you're into. Posts from your hubs show in your Following feed.</p>
+    ${Object.entries(HUB_CATS).map(([k, v]) => `<h2>${v}</h2><div class="hubgrid">${hubs.filter((h) => h.category === k).map((h) => `<div class="hubcard">
+      <a href="/hubs/${esc(h.slug)}" data-link class="hubname">${esc(h.name)}</a><p class="muted small">${esc(h.description || "")}</p>
+      <p class="small muted">${h.member_count} member${h.member_count === 1 ? "" : "s"} · ${h.post_count_7d} post${h.post_count_7d === 1 ? "" : "s"} this week</p>
+      <button type="button" class="btn ${h.joined ? "ghost" : "red"} small" data-hub="${h.id}" data-joined="${h.joined}">${h.joined ? "Joined ✓" : "Join"}</button></div>`).join("")}</div>`).join("")}`;
+  app.onclick = async (e) => {
+    const b = e.target.closest("[data-hub]"); if (!b) return; b.disabled = true;
+    const joined = b.dataset.joined === "true";
+    const { error } = joined ? await sb.from("hub_members").delete().eq("hub_id", b.dataset.hub).eq("user_id", state.profile.id) : await sb.from("hub_members").insert({ hub_id: b.dataset.hub, user_id: state.profile.id });
+    b.disabled = false; if (error && !/duplicate/i.test(error.message)) return toast("Couldn't update that hub");
+    b.dataset.joined = String(!joined); b.textContent = joined ? "Join" : "Joined ✓"; b.classList.toggle("red", joined); b.classList.toggle("ghost", !joined); HUB_LIST = null;
+  };
+});
+
+routeP("/hubs/:slug", async ({ slug }) => {
+  if (!state.session) return go("/sign-in", true);
+  if (state.profile?.status !== "approved") return go(homeFor(), true);
+  HUB_LIST = null; const hubs = await hubsList(); const h = hubs.find((x) => x.slug === slug);
+  if (!h) { app.innerHTML = `<h1>Hub not found</h1><p><a href="/hubs" data-link>See all hubs</a></p>`; return; }
+  document.title = `${h.name} · Cars and Coffee Club`;
+  app.innerHTML = `<div class="hubhead"><div><span class="eyebrow">${HUB_CATS[h.category]} hub</span><h1>${esc(h.name)}</h1><p class="muted">${esc(h.description || "")}</p>
+    <p class="small muted">${h.member_count} member${h.member_count === 1 ? "" : "s"}</p></div>
+    <button type="button" class="btn ${h.joined ? "ghost" : "red"}" id="joinhub">${h.joined ? "Joined ✓" : "Join this hub"}</button></div>
+    <div class="feedmain">${composerHTML(hubs, { hub: h.slug, hubName: h.name })}<div id="posts"></div></div>`;
+  $("#joinhub").onclick = async () => {
+    const { error } = h.joined ? await sb.from("hub_members").delete().eq("hub_id", h.id).eq("user_id", state.profile.id) : await sb.from("hub_members").insert({ hub_id: h.id, user_id: state.profile.id });
+    if (error && !/duplicate/i.test(error.message)) return toast("Couldn't update the hub"); render();
+  };
+  wireComposer(() => render(), hubs);
+  if ($("#chub")) { $("#copts").hidden = true; }
+  await feedList($("#posts"), { hub: h.slug }, { inHub: true, empty: `<div class="empty panel"><p>No posts in ${esc(h.name)} yet. Start the conversation.</p></div>` });
+});
+
+routeP("/post/:id", async ({ id }) => {
+  if (!state.session) return go("/sign-in", true);
+  if (state.profile?.status !== "approved") return go(homeFor(), true);
+  app.innerHTML = `<div class="feedmain"><div id="posts"></div></div>`;
+  await feedList($("#posts"), { post: id }, { empty: `<div class="empty panel"><p>This post isn't available. It may have been deleted or shared with friends only.</p></div>` });
+  const art = $("[data-post]"); if (art) art.querySelector("[data-comments]").click();
 });
 
 route("/admin", async () => {

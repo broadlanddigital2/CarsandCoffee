@@ -28,6 +28,7 @@ export function createMock(scenario) {
   const tables = { garage_cars: () => cars, profiles: () => profile, applications: () => application, signup_allowlist: () => allow, settings: () => ({ value: settings.signups_open }) };
   const ok = (data) => Promise.resolve({ data, error: null });
   function q(table) {
+    if (!tables[table]) tables[table] = () => [];
     const api = {
       select: () => api, eq: () => api, order: () => api, then: (res, rej) => ok(tables[table]()).then(res, rej),
       maybeSingle: () => { const v = tables[table](); return ok(Array.isArray(v) && table === "garage_cars" ? v[0] : v); }, single: () => ok(tables[table]()),
@@ -41,6 +42,11 @@ export function createMock(scenario) {
     get_my_membership: () => [{ invite_code: "a1b2c3d4", can_recommend: true, status: profile.status, role: profile.role, is_private: profile.is_private, recommendations_last_30_days: 3, recommendation_limit: 10 }],
     get_my_recommendations: () => [{ first_name: "Ellie", status: "pending", applied_at: new Date(now - 3 * 3600e3).toISOString() }, { first_name: "Tom", status: "approved", applied_at: new Date(now - 9 * day).toISOString() }],
     get_application_queue: () => queue,
+    get_hubs: () => [{ id: "h1", slug: "f1", name: "F1", category: "motorsport", description: "Formula 1 race weekends.", member_count: 12, post_count_7d: 4, joined: true }, { id: "h2", slug: "classic-cars", name: "Classic cars", category: "car_interests", description: "Classics of every age.", member_count: 30, post_count_7d: 9, joined: false }, { id: "h3", slug: "norfolk", name: "Norfolk", category: "local", description: "Meets across Norfolk.", member_count: 41, post_count_7d: 2, joined: true }],
+    get_feed: () => [
+      { id: "p1", author_id: "u3", author_handle: "tom_rs", author_name: "Tom Reed", author_avatar: null, hub_slug: "classic-cars", hub_name: "Classic cars", car_id: null, car_name: null, body: "Finally got the MGB through its MOT. Who's coming to the breakfast meet on the 6th? https://www.carsandcoffee.uk/events", photo_paths: [], video_url: null, visibility: "members", status: "visible", pinned: false, created_at: new Date(now - 3600e3).toISOString(), edited_at: null, like_count: 5, comment_count: 2, liked: false, is_mine: false },
+      { id: "p2", author_id: uid, author_handle: "sam_mgb", author_name: "Sam Taylor", author_avatar: null, hub_slug: "f1", hub_name: "F1", car_id: null, car_name: null, body: "Great onboard from the last race.", photo_paths: [], video_url: "https://youtu.be/dQw4w9WgXcQ", visibility: "friends", status: "visible", pinned: false, created_at: new Date(now - 86400e3).toISOString(), edited_at: null, like_count: 1, comment_count: 0, liked: true, is_mine: true }],
+    get_comments: () => [{ id: "c1", author_id: "u2", author_handle: "ellie_gti", author_name: "Ellie Watson", author_avatar: null, body: "I'll be there!", status: "visible", created_at: new Date(now - 1800e3).toISOString(), edited_at: null, is_mine: false }],
     get_profile: () => [{ id: uid, handle: "sam_mgb", display_name: "Sam Taylor", avatar_path: null, bio: "Classic MG owner from Norwich.", location: "Norwich, Norfolk", instagram: "sam_mgb", approved_at: new Date(now - 30 * day).toISOString(), is_private: false, can_see: true, friendship: scenario === "member" ? "none" : "friends", friend_count: 3, car_count: 1, is_me: false }],
     get_my_friends: () => [{ user_id: "u2", handle: "ellie_gti", display_name: "Ellie Watson", avatar_path: null, location: "Wymondham, Norfolk", state: "incoming" }, { user_id: "u3", handle: "tom_rs", display_name: "Tom Reed", avatar_path: null, location: "Ipswich, Suffolk", state: "friend" }],
     send_friend_request: () => "requested", respond_friend_request: () => null, remove_friend: () => null,

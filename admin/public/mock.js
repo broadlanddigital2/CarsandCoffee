@@ -74,11 +74,12 @@ export function createMock(scenario) {
     schema: (s) => ({ from: (t) => table(s, t) }),
     rpc: (name, args) => {
       const r = {
-        admin_dashboard_stats: { pending_applications: 2, fast_track_waiting: 1, members: 1, new_members_7d: 1, emails_queued: 0, emails_failed: 1, emails_sent_7d: 4, pages_published: 1, pages_draft: 1, newsletter_subscribers: 1, invites_7d: 1 },
+        admin_dashboard_stats: { reports_open: 1, posts_7d: 12, comments_7d: 30, pending_applications: 2, fast_track_waiting: 1, members: 1, new_members_7d: 1, emails_queued: 0, emails_failed: 1, emails_sent_7d: 4, pages_published: 1, pages_draft: 1, newsletter_subscribers: 1, invites_7d: 1 },
         get_application_queue: [
           { id: "q1", full_name: "Ellie Watson", email: "ellie@example.com", location: "Wymondham, Norfolk", favourite_series: ["Restoration and builds"], car: "1985 Golf GTI", heard_about: "A friend or member", fast_track: true, status: "pending", waiting_hours: 3.2, recommender_name: "Justin Revell", recommender_handle: "caddyman", recommender_approved_count: 4, recommender_removed_count: 0 },
           { id: "q2", full_name: "Marcus Hill", email: "marcus@example.com", location: "Ipswich, Suffolk", favourite_series: ["F1"], car: null, heard_about: "Instagram", fast_track: false, status: "pending", waiting_hours: 19.5 },
         ],
+        get_reports: [{ id: 1, created_at: iso(now - 3600e3), reason: "spam", details: "Selling stuff", status: "open", reporter_name: "Ellie Watson", post_id: "pp1", comment_id: null, content_body: "Cheap alloys, DM me!!", content_status: "visible", content_photos: [], author_id: "u9", author_name: "Spammy Sid", author_handle: "sid", report_count: 2 }],
         admin_list_members: [{ id: uid, email: "justin@broadlanddigital.co.uk", display_name: "Justin Revell", handle: "caddyman", status: "approved", role: "admin", is_private: false, can_recommend: true, approved_at: iso(now - 2 * day), created_at: iso(now - 2 * day), last_sign_in_at: iso(now - 600e3), recommended_count: 0 },
           { id: "u2", email: "sam@example.com", display_name: "Sam Taylor", handle: "sam_mgb", status: "approved", role: "member", is_private: true, can_recommend: true, approved_at: iso(now - day), created_at: iso(now - day), last_sign_in_at: iso(now - 7200e3), recommended_count: 2 }],
       }[name];

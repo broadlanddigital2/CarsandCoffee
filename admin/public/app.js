@@ -101,6 +101,7 @@ function navHTML() {
     ${item("/content/newsletter_subscribers", "mail", "Newsletter")}
     <li class="nav-title">Club</li>
     ${item("/club/applications", "check", "Applications", pend ? `<span class="badge text-bg-danger">${pend}</span>` : "")}
+    ${item("/club/moderation", "faq", "Moderation", state.stats?.reports_open ? `<span class="badge text-bg-danger">${state.stats.reports_open}</span>` : "")}
     ${item("/club/members", "users", "Members")}
     ${item("/club/access", "key", "Invites and access")}
     ${item("/club/emails", "send", "Emails")}`;
@@ -187,6 +188,8 @@ route("/", async () => {
       ${card(s.emails_queued, "Emails waiting to send", "/club/emails")}
       ${card(s.emails_failed, "Emails failed", "/club/emails?status=failed", s.emails_failed ? "text-danger" : "")}
       ${card(s.invites_7d, "Member invites this week", "/club/access")}
+      ${card(s.reports_open, "Reports to review", "/club/moderation", s.reports_open ? "text-danger" : "")}
+      ${card(s.posts_7d, `Club posts this week · ${s.comments_7d || 0} comments`, "/club/moderation")}
     </div>
     <div class="row g-3">
       <div class="col-lg-6"><div class="card h-100"><div class="card-header bg-white fw-semibold d-flex justify-content-between">Waiting for approval <a href="/club/applications" data-link class="small">Open queue</a></div>
@@ -733,6 +736,37 @@ route("/club/applications", async () => {
     const { error } = await sb.rpc("decide_application", { p_application_id: card.dataset.app, p_decision: b.dataset.d, p_message: msg || null, p_notes: $("[data-notes]", card).value.trim() || null });
     if (error) { b.disabled = false; return oops(error); }
     toast({ approved: "Approved, welcome email queued", more_info: "Question sent", rejected: "Declined" }[b.dataset.d]); card.remove();
+  };
+});
+
+
+route("/club/moderation", async () => {
+  crumbs([["Moderation"]]);
+  const st = qs().get("status") || "open";
+  const { data, error } = await sb.rpc("get_reports", { p_status: st }); if (error) throw error;
+  const R = { spam: "Spam or advertising", abuse: "Abusive or hateful", unsafe: "Dangerous driving or unsafe", illegal: "Illegal", privacy: "Private details or number plate", other: "Something else" };
+  const seen = new Set(); const rows = (data || []).filter((r) => { const k = r.post_id || r.comment_id; if (st === "open" && seen.has(k)) return false; seen.add(k); return true; });
+  const tab = (v, l) => `<a href="/club/moderation?status=${v}" data-link class="${st === v ? "on" : ""}">${l}</a>`;
+  view.innerHTML = `<div class="page-head"><h1>Moderation</h1><span class="text-body-secondary">Reports from members about posts and comments in the club</span></div>
+    <div class="pill-tabs">${tab("open", "To review")}${tab("actioned", "Hidden")}${tab("dismissed", "Dismissed")}${tab("all", "All")}</div>
+    ${rows.length ? rows.map((r) => `<div class="card mb-3" data-post="${r.post_id || ""}" data-comment="${r.comment_id || ""}"><div class="card-body">
+      <div class="d-flex flex-wrap justify-content-between gap-2 mb-2"><div><span class="badge text-bg-warning">${esc(R[r.reason] || r.reason)}</span> ${r.report_count > 1 ? `<span class="badge text-bg-danger">${r.report_count} reports</span>` : ""}
+        <span class="small text-body-secondary ms-2">${r.post_id ? "Post" : "Comment"} by <strong>${esc(r.author_name || "member")}</strong>${r.author_handle ? ` (@${esc(r.author_handle)})` : ""} · reported by ${esc(r.reporter_name || "a member")} ${ago(r.created_at)}</span></div>
+        <span class="badge ${r.content_status === "hidden" ? "text-bg-secondary" : "text-bg-success"}">${r.content_status === "hidden" ? "Hidden" : "Visible"}</span></div>
+      <blockquote class="border-start ps-3 mb-2" style="white-space:pre-line">${esc((r.content_body || "").slice(0, 800)) || '<span class="text-body-secondary">(photos only)</span>'}</blockquote>
+      ${(r.content_photos || []).length ? `<div class="d-flex gap-2 mb-2">${r.content_photos.slice(0, 4).map((k) => `<img src="https://club.carsandcoffee.uk/media/${esc(k)}" alt="" style="width:90px;height:68px;object-fit:cover;border-radius:6px">`).join("")}</div>` : ""}
+      ${r.details ? `<p class="small mb-2"><strong>Reporter's note:</strong> ${esc(r.details)}</p>` : ""}
+      <div class="d-flex flex-wrap gap-2">${r.post_id ? `<a class="btn btn-sm btn-outline-secondary" href="https://club.carsandcoffee.uk/post/${r.post_id}" target="_blank" rel="noopener">Open in the club ↗</a>` : ""}
+        ${r.content_status === "hidden" ? `<button class="btn btn-sm btn-outline-success" data-act="restore">Restore</button>` : `<button class="btn btn-sm btn-danger" data-act="hide">Hide</button>`}
+        ${r.status === "open" ? `<button class="btn btn-sm btn-outline-secondary" data-act="dismiss">Dismiss report</button>` : `<span class="small text-body-secondary align-self-center">${esc(r.status)}</span>`}</div>
+    </div></div>`).join("") : `<div class="card"><div class="empty">${st === "open" ? "Nothing to review. Nice." : "Nothing here."}</div></div>`}
+    <p class="small text-body-secondary">Hiding takes a post or comment out of the club for everyone except its author and the team. To remove a member, use Members.</p>`;
+  view.onclick = async (e) => {
+    const b = e.target.closest("[data-act]"); if (!b) return; const c = b.closest("[data-post]");
+    b.disabled = true;
+    const { error } = await sb.rpc("moderate_content", { p_post: c.dataset.post || null, p_comment: c.dataset.comment || null, p_action: b.dataset.act, p_reason: b.dataset.act === "hide" ? "Hidden after a report" : null });
+    if (error) { b.disabled = false; return oops(error); }
+    toast({ hide: "Hidden", restore: "Restored", dismiss: "Report dismissed" }[b.dataset.act]); render();
   };
 });
 
