@@ -3,7 +3,7 @@ import TEMPLATE from "./home-template.html";
 import { E, img, utm, ARROW, q, eventCard, bizCard, townSearch, SVC_ICON, SVC_DEFAULT } from "./home.js";
 import { sanitize } from "./sanitize.js";
 
-const SITE = "https://www.carsandcoffee.uk";
+const SITE = "https://carsandcoffee.uk";
 const CLUB = "https://club.carsandcoffee.uk";
 const INTEREST_LINKS = { "Classic cars": "classic-cars", "Track days": "track-days", "Detailing and wraps": "detailing-wraps", "Sim racing": "sim-racing",
   "Restoration and builds": "restoration-builds", "JDM": "jdm", "American": "american", "EV and hybrid": "ev-hybrid", "Modern performance and supercars": "modern-performance", "Rally": "rally", "F1": "f1" };

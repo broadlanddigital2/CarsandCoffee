@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://www.carsandcoffee.uk/sitemap.xml
+Sitemap: https://carsandcoffee.uk/sitemap.xml

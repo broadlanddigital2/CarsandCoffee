@@ -6,7 +6,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 
 const FROM = { email: "club@carsandcoffee.uk", name: "Cars and Coffee Club" };
 const CLUB = "https://club.carsandcoffee.uk";
-const SITE = "https://www.carsandcoffee.uk";
+const SITE = "https://carsandcoffee.uk";
 
 type Row = { id: number; to_email: string; template: string; data: Record<string, unknown> };
 

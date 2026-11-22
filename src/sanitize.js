@@ -34,7 +34,7 @@ export function sanitize(html) {
       else if (name === "width" || name === "height") { if (/^\d{1,4}$/.test(val)) attrs.push(`${name}="${val}"`); }
       else attrs.push(`${name}="${E(decode(val))}"`);
     }
-    if (tag === "a") { if (!attrs.some((x) => x.startsWith("href="))) continue; if (/href="(https?:)?\/\/(?!www\.carsandcoffee\.uk|club\.carsandcoffee\.uk)/.test(attrs.join(" "))) attrs.push('rel="noopener"', 'target="_blank"'); }
+    if (tag === "a") { if (!attrs.some((x) => x.startsWith("href="))) continue; if (/href="(https?:)?\/\/(?!(?:www\.)?carsandcoffee\.uk|club\.carsandcoffee\.uk)/.test(attrs.join(" "))) attrs.push('rel="noopener"', 'target="_blank"'); }
     if (tag === "img") { if (!attrs.some((x) => x.startsWith("src="))) continue; if (!attrs.some((x) => x.startsWith("alt="))) attrs.push('alt=""'); attrs.push('loading="lazy"'); }
     out.push(`<${tag}${attrs.length ? " " + attrs.join(" ") : ""}>`);
     if (!VOID.has(tag)) open.push(tag);

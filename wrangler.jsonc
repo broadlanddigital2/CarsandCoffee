@@ -1,6 +1,6 @@
-// Cloudflare Worker for www.carsandcoffee.uk
+// Cloudflare Worker for carsandcoffee.uk
 // - src/worker.js builds the homepage from the Cars and Coffee database (edited in admin.carsandcoffee.uk), cached 60s,
-//   and redirects carsandcoffee.uk -> www.carsandcoffee.uk (301). Everything else in ./public is served as-is.
+//   and redirects www.carsandcoffee.uk -> carsandcoffee.uk (301). Everything else in ./public is served as-is.
 // - Both hostnames are attached as Custom Domains on deploy (the zone is in this Cloudflare account).
 {
   "name": "carsandcoffee",

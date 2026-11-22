@@ -5,7 +5,7 @@ import { richField, wireRich, cleanHTML } from "/editor.js";
 
 const SUPABASE_URL = "https://auth.carsandcoffee.uk";
 const SUPABASE_KEY = "sb_publishable_O9p-X8To8z-GisYYSBKoxg_RxAe1-cU"; // publishable key: safe in the browser
-const SITE = "https://www.carsandcoffee.uk";
+const SITE = "https://carsandcoffee.uk";
 const MOCK = new URLSearchParams(location.search).get("mock");
 
 async function loadSupabase() {

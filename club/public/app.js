@@ -310,7 +310,7 @@ route("/status", async () => {
     app.innerHTML = `<div class="narrow"><span class="eyebrow">Application pending</span><h1>Thanks, ${name}</h1>
       ${a.fast_track ? `<p><span class="badge fast">Fast-tracked: recommended by a member</span></p>` : ""}
       <div class="panel"><p>Your application is with the Cars and Coffee team. We'll email you as soon as it's been reviewed.</p>${steps("review")}
-      <div class="btns"><button class="btn ghost" id="edit" type="button">Edit my application</button><a class="btn ghost" href="https://www.carsandcoffee.uk/#events">See upcoming meets</a></div></div>
+      <div class="btns"><button class="btn ghost" id="edit" type="button">Edit my application</button><a class="btn ghost" href="https://carsandcoffee.uk/#events">See upcoming meets</a></div></div>
       <div id="editbox"></div></div>`;
     $("#edit").onclick = () => { $("#editbox").innerHTML = `<div class="panel" style="margin-top:18px">${applicationForm(a, "edit")}</div>`; wireApplicationForm("edit"); $("#full_name").focus(); };
   } else if (a.status === "more_info") {
@@ -898,7 +898,7 @@ route("/feed", async () => {
     <div class="tabs" role="tablist"><a href="/feed" data-link class="${scope === "all" ? "on" : ""}" role="tab" aria-selected="${scope === "all"}">All members</a><a href="/feed?scope=following" data-link class="${scope === "following" ? "on" : ""}" role="tab" aria-selected="${scope === "following"}">Following</a></div>
     <div id="posts"></div></div>
     <aside class="feedside"><div class="panel"><h3>Your hubs</h3>${joined.length ? `<ul class="hublinks">${joined.map((h) => `<li><a href="/hubs/${esc(h.slug)}" data-link>${esc(h.name)}</a></li>`).join("")}</ul>` : `<p class="muted small">You haven't joined any hubs yet.</p>`}<a class="btn ghost small" href="/hubs" data-link>Browse all hubs</a></div>
-      <div class="panel"><h3>Meets coming up</h3><p class="muted small">See what's on at <a href="https://www.carsandcoffee.uk/events" target="_blank" rel="noopener">carsandcoffee.uk</a>.</p></div></aside></div>`;
+      <div class="panel"><h3>Meets coming up</h3><p class="muted small">See what's on at <a href="https://carsandcoffee.uk/events" target="_blank" rel="noopener">carsandcoffee.uk</a>.</p></div></aside></div>`;
   wireComposer(() => render(), hubs);
   await feedList($("#posts"), { scope }, { empty: scope === "following" ? `<div class="empty panel"><p>Nothing from your hubs or friends yet. <a href="/hubs" data-link>Join some hubs</a> or switch to <a href="/feed" data-link>All members</a>.</p></div>` : `<div class="empty panel"><p>No posts yet. Be the first: share a photo of your car.</p></div>` });
 });

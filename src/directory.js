@@ -5,7 +5,7 @@ import { shell, crumbsHTML, newsletterHTML, directions } from "./pages.js";
 import { sanitize } from "./sanitize.js";
 import { galleryHTML, galleryOf } from "./ui.js";
 
-const SITE = "https://www.carsandcoffee.uk";
+const SITE = "https://carsandcoffee.uk";
 const enc = encodeURIComponent;
 const slugify = (s) => String(s || "").toLowerCase().replace(/[’']/g, "").replace(/&/g, "and").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const partnersQ = () => q("partners?select=slug,name,page_path,logo_path,logo_dark_path&order=sort").catch(() => []);

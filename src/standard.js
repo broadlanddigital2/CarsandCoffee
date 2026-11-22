@@ -4,7 +4,7 @@ import { E, img, ARROW, q, eventCard, bizCard, fmt } from "./home.js";
 import { shell, crumbsHTML, newsletterHTML } from "./pages.js";
 import { sanitize } from "./sanitize.js";
 
-const SITE = "https://www.carsandcoffee.uk";
+const SITE = "https://carsandcoffee.uk";
 const CLUB = "https://club.carsandcoffee.uk";
 const enc = encodeURIComponent;
 const plain = (h) => String(h || "").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();

@@ -5,7 +5,7 @@ import BLOCKS from "./blocks.json";
 
 const SB_URL = "https://mslidnchoopgsnbraaxe.supabase.co";
 const SB_KEY = "sb_publishable_O9p-X8To8z-GisYYSBKoxg_RxAe1-cU"; // publishable key: public read of published content only
-const SITE = "https://www.carsandcoffee.uk";
+const SITE = "https://carsandcoffee.uk";
 const TZ = "Europe/London";
 
 export const EVENT_TYPES = { meet: "Meet", race: "Race night", tour: "Tour", garage: "Garage night", watch: "Watch party", track: "Track day", show: "Show" };

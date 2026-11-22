@@ -8,7 +8,7 @@ import { findAll } from "./assist.js";
 import { directoryHome, businessPage, servicePage, servicesIndex, regionPage, listYourBusiness } from "./directory.js";
 export { sanitize };
 
-const SITE = "https://www.carsandcoffee.uk";
+const SITE = "https://carsandcoffee.uk";
 const CLUB = "https://club.carsandcoffee.uk";
 const enc = encodeURIComponent;
 const partnersQ = () => q("partners?select=slug,name,page_path,logo_path,logo_dark_path&order=sort");
