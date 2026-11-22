@@ -196,12 +196,13 @@ async function articlePage(slug) {
   const date = a.published_at ? fmt(a.published_at, { day: "numeric", month: "long", year: "numeric" }) : "";
   const url = `${SITE}/news/${a.slug}`;
   const html = [crumbsHTML(crumbs),
-    `<article class="art"><header class="art-head wrap"><span class="eyebrow">${E(a.category || "News")}</span><h1>${E(a.title)}</h1>${a.excerpt ? `<p class="art-dek">${E(a.excerpt)}</p>` : ""}
-      <p class="art-meta">${a.author ? `By ${E(a.author)} · ` : ""}${date ? `<time datetime="${E(a.published_at)}">${E(date)}</time>` : ""}${a.read_minutes ? ` · ${a.read_minutes} min read` : ""}</p></header>
-      ${a.image_path ? `<figure class="art-fig wrap"><img src="${E(img(a.image_path))}" alt="${E(a.image_alt || "")}" width="1200" height="640"></figure>` : ""}
-      <div class="art-body wrap"><div class="rich">${rich || "<p>Full story coming soon.</p>"}</div>
-        <div class="art-share"><span>Share:</span> <a href="https://www.facebook.com/sharer/sharer.php?u=${enc(url)}" target="_blank" rel="noopener">Facebook</a> · <a href="https://wa.me/?text=${enc(a.title + " " + url)}" target="_blank" rel="noopener">WhatsApp</a> · <a href="https://twitter.com/intent/tweet?url=${enc(url)}&text=${enc(a.title)}" target="_blank" rel="noopener">X</a> · <a href="mailto:?subject=${enc(a.title)}&body=${enc(url)}">Email</a></div>
-        <div class="ep-first"><div><strong>Into this kind of thing?</strong> Join the Cars and Coffee club to share your own car and chat with members.</div><a class="btn red small" href="${CLUB}/apply">Join the club</a></div></div></article>`,
+    `<article class="art"><header class="phero art-hero"><img class="bg" src="${E(img(a.image_path) || "/homepage/hero.webp")}" alt="${E(a.image_alt || "")}"><div class="wrap"><span class="eyebrow">${E(a.category || "News")}</span><h1>${E(a.title)}</h1>${a.excerpt ? `<p>${E(a.excerpt)}</p>` : ""}
+      <p class="art-meta">${a.author ? `By ${E(a.author)} · ` : ""}${date ? `<time datetime="${E(a.published_at)}">${E(date)}</time>` : ""}${a.read_minutes ? ` · ${a.read_minutes} min read` : ""}</p></div></header>
+      <section class="lp-sec"><div class="wrap ep-grid art-grid"><div class="rich">${rich || "<p>Full story coming soon.</p>"}</div>
+        <aside class="art-side">
+          <div class="ep-card"><h3>Share this story</h3><div class="art-share-btns"><a class="btn ghost small" href="https://www.facebook.com/sharer/sharer.php?u=${enc(url)}" target="_blank" rel="noopener">Facebook</a><a class="btn ghost small" href="https://wa.me/?text=${enc(a.title + " " + url)}" target="_blank" rel="noopener">WhatsApp</a><a class="btn ghost small" href="https://twitter.com/intent/tweet?url=${enc(url)}&text=${enc(a.title)}" target="_blank" rel="noopener">X</a><a class="btn ghost small" href="mailto:?subject=${enc(a.title)}&body=${enc(url)}">Email</a></div>
+            <div class="art-join"><strong>Into this kind of thing?</strong><p>Join the Cars and Coffee club to share your own car and chat with members.</p><a class="btn red small" href="${CLUB}/apply">Join the club ${ARROW}</a></div></div>
+        </aside></div></section></article>`,
     related.length ? `<section class="lp-sec"><div class="wrap"><h2>More stories</h2><div class="news-grid">${related.map(newsCard).join("")}</div><div class="btns" style="margin-top:18px"><a class="btn red" href="/news">All news ${ARROW}</a></div></div></section>` : "",
     newsletterHTML()].join("\n");
   const ld = [ldLink(crumbs), { "@context": "https://schema.org", "@type": "NewsArticle", headline: a.title, description: a.excerpt || clip(plain(rich)), datePublished: a.published_at, mainEntityOfPage: url,
