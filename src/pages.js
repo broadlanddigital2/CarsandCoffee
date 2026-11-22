@@ -61,7 +61,7 @@ function townsFeature(c, events, placePages) {
     return `<div class="tf-county" id="${slug(county)}">
       <div class="tf-top"><img src="${E(img(cp?.hero_image_path || COUNTY_PHOTO[county]))}" alt="" loading="lazy"><div class="tf-top-in">
         <h3>${E(county)}</h3><p>${countyEvents.length ? `${countyEvents.length} upcoming meet${countyEvents.length === 1 ? "" : "s"}` : "Meets coming soon"} · ${towns.length} towns</p>
-        ${cp ? `<a class="btn red small" href="${E(cp.path)}">Cars in ${E(county)} ${ARROW}</a>` : `<span class="tf-soon">County page coming soon</span>`}</div></div>
+        ${cp ? `<a class="btn red small" href="${E(cp.path)}">${E(county)} car hub ${ARROW}</a>` : `<span class="tf-soon">County page coming soon</span>`}</div></div>
       <div class="tf-tiles">${tiles}</div></div>`;
   };
   const panels = counties.map(panel).join("");
