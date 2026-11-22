@@ -3,6 +3,7 @@
 import { E, img, ARROW, q, eventCard, bizCard, fmt } from "./home.js";
 import { shell, crumbsHTML, newsletterHTML } from "./pages.js";
 import { sanitize } from "./sanitize.js";
+import { productCard } from "./shop.js";
 
 const SITE = "https://carsandcoffee.uk";
 const CLUB = "https://club.carsandcoffee.uk";
@@ -105,20 +106,48 @@ async function interestExtras(p, c) {
     (c.services || []).length ? q(`directory_listings?select=slug,name,services,town,image_path,image_alt,featured&or=(${c.services.map((s) => `services.cs.{${enc(s)}}`).join(",")})&limit=6`).catch(() => []) : [],
   ]);
   const card = (href, image, alt, small, title, text) => `<a class="news-card" href="${E(href)}">${image ? `<img src="${E(img(image))}" alt="${E(alt || "")}" loading="lazy" width="600" height="340">` : ""}<div class="pad"><small>${E(small)}</small><h3>${E(title)}</h3>${text ? `<p>${E(text)}</p>` : ""}<span class="more">Read more ${ARROW}</span></div></a>`;
+  // shop products from the linked categories (and every sub-category below them)
+  let products = [], shopsById = {}, related = [], hubs = [], firstCat = null;
+  try {
+    const [cats, rel, hb] = await Promise.all([
+      (c.shop || []).length ? q("product_categories?select=id,slug,name,parent_id") : Promise.resolve([]),
+      (c.related || []).length ? q(`pages?select=path,title,content&page_type=eq.sector&status=eq.published&path=in.(${c.related.map((s) => `"/cars/${enc(s)}"`).join(",")})`) : Promise.resolve([]),
+      q("pages?select=path,title,county,town&page_type=eq.location&status=eq.published&town=is.null&county=not.is.null&order=county")]);
+    related = (c.related || []).map((s) => rel.find((r) => r.path === `/cars/${s}`)).filter(Boolean);
+    hubs = hb;
+    if (cats.length) {
+      const fam = (id, seen = new Set()) => (seen.has(id) ? [] : (seen.add(id), [id, ...cats.filter((x) => x.parent_id === id).flatMap((x) => fam(x.id, seen))]));
+      const roots = c.shop.map((sl) => cats.find((x) => x.slug === sl)).filter(Boolean); firstCat = roots[0] || null;
+      const ids = [...new Set(roots.flatMap((r) => fam(r.id)))];
+      if (ids.length) {
+        products = await q(`products?select=id,slug,name,price_pence,member_price_pence,compare_at_pence,badge,image_path,image_alt,shop_id,category_id,condition,stock_status,featured,created_at,units_sold_30d&category_id=in.(${ids.join(",")})&order=featured.desc,units_sold_30d.desc&limit=4`);
+        const sids = [...new Set(products.map((x) => x.shop_id).filter(Boolean))];
+        if (sids.length) shopsById = Object.fromEntries((await q(`shops?select=id,slug,name&id=in.(${sids.join(",")})`)).map((x) => [x.id, x]));
+      }
+    }
+  } catch {}
   const out = [];
   out.push(`<section class="lp-sec"><div class="wrap"><h2>Upcoming events</h2>${events.length ? `<div class="evs">${events.map(eventCard).join("")}</div>` : `<p class="lp-empty">Nothing specific coming up yet. <a href="/events">See all events</a>.</p>`}</div></section>`);
   if (c.hub) out.push(`<section class="lp-sec"><div class="wrap ep-first"><div><strong>Talk ${E(p.title.toLowerCase())} with other enthusiasts.</strong> Join the ${E(p.title)} hub in the Cars and Coffee club.</div><a class="btn red small" href="${CLUB}/hubs/${E(c.hub)}">Open the hub</a></div></section>`);
-  if (listings.length) out.push(`<section class="lp-sec"><div class="wrap"><h2>Specialists near you</h2><div class="bizs">${listings.map(bizCard).join("")}</div></div></section>`);
+  if (listings.length || c.dir) out.push(`<section class="lp-sec"><div class="wrap"><div class="head"><h2>Specialists near you</h2>${c.dir ? `<a class="more" href="/directory/service/${E(c.dir)}">All ${E((c.dir_label || p.title).toLowerCase())} specialists ${ARROW}</a>` : ""}</div>${listings.length ? `<div class="bizs">${listings.map(bizCard).join("")}</div>` : `<p class="lp-empty">We're still checking local specialists for this. <a href="/directory/list-your-business">Run one? List your business free</a>.</p>`}</div></section>`);
+  if (products.length) out.push(`<section class="lp-sec"><div class="wrap"><div class="head"><h2>From the shop</h2>${firstCat ? `<a class="more" href="/shop/category/${E(firstCat.slug)}">Shop ${E(firstCat.name.toLowerCase())} ${ARROW}</a>` : ""}</div><div class="prods shp-grid">${products.map((x) => productCard(x, shopsById)).join("")}</div></div></section>`);
   const reads = [...guides.map((g) => card(`/guides/${g.slug}`, g.image_path, g.image_alt, "Guide", g.title, g.intro)), ...articles.map((a) => card(`/news/${a.slug}`, a.image_path, a.image_alt, a.category || "News", a.title, a.excerpt))];
   if (reads.length) out.push(`<section class="lp-sec"><div class="wrap"><h2>Guides and stories</h2><div class="news-grid">${reads.slice(0, 6).join("")}</div></div></section>`);
+  if (related.length || hubs.length) out.push(`<section class="lp-sec"><div class="wrap sec-links">${related.length ? `<div><h2>Related interests</h2><div class="lp-chips">${related.map((r) => `<a class="lp-chip" href="${E(r.path)}">${E(r.title)}</a>`).join("")}<a class="lp-chip" href="/cars">All interests</a></div></div>` : ""}
+    ${hubs.length ? `<div><h2>Find it near you</h2><div class="lp-chips">${hubs.map((h) => `<a class="lp-chip" href="${E(h.path)}">${E(h.county)} car hub</a>`).join("")}<a class="lp-chip" href="/car-meets">All areas</a></div></div>` : ""}</div></section>`);
   return out;
 }
 
-// /cars: list of interest pages
+// /cars: interest pages grouped into car services, things to do and car types
+const GROUPS = [["services", "Car services", "Specialists to keep your car looking and running its best."], ["activities", "Things to do", "Ways to get out and enjoy your car, or someone else's."], ["types", "Car types", "Find your people, whatever you drive."]];
 export async function carsIndex() {
-  const [pages, partners] = await Promise.all([q("pages?select=path,title,intro,hero_image_path,hero_image_alt&page_type=eq.sector&status=eq.published&order=title"), q("partners?select=slug,name,page_path,logo_path,logo_dark_path&order=sort").catch(() => [])]);
+  const [pages, partners] = await Promise.all([q("pages?select=path,title,intro,hero_image_path,hero_image_alt,content&page_type=eq.sector&status=eq.published&order=title"), q("partners?select=slug,name,page_path,logo_path,logo_dark_path&order=sort").catch(() => [])]);
   const crumbs = [["Home", "/"], ["Cars", "/cars"]];
-  const main = [crumbsHTML(crumbs), `<section class="lp-sec std-head"><div class="wrap"><span class="eyebrow red">What you're into</span><h1 class="page-h1">Car interests</h1><p class="lp-lead">Events, guides, stories and specialists for the kind of motoring you love.</p>
-    <div class="news-grid" style="margin-top:24px">${pages.map((x) => `<a class="news-card" href="${E(x.path)}">${x.hero_image_path ? `<img src="${E(img(x.hero_image_path))}" alt="${E(x.hero_image_alt || "")}" loading="lazy" width="600" height="340">` : ""}<div class="pad"><h3>${E(x.title)}</h3>${x.intro ? `<p>${E(x.intro)}</p>` : ""}<span class="more">Explore ${ARROW}</span></div></a>`).join("")}</div></div></section>`, newsletterHTML()].join("\n");
-  return shell({ title: "Car interests: classics, track days, detailing and more | Cars and Coffee UK", description: "Events, guides and local specialists for classic cars, track days, detailing, restoration, sim racing and more across Norfolk and Suffolk.", path: "/cars", ld: [{ "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: crumbs.map(([name, href], i) => ({ "@type": "ListItem", position: i + 1, name, item: SITE + href })) }, { "@context": "https://schema.org", "@type": "CollectionPage", name: "Car interests", url: SITE + "/cars" }, { "@context": "https://schema.org", "@type": "ItemList", itemListElement: pages.map((x, i) => ({ "@type": "ListItem", position: i + 1, url: SITE + x.path })) }], main, partners });
+  const cardOf = (x) => `<a class="news-card" href="${E(x.path)}">${x.hero_image_path ? `<img src="${E(img(x.hero_image_path))}" alt="${E(x.hero_image_alt || "")}" loading="lazy" width="600" height="340">` : ""}<div class="pad"><h3>${E(x.title)}</h3>${x.intro ? `<p>${E(x.intro)}</p>` : ""}<span class="more">Explore ${ARROW}</span></div></a>`;
+  const grouped = GROUPS.map(([k, name, lead]) => [k, name, lead, pages.filter((x) => (x.content?.group || "types") === k)]).filter((g) => g[3].length);
+  const main = [crumbsHTML(crumbs), `<section class="lp-sec std-head"><div class="wrap"><span class="eyebrow red">What you're into</span><h1 class="page-h1">Car interests</h1><p class="lp-lead">Services, things to do and car types: events, specialists, shop picks and guides for the kind of motoring you love.</p>
+      <div class="lp-chips" style="margin-top:14px">${grouped.map(([k, name]) => `<a class="lp-chip" href="#${k}">${E(name)}</a>`).join("")}</div></div></section>`,
+    ...grouped.map(([k, name, lead, list]) => `<section class="lp-sec" id="${k}"><div class="wrap"><h2>${E(name)}</h2><p class="lp-lead">${E(lead)}</p><div class="news-grid">${list.map(cardOf).join("")}</div></div></section>`),
+    newsletterHTML()].join("\n");
+  return shell({ title: "Car interests: services, things to do and car types | Cars and Coffee UK", description: "Car services, things to do and car types across Norfolk and Suffolk: detailing, wraps, tuning, track days, shows, classics, JDM, hot hatches and more.", path: "/cars", ld: [{ "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: crumbs.map(([name, href], i) => ({ "@type": "ListItem", position: i + 1, name, item: SITE + href })) }, { "@context": "https://schema.org", "@type": "CollectionPage", name: "Car interests", url: SITE + "/cars" }, { "@context": "https://schema.org", "@type": "ItemList", itemListElement: pages.map((x, i) => ({ "@type": "ListItem", position: i + 1, url: SITE + x.path })) }], main, partners });
 }

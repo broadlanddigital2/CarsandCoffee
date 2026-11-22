@@ -275,7 +275,7 @@ details p{padding:0 4px 16px;color:var(--soft);max-width:70ch}
 /* footer */
 footer{background:var(--esp);color:var(--cream);padding:48px 0 24px}
 .fgrid .logo{width:96px}
-.fgrid{display:grid;grid-template-columns:120px repeat(6,minmax(0,1fr));gap:24px}
+.fgrid{display:grid;grid-template-columns:110px repeat(7,minmax(0,1fr));gap:22px}
 .fgrid h3{font-size:18px;color:#fff}
 .fgrid ul{list-style:none;margin:0;padding:0;display:grid;gap:6px;font-size:14px;opacity:.9}
 .fgrid a:hover{color:#fff;text-decoration:underline}
@@ -863,6 +863,7 @@ body:has(.mbar.show) .hb{bottom:84px}
 .co-done{max-width:640px;margin:10px auto;text-align:center;border:1px solid var(--line);border-radius:12px;background:var(--paper);padding:36px 26px}.co-tick{display:inline-grid;place-items:center;width:64px;height:64px;border-radius:50%;background:#2e8b57;color:#fff;font-size:32px;font-weight:800}
 .co-done h2{font-size:28px;margin:14px 0 10px}.co-total{font-size:18px}
 @media (max-width:600px){.co-row{grid-template-columns:1fr}.co-steps li::after{display:none!important}}
+.sec-links{display:grid;grid-template-columns:1fr 1fr;gap:28px}.sec-links h2{font-size:22px}@media (max-width:760px){.sec-links{grid-template-columns:1fr}}
 @media (max-width:1080px){.shp-cats{grid-template-columns:repeat(3,minmax(0,1fr))}.shp-shops{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:860px){.shp-prod,.shp-feat{grid-template-columns:1fr;gap:24px}.prods.shp-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.shp-shops.big{grid-template-columns:1fr 1fr}.shp-front-in{flex-direction:column;align-items:flex-start}}
 @media (max-width:600px){.shp-cats{grid-template-columns:1fr 1fr}.shp-shops,.shp-shops.big{grid-template-columns:1fr}.prods.shp-grid{gap:12px}.shp-card h3{font-size:15px;margin:4px 10px}.shp-by,.shp-card .price{margin-left:10px;margin-right:10px}.shp-search{flex-direction:column}.shp-buy .btn{width:100%}.shp-nav{top:64px}.shp-count{margin-left:0;width:100%}}
@@ -896,7 +897,7 @@ body:has(.mbar.show) .hb{bottom:84px}
 <button class="ico burger" type="button" aria-expanded="false" aria-controls="drawer" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
 </div></div>
 <div class="mm" id="mm" hidden><div class="wrap mm-in"><div class="mm-cats" id="mm-cats"><p class="mm-load">Loading the shop…</p></div><aside class="mm-side" id="mm-side"></aside></div></div>
-<nav class="drawer" id="drawer" aria-label="Mobile"><a href="/events">Events</a><a href="/news">News</a><a href="https://club.carsandcoffee.uk/">Community</a><a href="/shop">Shop</a><a href="/directory">Directory</a><a href="/partners">Partners</a><a href="/advertise">Advertise</a><a href="/search">Search</a><a href="https://club.carsandcoffee.uk/sign-in">Sign in</a></nav>
+<nav class="drawer" id="drawer" aria-label="Mobile"><a href="/events">Events</a><a href="/news">News</a><a href="/cars">Interests</a><a href="https://club.carsandcoffee.uk/">Community</a><a href="/shop">Shop</a><a href="/directory">Directory</a><a href="/partners">Partners</a><a href="/advertise">Advertise</a><a href="/search">Search</a><a href="https://club.carsandcoffee.uk/sign-in">Sign in</a></nav>
 </header>
 
 <main>
@@ -1072,8 +1073,9 @@ body:has(.mbar.show) .hb{bottom:84px}
 <div><h3>Events</h3><ul><li><a href="/events">Upcoming events</a></li><li><a href="/car-meets">Car meets near you</a></li><li><a href="/norfolk">Norfolk car hub</a></li><li><a href="/guides/your-first-car-meet">Your first car meet</a></li><li><a href="/events/host">Host an event</a></li></ul></div>
 <div><h3>News</h3><ul><li><a href="/news">Latest stories</a></li><li><a href="/news/features">Features</a></li><li><a href="/news/wec">WEC and endurance</a></li><li><a href="/news/technical">Technical</a></li></ul></div>
 <div><h3>Community</h3><ul><li><a href="https://club.carsandcoffee.uk/apply">Join the community</a></li><li><a href="https://club.carsandcoffee.uk/recommend">Recommend a mate</a></li><li><a href="https://club.carsandcoffee.uk/hubs">Series hubs</a></li><li><a href="/community-guidelines">Community guidelines</a></li></ul></div>
-<div><h3>Shop</h3><ul><li><a href="/shop/apparel">Apparel</a></li><li><a href="/shop/accessories">Accessories</a></li><li><a href="/shop/tickets">Event tickets</a></li><li><a href="/shop/gift-cards">Gift cards</a></li></ul></div>
+<div><h3>Shop</h3><ul><li><a href="/shop/category/parts">Car parts</a></li><li><a href="/shop/category/car-care">Car care</a></li><li><a href="/shop/category/clothing">Clothing</a></li><li><a href="/shops">Partner shops</a></li><li><a href="/shop/sell">Sell with us</a></li></ul></div>
 <div><h3>Directory</h3><ul><li><a href="/directory">Find a business</a></li><li><a href="/directory/region/east-anglia">By region</a></li><li><a href="/directory/services">By service</a></li><li><a href="/directory/list-your-business">List your business</a></li></ul></div>
+<div><h3>Interests</h3><ul><li><a href="/cars#services">Car services</a></li><li><a href="/cars#activities">Things to do</a></li><li><a href="/cars#types">Car types</a></li><li><a href="/cars/classic-cars">Classic cars</a></li><li><a href="/cars/track-days">Track days</a></li><li><a href="/cars/detailing-valeting">Detailing</a></li></ul></div>
 <div><h3>About</h3><ul><li><a href="/about">About us</a></li><li><a href="/advertise">Advertise</a></li><li><a href="/contact">Contact</a></li><li><a href="/accessibility">Accessibility</a></li></ul></div>
 </div>
 <div class="fbot">

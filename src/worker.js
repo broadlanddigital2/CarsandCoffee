@@ -22,6 +22,9 @@ export default {
     if ((url.pathname === "/" || url.pathname === "/index.html") && (request.method === "GET" || request.method === "HEAD")) {
       return homepage(request, env, ctx, url);
     }
+    // Renamed interest pages
+    const RENAMED = { "/cars/detailing-wraps": "/cars/detailing-valeting" };
+    if (RENAMED[url.pathname.replace(/\/+$/, "")]) return Response.redirect(url.origin + RENAMED[url.pathname.replace(/\/+$/, "")], 301);
     // Local hubs moved from /car-meets/<county>/<town> to /<county>/<town>
     const moved = url.pathname.match(/^\/car-meets\/([a-z0-9-]+(?:\/[a-z0-9-]+)?)\/?$/);
     if (moved) return Response.redirect(`${url.origin}/${moved[1]}${url.search}`, 301);

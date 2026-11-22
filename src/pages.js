@@ -5,8 +5,9 @@ import { sanitize } from "./sanitize.js";
 
 const SITE = "https://carsandcoffee.uk";
 const CLUB = "https://club.carsandcoffee.uk";
-const INTEREST_LINKS = { "Classic cars": "classic-cars", "Track days": "track-days", "Detailing and wraps": "detailing-wraps", "Sim racing": "sim-racing",
-  "Restoration and builds": "restoration-builds", "JDM": "jdm", "American": "american", "EV and hybrid": "ev-hybrid", "Modern performance and supercars": "modern-performance", "Rally": "rally", "F1": "f1" };
+const INTEREST_LINKS = { "Classic cars": "classic-cars", "Track days": "track-days", "Detailing and wraps": "detailing-valeting", "Detailing and valeting": "detailing-valeting", "Wraps and graphics": "wraps-graphics", "Sim racing": "sim-racing",
+  "Restoration and builds": "restoration-builds", "JDM": "jdm", "American": "american-muscle", "EV and hybrid": "ev-performance", "Modern performance and supercars": "supercars", "Modern performance": "supercars", "Supercars": "supercars",
+  "Rally": "motorsport", "F1": "motorsport", "Motorsport": "motorsport", "Car parts and tuning": "tuning-remapping", "Tuning": "tuning-remapping", "Hot hatches": "hot-hatches", "Show cars": "show-cars", "Track cars": "track-cars", "Car shows": "car-shows", "Driving tours": "driving-tours" };
 const slug = (x) => String(x).toLowerCase().replace(/[’']/g, "").replace(/ and /g, "-").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const enc = (s) => encodeURIComponent(s);
 
