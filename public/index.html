@@ -739,10 +739,10 @@ body:has(.mbar.show) .hb{bottom:84px}
 .shp-cat{display:flex;flex-direction:column;gap:4px;padding:20px 18px;border:1px solid var(--line);border-radius:10px;background:var(--paper);text-decoration:none;color:var(--ink);min-height:110px;justify-content:flex-end;position:relative;overflow:hidden;transition:border-color .2s,transform .2s}
 .shp-cat:hover{border-color:var(--red);transform:translateY(-2px)}.shp-cat strong{font-size:17px;line-height:1.2}.shp-cat span{font-size:13px;color:var(--soft)}
 .shp-cat img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.18}
-.shp-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+.prods.shp-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));overflow:visible;margin-right:0;padding-right:0}.prods.shp-grid>*{flex:none}
 .shp-card{position:relative;display:flex;flex-direction:column}.shp-card .ph{position:relative;display:block}
 .shp-by{margin:12px 16px 0;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--soft)}
-.shp-card h3{margin:4px 16px 4px;font-size:17px;line-height:1.3}.shp-card h3 a{text-decoration:none;color:inherit}.shp-card h3 a:hover{color:var(--red)}
+.shp-card h3{margin:4px 16px 4px;font:700 16px/1.3 Inter,sans-serif;text-transform:none;letter-spacing:0}.shp-card h3 a{text-decoration:none;color:inherit}.shp-card h3 a:hover{color:var(--red)}
 .shp-card .price{margin-top:auto;padding-bottom:4px}.shp-card .price s,.shp-price s{color:var(--soft);font-weight:400;font-size:.85em}
 .shp-out{font-style:normal;font-size:12px;color:var(--soft)}
 .shp-noimg{display:grid;place-items:center;aspect-ratio:218/127;background:linear-gradient(135deg,#efe5d8,#e2d3c1);color:#8a6f5a}.shp-noimg svg{width:44px;height:44px}
@@ -750,7 +750,7 @@ body:has(.mbar.show) .hb{bottom:84px}
 .shp-feat{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:22px;align-items:stretch;margin-top:8px}
 .shp-feat-card{display:flex;flex-direction:column;justify-content:flex-end;gap:6px;padding:30px;border-radius:12px;background:var(--esp) center/cover;color:#f6ece0;text-decoration:none;min-height:340px;background-image:radial-gradient(circle at 85% 15%,rgba(192,13,13,.4),transparent 55%)}
 .shp-feat-card h2{color:#fff;font-family:Anton,Impact,sans-serif;font-weight:400;text-transform:uppercase;font-size:clamp(30px,3.4vw,44px);margin:6px 0 0;line-height:1}.shp-feat-card p{margin:0;max-width:44ch}.shp-feat-card .btn{align-self:flex-start;margin-top:14px}
-.shp-two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.prods.shp-grid.shp-two{grid-template-columns:repeat(2,minmax(0,1fr))}
 .shp-logo{width:72px;height:72px;border-radius:12px;background:#fff;border:1px solid var(--line);object-fit:contain;padding:6px;flex:0 0 auto}
 .shp-logo.mono{display:grid;place-items:center;font-family:Anton,Impact,sans-serif;font-size:28px;color:var(--red);padding:0}
 .shp-logo.sm{width:38px;height:38px;border-radius:8px;font-size:16px;padding:3px}.shp-logo.lg{width:110px;height:110px;border-radius:16px;font-size:44px}
@@ -786,8 +786,8 @@ body:has(.mbar.show) .hb{bottom:84px}
 .shp-nav a:hover{border-color:var(--line)}.shp-nav a[aria-current]{background:var(--ink);color:var(--bg)}
 .shp-about{max-width:820px}
 @media (max-width:1080px){.shp-cats{grid-template-columns:repeat(3,minmax(0,1fr))}.shp-shops{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media (max-width:860px){.shp-prod,.shp-feat{grid-template-columns:1fr;gap:24px}.shp-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.shp-shops.big{grid-template-columns:1fr 1fr}.shp-front-in{flex-direction:column;align-items:flex-start}}
-@media (max-width:600px){.shp-cats{grid-template-columns:1fr 1fr}.shp-shops,.shp-shops.big{grid-template-columns:1fr}.prods.shp-grid{display:grid;grid-template-columns:1fr 1fr;overflow:visible;margin-right:0;padding-right:0;gap:12px}.prods.shp-grid>*{flex:none}.shp-card h3{font-size:15px;margin:4px 10px}.shp-by,.shp-card .price{margin-left:10px;margin-right:10px}.shp-search{flex-direction:column}.shp-buy .btn{width:100%}.shp-nav{top:64px}.shp-count{margin-left:0;width:100%}}
+@media (max-width:860px){.shp-prod,.shp-feat{grid-template-columns:1fr;gap:24px}.prods.shp-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.shp-shops.big{grid-template-columns:1fr 1fr}.shp-front-in{flex-direction:column;align-items:flex-start}}
+@media (max-width:600px){.shp-cats{grid-template-columns:1fr 1fr}.shp-shops,.shp-shops.big{grid-template-columns:1fr}.prods.shp-grid{gap:12px}.shp-card h3{font-size:15px;margin:4px 10px}.shp-by,.shp-card .price{margin-left:10px;margin-right:10px}.shp-search{flex-direction:column}.shp-buy .btn{width:100%}.shp-nav{top:64px}.shp-count{margin-left:0;width:100%}}
 </style>
 <style id="reveal-css">
 /* scroll reveal: only active once JS adds .js-rv to <html>, so content is never hidden without JS */

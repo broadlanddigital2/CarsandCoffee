@@ -33,7 +33,7 @@ else {
 const site = () => sb.schema("site");
 
 // ---------- state ----------
-const state = { session: null, profile: null, stats: null };
+const state = { session: null, profile: null, stats: null, myShops: [] };
 const isTeam = () => state.profile?.status === "approved" && ["admin", "moderator"].includes(state.profile?.role);
 const isAdmin = () => state.profile?.status === "approved" && state.profile?.role === "admin";
 let meLoaded = false;
@@ -45,7 +45,11 @@ async function loadMe(force = false) {
   if (!session) return;
   const { data } = await sb.from("profiles").select("id,display_name,handle,status,role").eq("id", session.user.id).maybeSingle();
   state.profile = data;
+  state.myShops = [];
+  if (!isTeam()) { const { data: ms } = await site().rpc("my_shops"); state.myShops = ms || []; }
 }
+const isPartner = () => !isTeam() && state.myShops.length > 0;
+const PARTNER_OK = [/^\/$/, /^\/content\/my_products(\/[^/]+)?$/, /^\/content\/my_shop\/[^/]+$/];
 
 // ---------- routing ----------
 const routes = [];
@@ -81,6 +85,11 @@ const I = {
   send: '<path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/>',
 };
 const icon = (k) => `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[k]}</svg>`;
+function partnerNav() {
+  const item = (href, ic, label) => `<li class="nav-item"><a class="nav-link" href="${href}" data-link>${icon(ic)}${label}</a></li>`;
+  return `${item("/", "dash", "My shop")}${item("/content/my_products", "star", "My products")}
+    <li class="nav-title">Shop page</li>${state.myShops.map((x) => item(`/content/my_shop/${x.id}`, "home", esc(x.name))).join("")}`;
+}
 function navHTML() {
   const pend = state.stats?.pending_applications || 0;
   const item = (href, ic, label, badge = "") => `<li class="nav-item"><a class="nav-link" href="${href}" data-link>${icon(ic)}${label}${badge}</a></li>`;
@@ -101,8 +110,7 @@ function navHTML() {
     ${item("/content/partners", "star", "Partners")}
     ${item("/content/partner_features", "star", "Partner features")}
     ${item("/content/community_highlights", "users", "Community posts")}
-    ${item("/content/products", "star", "Shop")}
-    ${item("/content/gallery_items", "page", "Gallery")}
+        ${item("/content/gallery_items", "page", "Gallery")}
     ${item("/content/site_stats", "dash", "Stats")}
     ${item("/content/directory_listings", "dir", "Directory")}
     ${item("/content/directory_services", "dir", "Directory services")}
@@ -110,6 +118,10 @@ function navHTML() {
     ${item("/content/sponsored_slots", "mega", "Sponsored slots")}
     ${item("/content/newsletter_subscribers", "mail", "Newsletter")}
     ${item("/content/enquiries", "send", "Enquiries")}
+    <li class="nav-title">Shop</li>
+    ${item("/content/products", "star", "Products")}
+    ${item("/content/product_categories", "page", "Categories")}
+    ${item("/content/shops", "home", "Partner shops")}
     <li class="nav-title">Club</li>
     ${item("/club/applications", "check", "Applications", pend ? `<span class="badge text-bg-danger">${pend}</span>` : "")}
     ${item("/club/moderation", "faq", "Moderation", state.stats?.reports_open ? `<span class="badge text-bg-danger">${state.stats.reports_open}</span>` : "")}
@@ -132,7 +144,7 @@ $("#signout").onclick = async () => { await sb.auth.signOut(); await loadMe(true
 function crumbs(list) { $("#crumbs").innerHTML = list.map((c, i) => i < list.length - 1 && c[1] ? `<li class="breadcrumb-item"><a href="${c[1]}" data-link>${esc(c[0])}</a></li>` : `<li class="breadcrumb-item active" aria-current="page">${esc(c[0])}</li>`).join(""); document.title = list[list.length - 1][0] + " · Cars and Coffee Admin"; }
 function chrome(show) {
   $("#sidebar").hidden = !show; $("#topbar").hidden = !show; document.body.classList.toggle("has-sidebar", show);
-  if (show) { $("#sidenav").innerHTML = navHTML(); $("#whoami").textContent = `${state.profile?.display_name || state.session?.user?.email || ""} · ${state.profile?.role || ""}`; markNav(); }
+  if (show) { $("#sidenav").innerHTML = isPartner() ? partnerNav() : navHTML(); $("#whoami").textContent = `${state.profile?.display_name || state.session?.user?.email || ""} · ${isPartner() ? "shop manager" : state.profile?.role || ""}`; markNav(); }
 }
 
 // Who's signed in is checked once, and again only when they sign in or out (not on every click).
@@ -159,8 +171,9 @@ async function renderInner(seq) {
   const path = location.pathname.replace(/\/+$/, "") || "/";
   if (path === "/auth/callback") { history.replaceState(null, "", withMock("/")); return render(); }
   if (!state.session) { chrome(false); return signInScreen(); }
-  if (!isTeam()) { chrome(false); return noAccess(); }
-  if (!state.stats || path === "/") await refreshStats(path === "/"); else refreshStats();
+  if (!isTeam() && !isPartner()) { chrome(false); return noAccess(); }
+  if (isPartner() && !PARTNER_OK.some((re) => re.test(path))) { history.replaceState(null, "", withMock("/")); return render(); }
+  if (isTeam()) { if (!state.stats || path === "/") await refreshStats(path === "/"); else refreshStats(); }
   if (seq !== renderSeq) return;
   if ($("#sidebar").hidden) chrome(true); else markNav();
   for (const r of routes) {
@@ -176,8 +189,8 @@ const G = `<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M
 function signInScreen() {
   document.title = "Sign in · Cars and Coffee Admin";
   view.innerHTML = `<div class="signin-wrap"><div class="card signin-card"><div class="card-body p-4">
-    <div class="d-flex align-items-center gap-3 mb-3"><img src="/logo.svg" alt="" width="52" height="50"><div><div class="fw-bold fs-5">Cars and Coffee</div><div class="text-body-secondary">Team admin</div></div></div>
-    <p class="text-body-secondary">For the Cars and Coffee team only. Sign in with the account you use for the club.</p>
+    <div class="d-flex align-items-center gap-3 mb-3"><img src="/logo.svg" alt="" width="52" height="50"><div><div class="fw-bold fs-5">Cars and Coffee</div><div class="text-body-secondary">Team and shop partners</div></div></div>
+    <p class="text-body-secondary">For the Cars and Coffee team and partner shop managers. Sign in with the email address you were added with.</p>
     <button class="gbtn mb-3" id="google" type="button">${G} Continue with Google</button>
     <form id="emailform" novalidate><label class="form-label" for="email">Or get a sign-in link by email</label>
     <div class="input-group"><input class="form-control" type="email" id="email" autocomplete="email" placeholder="you@example.com" required><button class="btn btn-primary" type="submit">Send link</button></div>
@@ -186,20 +199,22 @@ function signInScreen() {
   $("#google").onclick = async () => { const { error } = await sb.auth.signInWithOAuth({ provider: "google", options: { redirectTo: location.origin + "/auth/callback" } }); if (error) $("#msg").textContent = error.message; };
   $("#emailform").onsubmit = async (e) => {
     e.preventDefault(); const em = $("#email").value.trim(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) { $("#msg").textContent = "Please enter a valid email address."; return; }
-    const { error } = await sb.auth.signInWithOtp({ email: em, options: { shouldCreateUser: false, emailRedirectTo: location.origin + "/auth/callback" } });
-    $("#msg").textContent = error ? "We couldn't send a link to that address. Only team members can sign in here." : "Check your email for a sign-in link.";
+    const { data: invited } = await site().rpc("has_shop_invite", { p_email: em });
+    const { error } = await sb.auth.signInWithOtp({ email: em, options: { shouldCreateUser: !!invited, emailRedirectTo: location.origin + "/auth/callback" } });
+    $("#msg").textContent = error ? "We couldn't send a link to that address. Only the team and invited shop managers can sign in here." : "Check your email for a sign-in link.";
   };
 }
 function noAccess() {
   document.title = "No access · Cars and Coffee Admin";
   view.innerHTML = `<div class="signin-wrap"><div class="card signin-card"><div class="card-body p-4">
-    <h1 class="h4">This area is for the team</h1><p>You're signed in as <strong>${esc(state.session.user.email)}</strong>, which isn't an admin or moderator account.</p>
+    <h1 class="h4">This area is for the team and shop partners</h1><p>You're signed in as <strong>${esc(state.session.user.email)}</strong>, which isn't a team account or a partner shop manager. If you run a partner shop, ask the team to add this email address.</p>
     <div class="d-flex gap-2"><a class="btn btn-primary" href="https://club.carsandcoffee.uk">Go to the club</a><button class="btn btn-outline-secondary" id="so">Sign out</button></div></div></div></div>`;
   $("#so").onclick = async () => { await sb.auth.signOut(); go("/", true); };
 }
 
 // ---------- dashboard ----------
 route("/", async () => {
+  if (isPartner()) return partnerDash();
   crumbs([["Dashboard"]]);
   const s = state.stats || {};
   const card = (v, label, href, tone = "") => `<div class="col-6 col-lg-3"><div class="card stat h-100"><div class="card-body"><a href="${href}" data-link><div class="value ${tone}">${v ?? "–"}</div><div class="label">${label}</div></a></div></div></div>`;
@@ -665,10 +680,51 @@ const CONTENT = {
     help: "The three posts shown in “From the community” on the homepage (lowest order numbers first).",
     fields: [F("title", "Title", "text", { required: true }), F("handle", "Member handle", "text", { required: true, ph: "@norfolkseries" }), F("posted_label", "When (shown next to the handle)", "text", { ph: "3 days ago" }),
       F("excerpt", "Summary", "textarea"), F("image_path", "Image", "image"), F("image_alt", "Image description"), F("post_url", "Link to the post", "text", { ph: "https://club.carsandcoffee.uk/…" }), F("sort", "Order", "number"), F("active", "Shown", "bool", { def: true })] },
-  products: { title: "Shop", order: ["units_sold_30d", false], list: ["name", "price_pence", "units_sold_30d", "active"],
-    help: "The homepage shows the four best sellers (most sold in the last 30 days).",
-    fields: [F("name", "Product name", "text", { required: true }), F("slug", "Slug", "slug", { from: "name" }), F("price_pence", "Price (pence)", "number", { required: true }), F("member_price_pence", "Member price (pence)", "number"),
-      F("badge", "Badge", "text", { ph: "Best seller, New…" }), F("image_path", "Image", "image"), F("image_alt", "Image description"), F("units_sold_30d", "Sold in the last 30 days", "number"), F("partner_id", "Partner product", "ref", { table: "partners", show: "name" }), F("active", "On sale", "bool", { def: true })] },
+  products: { title: "Products", order: ["created_at", false], list: ["name", "shop_id", "price_pence", "stock_status", "featured", "active"], view: "/shop/", seo: true,
+    help: "Every product in the shop. Products with no shop are club merch; partner products also show on their shop page. Featured products appear on the shop home.",
+    fields: [F("h_basics", "The product", "heading"), F("name", "Product name", "text", { required: true }), F("slug", "Address (slug)", "slug", { from: "name" }),
+      F("shop_id", "Shop (leave empty for club merch)", "ref", { table: "shops", show: "name", empty: "Club merch" }), F("category_id", "Category", "ref", { table: "product_categories", show: "name" }),
+      F("summary", "Short description (shown under the price and in Google)", "textarea", { ai: "summary" }), F("body_html", "Full details", "rich", { ai: "body" }),
+      F("image_path", "Main photo", "image"), F("image_alt", "Photo description"), F("gallery", "More photos", "gallery"),
+      F("h_price", "Price and stock", "heading"), F("price_pence", "Price (pence, e.g. 2200 for £22)", "number", { required: true }), F("compare_at_pence", "Was price (pence, shows as a sale)", "number"), F("member_price_pence", "Member price (pence)", "number"),
+      F("stock_status", "Availability", "select", { options: ["in_stock", "low", "out", "preorder"] }), F("stock_qty", "Stock count (optional, not shown)", "number"), F("condition", "Condition", "select", { options: ["new", "used", "refurbished"] }),
+      F("options", "Options (one per line, e.g. Size: S, M, L, XL)", "options"), F("brand", "Brand"), F("sku", "Part number or SKU"), F("tags", "Search tags (comma separated)", "array"),
+      F("buy_url", "Buy link (the product on the shop's own website; leave empty to show an enquiry button)", "text", { ph: "https://…" }),
+      F("h_status", "Promotion and status", "heading"), F("badge", "Badge on the photo", "text", { ph: "Best seller, New…" }), F("featured", "Featured on the shop home", "bool"), F("sort", "Order (lower first)", "number", { def: 100 }), F("units_sold_30d", "Sold in the last 30 days (homepage best sellers)", "number"), F("active", "On sale", "bool", { def: true }),
+      F("h_seo", "Search engines", "heading", { note: "Optional. Left empty, the name and short description are used." }), F("meta_title", "Google title", "text", { ai: "meta_title" }), F("meta_description", "Google description", "textarea", { ai: "meta_description" })] },
+  product_categories: { title: "Shop categories", order: ["sort", true], list: ["name", "parent_id", "sort", "active"], view: "/shop/category/",
+    help: "Top-level categories show as tiles on the shop home. Give a category a parent to make it a sub-category.",
+    fields: [F("name", "Category name", "text", { required: true }), F("slug", "Address (slug)", "slug", { from: "name" }), F("parent_id", "Parent category (leave empty for a top-level category)", "ref", { table: "product_categories", show: "name" }),
+      F("description", "Description (shown on the category page)", "textarea"), F("image_path", "Tile image (optional)", "image"), F("sort", "Order", "number", { def: 100 }), F("active", "Shown", "bool", { def: true }),
+      F("meta_title", "Google title"), F("meta_description", "Google description", "textarea")] },
+  shops: { title: "Partner shops", order: ["name", true], list: ["name", "town", "status", "featured"], view: "/shops/",
+    help: "Partner storefronts. A shop is public when its status is Live and its plan is on trial or active (see Plan and billing below). Partners can edit their own shop and products once you add them under Shop managers.",
+    fields: [F("h_basics", "The shop", "heading"), F("name", "Shop name", "text", { required: true }), F("slug", "Address (slug)", "slug", { from: "name" }), F("tagline", "Tagline (one line)"),
+      F("about_html", "About the shop", "rich", { ai: "body" }), F("logo_path", "Logo", "image"), F("banner_path", "Banner photo (wide)", "image"),
+      F("h_contact", "Contact and links", "heading"), F("website", "Website"), F("email", "Public email"), F("phone", "Public phone"), F("socials", "Social links (one per line, e.g. instagram: https://instagram.com/…)", "socials"),
+      F("town", "Town"), F("county", "County", "select", { options: ["", "Norfolk", "Suffolk", "Cambridgeshire", "Essex"] }),
+      F("partner_id", "Linked partner (optional)", "ref", { table: "partners", show: "name" }), F("directory_listing_id", "Linked directory listing (optional)", "ref", { table: "directory_listings", show: "name" }),
+      F("h_status", "Status and promotion", "heading"), F("status", "Status", "select", { options: ["draft", "live", "paused"] }), F("featured", "Featured shop on the shop home", "bool"), F("featured_order", "Featured order (lower first)", "number", { def: 0 }),
+      F("meta_title", "Google title"), F("meta_description", "Google description", "textarea")] },
+  my_products: { title: "My products", table: "products", noAi: true, order: ["created_at", false], list: ["name", "shop_id", "price_pence", "stock_status", "active"], view: "/shop/",
+    filter: (qq) => qq.in("shop_id", state.myShops.map((x) => x.id)),
+    help: "Your products show on your shop page and across the Cars and Coffee UK shop. Switch “On sale” off to hide a product without deleting it.",
+    fields: [F("h_basics", "The product", "heading"), F("name", "Product name", "text", { required: true }), F("slug", "Address (slug)", "slug", { from: "name" }),
+      F("shop_id", "Shop", "ref", { table: "shops", show: "name", required: true, rows: () => state.myShops }), F("category_id", "Category", "ref", { table: "product_categories", show: "name" }),
+      F("summary", "Short description (shown under the price and in Google)", "textarea"), F("body_html", "Full details", "rich"),
+      F("image_path", "Main photo", "image"), F("image_alt", "Photo description"), F("gallery", "More photos", "gallery"),
+      F("h_price", "Price and stock", "heading"), F("price_pence", "Price (pence, e.g. 2200 for £22)", "number", { required: true }), F("compare_at_pence", "Was price (pence, shows as a sale)", "number"),
+      F("stock_status", "Availability", "select", { options: ["in_stock", "low", "out", "preorder"] }), F("stock_qty", "Stock count (optional, not shown)", "number"), F("condition", "Condition", "select", { options: ["new", "used", "refurbished"] }),
+      F("options", "Options (one per line, e.g. Size: S, M, L, XL)", "options"), F("brand", "Brand"), F("sku", "Part number or SKU"), F("tags", "Search tags (comma separated)", "array"),
+      F("buy_url", "Buy link (this product on your own website; leave empty to show an enquiry button)", "text", { ph: "https://…" }),
+      F("badge", "Badge on the photo", "text", { ph: "New, Sale…" }), F("sort", "Order on your shop page (lower first)", "number", { def: 100 }), F("active", "On sale", "bool", { def: true }),
+      F("h_seo", "Search engines", "heading", { note: "Optional. Left empty, the name and short description are used." }), F("meta_title", "Google title"), F("meta_description", "Google description", "textarea")] },
+  my_shop: { title: "Shop page", table: "shops", noAi: true, noCreate: true, noDelete: true, order: ["name", true], list: ["name"], view: "/shops/",
+    help: "Your storefront at carsandcoffee.uk/shops/… Set the status to Live when you're ready for people to see it.",
+    fields: [F("name", "Shop name", "text", { required: true }), F("tagline", "Tagline (one line)"), F("about_html", "About the shop", "rich"), F("logo_path", "Logo", "image"), F("banner_path", "Banner photo (wide)", "image"),
+      F("website", "Website"), F("email", "Public email"), F("phone", "Public phone"), F("socials", "Social links (one per line, e.g. instagram: https://instagram.com/…)", "socials"),
+      F("town", "Town"), F("county", "County", "select", { options: ["", "Norfolk", "Suffolk", "Cambridgeshire", "Essex"] }), F("status", "Status", "select", { options: ["draft", "live", "paused"] }),
+      F("meta_title", "Google title"), F("meta_description", "Google description", "textarea")] },
   gallery_items: { title: "Gallery", order: ["sort", true], list: ["title", "sort", "featured"],
     help: "Each gallery has its own page at /galleries/… The homepage shows the first five featured galleries.", view: "/galleries/",
     fields: [F("title", "Title", "text", { required: true }), F("slug", "Slug", "slug", { from: "title" }), F("description", "Short description (shown on the gallery page)", "textarea"), F("image_path", "Cover photo", "image", { required: true }), F("image_alt", "Cover photo description", "text", { required: true }),
@@ -689,8 +745,9 @@ const CONTENT = {
   newsletter_subscribers: { title: "Newsletter", order: ["created_at", false], list: ["email", "source", "created_at", "unsubscribed_at"], noCreate: true, csv: true,
     fields: [F("email", "Email", "readonly"), F("source", "Signed up from", "readonly"), F("created_at", "Signed up", "readonly"), F("consent_text", "Agreed to", "readonly"), F("unsubscribed_at", "Unsubscribed", "datetime")] },
 };
-const LABELS = { free_rsvp: "Free (RSVP)", on_sale: "On sale", selling_fast: "Selling fast", sold_out: "Sold out", detail_of_month: "Detail of the Month", livery_of_week: "Livery of the Week", race_night: "Race Night" };
+const LABELS = { in_stock: "In stock", low: "Low stock", out: "Out of stock", preorder: "Pre-order", refurbished: "Refurbished", trial: "Trial", past_due: "Payment overdue", free_rsvp: "Free (RSVP)", on_sale: "On sale", selling_fast: "Selling fast", sold_out: "Sold out", detail_of_month: "Detail of the Month", livery_of_week: "Livery of the Week", race_night: "Race Night" };
 function cell(v, f) {
+  if (f?._names) return v == null || v === "" ? `<span class="text-body-secondary">${esc(f.empty || "–")}</span>` : esc(f._names[v] || "–");
   if (v == null || v === "") return '<span class="text-body-secondary">–</span>';
   if (typeof v === "boolean") return v ? '<span class="badge text-bg-success">Yes</span>' : '<span class="badge text-bg-light border">No</span>';
   if (f?.type === "datetime" || /_at$/.test(f?.name || "")) return fmtDate(v, true);
@@ -700,9 +757,10 @@ function cell(v, f) {
 }
 // on/off switch shown on each row of a list: which field it flips and the "on" / "off" values
 const TOGGLE = {
+  my_products: { field: "active", label: "On sale" },
   events: { field: "published", label: "Live" }, guides: { field: "status", on: "published", off: "draft", label: "Live" }, venues: { field: "active", label: "Active" }, articles: { field: "status", on: "published", off: "draft", label: "Live" },
   faqs: { field: "published", label: "Live" }, partners: { field: "active", label: "Active" }, partner_features: { field: "active", label: "Live" },
-  community_highlights: { field: "active", label: "Shown" }, products: { field: "active", label: "On sale" }, gallery_items: { field: "featured", label: "On homepage" },
+  community_highlights: { field: "active", label: "Shown" }, products: { field: "active", label: "On sale" }, product_categories: { field: "active", label: "Shown" }, shops: { field: "status", on: "live", off: "paused", label: "Live" }, gallery_items: { field: "featured", label: "On homepage" },
   directory_listings: { field: "status", on: "published", off: "pending", label: "Live" }, sponsored_slots: { field: "status", on: "approved", off: "paused", label: "Running" },
   homepage_blocks: { field: "enabled", label: "Shown" },
 };
@@ -711,7 +769,8 @@ route("/content/:table", async ({ table }) => {
   const c = CONTENT[table]; if (!c) throw new Error("Unknown section");
   crumbs([[c.title]]);
   const when = qs().get("when") || (table === "events" ? "upcoming" : ""), search = (qs().get("q") || "").trim().toLowerCase();
-  let query = site().from(table).select("*").order(c.order[0], { ascending: c.order[1] }).limit(1000);
+  let query = site().from(c.table || table).select("*").order(c.order[0], { ascending: c.order[1] }).limit(1000);
+  if (c.filter) query = c.filter(query);
   if (table === "directory_listings") query = site().from(table).select("*").order("status", { ascending: true }).order("created_at", { ascending: false }).limit(1000);
   if (table === "events" && when === "upcoming") query = query.gte("ends_at", new Date().toISOString());
   if (table === "events" && when === "past") query = query.lt("ends_at", new Date().toISOString()).order("starts_at", { ascending: false });
@@ -721,6 +780,7 @@ route("/content/:table", async ({ table }) => {
   const pk = c.pk || "id";
   const tg = TOGGLE[table];
   const cols = c.list.filter((k) => !tg || k !== tg.field);
+  for (const k of cols) { const f = fmap[k]; if (f?.type === "ref" && f.rows) { f._names = Object.fromEntries(f.rows().map((x) => [x.id, x[f.show]])); continue; } if (f?.type === "ref") { const { data: rr } = await site().from(f.table).select(`id,${f.show}`); f._names = Object.fromEntries((rr || []).map((x) => [x.id, x[f.show]])); } }
   const data = (all || []).filter((r) => !search || cols.some((k) => String(r[k] ?? "").toLowerCase().includes(search)));
   const filterTab = (w, l) => `<a href="/content/events${w ? "?when=" + w : "?when=all"}" data-link class="${when === w || (w === "all" && !when) ? "on" : ""}">${l}</a>`;
   view.innerHTML = `<div class="page-head"><h1>${esc(c.title)}</h1><div class="d-flex gap-2">${c.csv ? `<button class="btn btn-outline-secondary" id="csv">Download CSV</button>` : ""}${c.noCreate ? "" : `<a class="btn btn-primary" href="/content/${table}/new" data-link>Add</a>`}</div></div>
@@ -740,7 +800,7 @@ route("/content/:table", async ({ table }) => {
   view.onchange = async (e) => {
     const sw = e.target.closest("[data-toggle]"); if (!sw) return;
     const tr = sw.closest("tr"); const val = sw.checked ? (tg.on ?? true) : (tg.off ?? false);
-    const { error } = await site().from(table).update({ [tg.field]: val }).eq(pk, keyOf(tr));
+    const { error } = await site().from(c.table || table).update({ [tg.field]: val }).eq(pk, keyOf(tr));
     if (error) { sw.checked = !sw.checked; return oops(error); }
     tr.classList.toggle("row-off", !sw.checked); toast(sw.checked ? `Switched on: ${tg.label.toLowerCase()}` : "Switched off");
   };
@@ -749,7 +809,7 @@ route("/content/:table", async ({ table }) => {
     if (e.target.matches("[data-del]")) {
       const b = e.target;
       if (!b.dataset.armed) { b.dataset.armed = "1"; b.textContent = "Confirm delete"; b.classList.replace("btn-outline-danger", "btn-danger"); setTimeout(() => { if (b.isConnected) { delete b.dataset.armed; b.textContent = "Delete"; b.classList.replace("btn-danger", "btn-outline-danger"); } }, 4000); return; }
-      const { error } = await site().from(table).delete().eq(pk, keyOf(tr));
+      const { error } = await site().from(c.table || table).delete().eq(pk, keyOf(tr));
       if (error) return oops(/foreign key|violates/i.test(error.message) ? new Error("This item is used elsewhere (for example a partner with features or products), so it can't be deleted. Switch it off instead.") : error);
       tr.remove(); toast("Deleted");
     }
@@ -762,7 +822,7 @@ route("/content/:table", async ({ table }) => {
       if (pk !== "id" && copy[pk]) copy[pk] += suffix.replace(/-/g, "_");
       if ("title" in copy && copy.title) copy.title += " (copy)"; else if ("name" in copy && copy.name) copy.name += " (copy)";
       if (tg) copy[tg.field] = tg.off ?? false;
-      const { data: made, error } = await site().from(table).insert(copy).select(pk).single();
+      const { data: made, error } = await site().from(c.table || table).insert(copy).select(pk).single();
       if (error) return oops(error);
       toast("Copy created (switched off). Edit it, then switch it on."); go(`/content/${table}/${encodeURIComponent(made[pk])}`);
     }
@@ -778,10 +838,10 @@ route("/content/:table/:id", async ({ table, id }) => {
   const c = CONTENT[table]; if (!c) throw new Error("Unknown section");
   const pk = c.pk || "id"; const isNew = id === "new";
   let row = {};
-  if (!isNew) { const { data, error } = await site().from(table).select("*").eq(pk, c.idType === "int" ? Number(id) : decodeURIComponent(id)).maybeSingle(); if (error) throw error; if (!data) throw new Error("Not found"); row = data; }
+  if (!isNew) { const { data, error } = await site().from(c.table || table).select("*").eq(pk, c.idType === "int" ? Number(id) : decodeURIComponent(id)).maybeSingle(); if (error) throw error; if (!data) throw new Error("Not found"); row = data; }
   else c.fields.forEach((f) => { if (f.def !== undefined) row[f.name] = f.def; if (f.type === "select") row[f.name] = row[f.name] ?? f.options[0]; });
   const refs = {};
-  for (const f of c.fields.filter((f) => f.type === "ref")) { const { data } = await site().from(f.table).select(`id,${f.show}`).order(f.show); refs[f.name] = data || []; }
+  for (const f of c.fields.filter((f) => f.type === "ref")) { if (f.rows) { refs[f.name] = f.rows(); continue; } const { data } = await site().from(f.table).select(`id,${f.show}`).order(f.show); refs[f.name] = data || []; }
   const titleKey = c.list[0];
   crumbs([[c.title, `/content/${table}`], [isNew ? "Add" : String(row[titleKey] ?? "Edit")]]);
   const input = (f) => {
@@ -797,9 +857,11 @@ route("/content/:table/:id", async ({ table, id }) => {
       case "hours": return hoursField(id, v);
       case "lead": return `<input class="form-control" id="${id}" type="email" placeholder="e.g. enquiries@business.co.uk (leave empty to send enquiries to the team)" data-lead><div class="form-check mt-2"><input class="form-check-input" type="checkbox" id="${id}_copy" data-lead-copy><label class="form-check-label small" for="${id}_copy">Also send our team a copy of every enquiry</label></div>`;
       case "lines": return `<textarea class="form-control" id="${id}" rows="${Math.max(3, (v || []).length + 1)}">${esc((v || []).join("\n"))}</textarea>`;
+      case "options": return `<textarea class="form-control" id="${id}" rows="3" placeholder="Size: S, M, L, XL">${esc((Array.isArray(v) ? v : []).map((o) => `${o.name}: ${(o.values || []).join(", ")}`).join("\n"))}</textarea>`;
+      case "socials": return `<textarea class="form-control" id="${id}" rows="3" placeholder="instagram: https://instagram.com/yourshop">${esc(Object.entries(v || {}).map(([k, x]) => `${k}: ${x}`).join("\n"))}</textarea>`;
       case "markdown": return `<textarea class="form-control code" id="${id}" rows="14">${esc(v ?? "")}</textarea>`;
       case "select": return `<select class="form-select" id="${id}">${f.options.map((o) => `<option value="${o}" ${o === v ? "selected" : ""}>${esc(LABELS[o] || o)}</option>`).join("")}</select>`;
-      case "ref": return `<select class="form-select" id="${id}" ${req}><option value="">Choose…</option>${refs[f.name].map((o) => `<option value="${o.id}" ${o.id === v ? "selected" : ""}>${esc(o[f.show])}</option>`).join("")}</select>`;
+      case "ref": return `<select class="form-select" id="${id}" ${req}>${f.rows ? "" : `<option value="">Choose…</option>`}${refs[f.name].map((o) => `<option value="${o.id}" ${o.id === v ? "selected" : ""}>${esc(o[f.show])}</option>`).join("")}</select>`;
       case "number": return `<input class="form-control" type="number" ${f.step ? `step="${f.step}"` : ""} id="${id}" value="${esc(v ?? "")}" ${req}>`;
       case "postcode": return `<div class="input-group"><input class="form-control" id="${id}" value="${esc(v ?? "")}" placeholder="e.g. NR1 3DD" autocapitalize="characters"><button class="btn btn-outline-secondary" type="button" data-pclookup="${id}">Look up</button></div><div class="form-text" data-pcmsg="${id}">Fills in the map position from the postcode.</div>`;
       case "date": return `<input class="form-control" type="date" id="${id}" value="${esc(v ? String(v).slice(0, 10) : "")}" ${req}>`;
@@ -814,7 +876,7 @@ route("/content/:table/:id", async ({ table, id }) => {
     ${c.help ? `<p class="text-body-secondary">${esc(c.help)}</p>` : ""}
     <div class="card"><div class="card-body"><div class="row g-3">
       ${c.fields.map((f) => f.type === "heading" ? `<div class="col-12 form-section"><h2 class="h5 mb-0">${esc(f.label)}</h2>${f.note ? `<p class="small text-body-secondary mb-0">${esc(f.note)}</p>` : ""}</div>`
-        : `<div class="${["textarea", "markdown", "rich", "lines", "gallery", "readonly_long", "offerings", "hours"].includes(f.type) ? "col-12" : "col-md-6"}">${f.type === "bool" ? "" : `<label class="form-label" for="f_${f.name}${f.type === "rich" ? "_area" : ""}">${esc(f.label)}${f.required ? ' <span class="text-danger">*</span>' : ""}${f.ai && f.type !== "rich" ? aiBtn(f.ai, "f_" + f.name) : ""}</label>`}${input(f)}</div>`).join("")}
+        : `<div class="${["textarea", "markdown", "rich", "lines", "gallery", "readonly_long", "offerings", "hours", "options", "socials"].includes(f.type) ? "col-12" : "col-md-6"}">${f.type === "bool" ? "" : `<label class="form-label" for="f_${f.name}${f.type === "rich" ? "_area" : ""}">${esc(f.label)}${f.required ? ' <span class="text-danger">*</span>' : ""}${f.ai && f.type !== "rich" ? aiBtn(f.ai, "f_" + f.name) : ""}</label>`}${input(f)}</div>`).join("")}
     </div></div></div>
     ${SEO_KINDS[table] ? `<div class="card mt-3" id="seo"><div class="card-body"><div class="row g-4">
       <div class="col-lg-6"><h2 class="h5">SEO score</h2><div class="d-flex align-items-center gap-3 mb-2"><div class="score-ring" id="ring">–</div><div><div class="fw-semibold" id="grade"></div><div class="small text-body-secondary">Updates as you type · <span id="wc"></span></div></div></div>
@@ -834,7 +896,7 @@ route("/content/:table/:id", async ({ table, id }) => {
     const dirFacts = table === "directory_listings" ? [`Business: ${v("name")}`, v("services") && `Services: ${v("services")}`, v("town") && `Town: ${v("town")}`, v("county") && `County: ${v("county")}`, v("website") && `Website: ${v("website")}`, v("opening_hours") && `Opening hours: ${v("opening_hours").replace(/\n/g, "; ")}`].filter(Boolean).join("\n") : "";
     return { kind: kindLabel, title: v("title") || v("name"), focus_keyword: v("focus_keyword"), place: v("town") || v("county"), county: v("county"), intro: v("summary") || v("excerpt") || v("intro"), facts: facts || dirFacts, existing: body ? htmlText(body.innerHTML).slice(0, 3000) : "", words: table === "guides" ? 900 : table === "events" ? 250 : 450,
       url: table === "directory_listings" ? `/directory/${v("slug")}` : table === "events" ? `/events/${v("slug")}` : table === "articles" ? `/news/${v("slug")}` : table === "guides" ? `/guides/${v("slug")}` : "" }; };
-  wireRich($("#cf"), { upload: uploadSiteImage, onChange: () => (dirty = true), ai: async (field, brief) => (await aiCall(field, contentCtx(), brief)).html });
+  wireRich($("#cf"), { upload: uploadSiteImage, onChange: () => (dirty = true), ai: c.noAi ? null : async (field, brief) => (await aiCall(field, contentCtx(), brief)).html });
   wireAiSuggest($("#cf"), contentCtx);
   if (table === "directory_listings") wireOfferings($("#cf"));
   if (table === "directory_listings" && !isNew) {
@@ -844,6 +906,8 @@ route("/content/:table/:id", async ({ table, id }) => {
     const { data: subs } = await site().from("directory_submissions").select("*").eq("listing_id", row.id).order("created_at", { ascending: false });
     if (subs && subs.length) $("#cf .card").insertAdjacentHTML("beforebegin", `<div class="alert alert-warning"><strong>Submitted from the website</strong> ${fmtDate(subs[0].created_at, true)} by ${esc(subs[0].contact_name)} · <a href="mailto:${esc(subs[0].contact_email)}?subject=${encodeURIComponent("Your Cars and Coffee directory listing")}">${esc(subs[0].contact_email)}</a>${subs[0].contact_phone ? ` · ${esc(subs[0].contact_phone)}` : ""}${subs[0].notes ? `<div class="small mt-1">Note: ${esc(subs[0].notes)}</div>` : ""}<div class="small mt-1">Only the team can see this. ${row.status === "pending" ? "Check the details, then set Status to Published." : ""}</div></div>`);
   }
+  if (table === "shops" && !isNew) await shopExtras(row);
+  if (table === "my_shop") state.uploadShop = row.id;
   wireGallery($("#cf"));
   if (SEO_KINDS[table]) {
     const cur = () => { const r = { ...row }; for (const f of c.fields) { const el = $("#f_" + f.name); if (!el) continue;
@@ -890,12 +954,14 @@ route("/content/:table/:id", async ({ table, id }) => {
       else if (f.type === "hours") { v = {}; for (const [k] of DAYS_ADMIN) { const r = $(`[data-hday="${k}"]`); const closed = $("[data-hclosed]", r).checked, open = $("[data-hopen]", r).value, close = $("[data-hclose]", r).value; if (closed || open || close) v[k] = closed ? { closed: true } : { open, close }; } }
       else if (f.type === "lead") continue;
       else if (f.type === "lines") v = el.value.split("\n").map((s) => s.trim()).filter(Boolean);
+      else if (f.type === "options") v = el.value.split("\n").map((l) => { const i = l.indexOf(":"); return i < 1 ? null : { name: l.slice(0, i).trim(), values: l.slice(i + 1).split(",").map((x) => x.trim()).filter(Boolean) }; }).filter((o) => o && o.name && o.values.length);
+      else if (f.type === "socials") { v = {}; el.value.split("\n").forEach((l) => { const i = l.indexOf(":"); if (i > 0) { const k = l.slice(0, i).trim().toLowerCase().replace(/[^a-z]/g, ""), x = l.slice(i + 1).trim(); if (k && x) v[k] = x; } }); }
       else v = el.value.trim() === "" ? null : el.value.trim();
       if (f.required && (v == null || v === "")) { toast(`${f.label} is required`, true); el.focus(); return; }
       out[f.name] = v;
     }
     if (slugF && out[slugF.name]) out[slugF.name] = slugify(out[slugF.name]);
-    const res = isNew ? await site().from(table).insert(out).select(pk).single() : await site().from(table).update(out).eq(pk, row[pk]).select(pk).single();
+    const res = isNew ? await site().from(c.table || table).insert(out).select(pk).single() : await site().from(c.table || table).update(out).eq(pk, row[pk]).select(pk).single();
     if (res.error) return toast(/duplicate|unique/i.test(res.error.message) ? "That slug is already used" : res.error.message, true);
     if (table === "directory_listings" && $("[data-lead]")) {
       const le = $("[data-lead]").value.trim();
@@ -906,10 +972,66 @@ route("/content/:table/:id", async ({ table, id }) => {
   };
   if ($("#del")) { let armed = false; $("#del").onclick = async () => {
     if (!armed) { armed = true; $("#del").textContent = "Click again to delete for good"; $("#del").classList.replace("btn-outline-danger", "btn-danger"); return; }
-    const { error } = await site().from(table).delete().eq(pk, row[pk]); if (error) return oops(error);
+    const { error } = await site().from(c.table || table).delete().eq(pk, row[pk]); if (error) return oops(error);
     dirty = false; toast("Deleted"); go(`/content/${table}`, true);
   }; }
 });
+
+// ---------- partner dashboard ----------
+async function partnerDash() {
+  crumbs([["My shop"]]);
+  const { data: prods } = await site().from("products").select("shop_id,active,stock_status").in("shop_id", state.myShops.map((x) => x.id));
+  const PLAN = { trial: ["Trial", "text-bg-info"], active: ["Active", "text-bg-success"], past_due: ["Payment overdue", "text-bg-warning"], cancelled: ["Cancelled", "text-bg-danger"] };
+  view.innerHTML = `<div class="page-head"><h1>Your shop${state.myShops.length > 1 ? "s" : ""}</h1><a class="btn btn-primary" href="/content/my_products/new" data-link>Add a product</a></div>
+    ${state.myShops.map((x) => { const mine = (prods || []).filter((p) => p.shop_id === x.id), on = mine.filter((p) => p.active).length, out = mine.filter((p) => p.stock_status === "out").length, pl = PLAN[x.plan_status] || [x.plan_status || "No plan", "text-bg-secondary"];
+      const open = x.status === "live" && ["trial", "active"].includes(x.plan_status);
+      return `<div class="card mb-3"><div class="card-body"><div class="d-flex flex-wrap justify-content-between gap-3 align-items-start"><div><h2 class="h4 mb-1">${esc(x.name)}</h2>
+        <p class="mb-2"><span class="badge ${pl[1]}">Plan: ${esc(pl[0])}</span> <span class="badge ${x.status === "live" ? "text-bg-success" : "text-bg-secondary"}">Shop: ${esc(x.status)}</span></p>
+        <p class="small text-body-secondary mb-0">${open ? "Your shop is public." : x.status !== "live" ? "Your shop is hidden. Set its status to Live on the shop page when you're ready." : "Your shop is hidden because the plan isn't active. Contact the Cars and Coffee team."} Commission on sales: ${esc(x.commission_pct ?? "–")}%.${x.monthly_fee_pence ? ` Monthly fee: £${(x.monthly_fee_pence / 100).toFixed(2)}.` : ""}</p></div>
+        <div class="d-flex gap-2 flex-wrap"><a class="btn btn-outline-secondary" href="/content/my_shop/${x.id}" data-link>Edit shop page</a><a class="btn btn-outline-secondary" href="${SITE}/shops/${esc(x.slug)}" target="_blank" rel="noopener">View shop</a></div></div>
+        <div class="row g-3 mt-2"><div class="col-6 col-md-3"><div class="card stat"><div class="card-body"><a href="/content/my_products" data-link><div class="value">${mine.length}</div><div class="label">Products</div></a></div></div></div>
+          <div class="col-6 col-md-3"><div class="card stat"><div class="card-body"><a href="/content/my_products" data-link><div class="value">${on}</div><div class="label">On sale</div></a></div></div></div>
+          <div class="col-6 col-md-3"><div class="card stat"><div class="card-body"><a href="/content/my_products" data-link><div class="value ${out ? "text-warning" : ""}">${out}</div><div class="label">Out of stock</div></a></div></div></div></div></div></div>`; }).join("")}
+    <p class="small text-body-secondary">Online checkout is coming soon. Until then, each product either links to your own website (add a Buy link) or shows an enquiry button. Questions? <a href="${SITE}/contact?topic=shop">Contact the team</a>.</p>`;
+}
+
+// ---------- partner shops: plan, commission and managers (team only) ----------
+async function shopExtras(row) {
+  const [{ data: bill }, { data: people, error: pe }] = await Promise.all([site().from("shop_billing").select("*").eq("shop_id", row.id).maybeSingle(), site().rpc("shop_people", { p_shop: row.id })]);
+  const b = bill || { plan: "standard", plan_status: "trial", monthly_fee_pence: 0, commission_pct: 10, renews_at: null, notes: "" };
+  const st = ["trial", "active", "past_due", "cancelled"];
+  $("#cf .card").insertAdjacentHTML("afterend", `<div class="card mt-3" id="shopx"><div class="card-body">
+    <h2 class="h5">Plan and billing</h2><p class="small text-body-secondary">The shop is only public while the plan is on Trial or Active and the status above is Live. Payment isn't taken automatically yet: update this when the partner pays.</p>
+    <div class="row g-3"><div class="col-md-3"><label class="form-label" for="b_status">Plan status</label><select class="form-select" id="b_status">${st.map((x) => `<option value="${x}" ${x === b.plan_status ? "selected" : ""}>${esc(LABELS[x] || x[0].toUpperCase() + x.slice(1))}</option>`).join("")}</select></div>
+      <div class="col-md-3"><label class="form-label" for="b_plan">Plan name</label><input class="form-control" id="b_plan" value="${esc(b.plan)}"></div>
+      <div class="col-md-2"><label class="form-label" for="b_fee">Monthly fee (£)</label><input class="form-control" id="b_fee" type="number" step="0.01" min="0" value="${(b.monthly_fee_pence / 100).toFixed(2)}"></div>
+      <div class="col-md-2"><label class="form-label" for="b_comm">Commission (%)</label><input class="form-control" id="b_comm" type="number" step="0.5" min="0" max="100" value="${esc(b.commission_pct)}"></div>
+      <div class="col-md-2"><label class="form-label" for="b_renew">Renews on</label><input class="form-control" id="b_renew" type="date" value="${esc(b.renews_at || "")}"></div>
+      <div class="col-12"><label class="form-label" for="b_notes">Billing notes (team only)</label><textarea class="form-control" id="b_notes" rows="2">${esc(b.notes || "")}</textarea></div>
+      <div class="col-12"><button type="button" class="btn btn-outline-primary" id="b_save">Save plan</button></div></div>
+    <hr class="my-4"><h2 class="h5">Shop managers</h2><p class="small text-body-secondary">People who can sign in at admin.carsandcoffee.uk to edit this shop and its products. Add their email; they get access the first time they sign in with that address (Google or email link). They can't change the plan, commission, featured spots or member prices.</p>
+    ${pe ? `<p class="text-danger small">${esc(pe.message)}</p>` : ""}
+    <ul class="list-group mb-3" id="ppl">${(people || []).map((x) => `<li class="list-group-item d-flex justify-content-between align-items-center"><span>${esc(x.email)} <span class="badge text-bg-light border">${esc(x.role)}</span> ${x.kind === "invite" ? '<span class="badge text-bg-warning">Not signed in yet</span>' : ""}</span><button type="button" class="btn btn-sm btn-outline-danger" data-rm="${esc(x.kind)}:${esc(x.ref)}">Remove</button></li>`).join("") || '<li class="list-group-item text-body-secondary">No managers yet.</li>'}</ul>
+    <div class="input-group" style="max-width:560px"><input class="form-control" id="p_email" type="email" placeholder="partner@business.co.uk"><select class="form-select" id="p_role" style="max-width:130px"><option value="owner">Owner</option><option value="editor">Editor</option></select><button type="button" class="btn btn-outline-primary" id="p_add">Add manager</button></div>
+    <p class="small text-body-secondary mt-2">Send them this link to sign in: <code>https://admin.carsandcoffee.uk</code></p></div></div>`);
+  $("#b_save").onclick = async () => {
+    const out = { shop_id: row.id, plan_status: $("#b_status").value, plan: $("#b_plan").value.trim() || "standard", monthly_fee_pence: Math.round(Number($("#b_fee").value || 0) * 100), commission_pct: Number($("#b_comm").value || 0), renews_at: $("#b_renew").value || null, notes: $("#b_notes").value.trim() || null, updated_at: new Date().toISOString() };
+    const { error } = await site().from("shop_billing").upsert(out, { onConflict: "shop_id" }); error ? oops(error) : toast("Plan saved");
+  };
+  $("#p_add").onclick = async () => {
+    const email = $("#p_email").value.trim().toLowerCase(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return toast("Enter a valid email", true);
+    const { error } = await site().from("shop_invites").insert({ shop_id: row.id, email, role: $("#p_role").value });
+    if (error) return oops(/duplicate|unique/i.test(error.message) ? new Error("That email has already been added") : error);
+    toast("Manager added. They get access when they sign in."); render();
+  };
+  $("#ppl").onclick = async (e) => {
+    const bt = e.target.closest("[data-rm]"); if (!bt) return;
+    if (!bt.dataset.armed) { bt.dataset.armed = "1"; bt.textContent = "Confirm remove"; return; }
+    const [kind, ref] = bt.dataset.rm.split(":");
+    const { error } = kind === "invite" ? await site().from("shop_invites").delete().eq("id", ref) : await site().from("shop_members").delete().eq("shop_id", row.id).eq("user_id", ref);
+    if (error) return oops(error); bt.closest("li").remove(); toast("Removed");
+  };
+}
 
 // ---------- directory: services/products, opening times, reviews and enquiries ----------
 const DAYS_ADMIN = [["mon", "Monday"], ["tue", "Tuesday"], ["wed", "Wednesday"], ["thu", "Thursday"], ["fri", "Friday"], ["sat", "Saturday"], ["sun", "Sunday"]];
@@ -1028,7 +1150,8 @@ function wireGallery(root) {
 async function uploadSiteImage(file) {
   if (file.size > 5 * 1024 * 1024) throw new Error("That photo is over 5 MB. Please use a smaller one.");
   const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
-  const path = `uploads/${new Date().toISOString().slice(0, 10)}/${Date.now()}-${slugify(file.name.replace(/\.[^.]+$/, "")) || "image"}.${ext}`;
+  const shopId = isPartner() ? ($("#f_shop_id")?.value || state.uploadShop || state.myShops[0]?.id) : null;
+  const path = `${shopId ? `shops/${shopId}` : "uploads"}/${new Date().toISOString().slice(0, 10)}/${Date.now()}-${slugify(file.name.replace(/\.[^.]+$/, "")) || "image"}.${ext}`;
   const { error } = await sb.storage.from("site-images").upload(path, file, { cacheControl: "31536000", upsert: false, contentType: file.type });
   if (error) throw error;
   return sb.storage.from("site-images").getPublicUrl(path).data.publicUrl;
