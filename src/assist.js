@@ -18,6 +18,11 @@ const money = (p) => (!p ? "Free" : "£" + (p / 100).toFixed(2).replace(".00", "
 export async function handleAssist(request, env, url) {
   if (url.pathname === "/api/search" && request.method === "GET") return search(url);
   if (url.pathname === "/api/ask" && request.method === "POST") return ask(request, env);
+  if (["/api/enquiry", "/api/listing", "/api/lead", "/api/review"].includes(url.pathname) && request.method === "POST") {
+    // Cloudflare Turnstile: checked only once the secret is set (Worker secret TURNSTILE_SECRET)
+    const body = await request.clone().json().catch(() => ({}));
+    if (!(await humanCheck(env, body.cf_turnstile, request))) return json({ error: "Please complete the quick security check, then try again." }, 400);
+  }
   if (url.pathname === "/api/enquiry" && request.method === "POST") return enquiry(request);
   if (url.pathname === "/api/listing" && request.method === "POST") return listing(request);
   if (url.pathname === "/api/track" && request.method === "POST") return track(request);
@@ -166,4 +171,15 @@ async function directoryRpc(request, fn, key, max, shape) {
   let msg = "Sorry, that didn't send. Please try again.";
   try { const e = await r.json(); if (e && e.message && !/permission|function|schema|violates/i.test(e.message)) msg = e.message; } catch {}
   return json({ error: msg }, 400);
+}
+
+// ---------- spam protection (Cloudflare Turnstile) ----------
+async function humanCheck(env, token, request) {
+  if (!env.TURNSTILE_SECRET) return true; // not switched on yet
+  if (!token || typeof token !== "string" || token.length > 2048) return false;
+  const form = new FormData();
+  form.append("secret", env.TURNSTILE_SECRET); form.append("response", token);
+  const ip = request.headers.get("CF-Connecting-IP"); if (ip) form.append("remoteip", ip);
+  try { const r = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", { method: "POST", body: form }); const j = await r.json(); return !!j.success; }
+  catch { return false; }
 }

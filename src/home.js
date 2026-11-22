@@ -246,5 +246,6 @@ export function renderHome(d) {
   // hero image preload follows the chosen photo
   html = html.replace(/<link rel="preload" as="image" href="\/homepage\/hero\.webp" media="\(min-width:601px\)"><link rel="preload" as="image" href="\/homepage\/hero-m\.webp" media="\(max-width:600px\)">/,
     `<link rel="preload" as="image" href="${E(img(T("hero", "image")))}" media="(min-width:601px)"><link rel="preload" as="image" href="${E(img(T("hero", "image_mobile")))}" media="(max-width:600px)">`);
+  if (globalThis.TS_KEY) html = html.replace("</head>", `<meta name="ts-key" content="${E(globalThis.TS_KEY)}"></head>`);
   return html;
 }

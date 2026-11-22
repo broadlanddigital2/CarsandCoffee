@@ -15,6 +15,7 @@ const STALE_SECONDS = 86400;    // how long the last good copy is kept as a fall
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    globalThis.TS_KEY = env.TURNSTILE_SITE_KEY || ""; // public Turnstile site key, written into pages
     if (url.hostname === "carsandcoffee.uk") { url.hostname = "www.carsandcoffee.uk"; return Response.redirect(url.toString(), 301); }
     if ((url.pathname === "/" || url.pathname === "/index.html") && (request.method === "GET" || request.method === "HEAD")) {
       return homepage(request, env, ctx, url);

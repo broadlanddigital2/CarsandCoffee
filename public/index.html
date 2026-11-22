@@ -635,6 +635,7 @@ a.svc-t{text-decoration:none}
 .dist-tag{position:absolute;right:10px;bottom:10px;background:var(--esp);color:#fff;left:auto;top:auto}
 .biz-bar{display:none}
 @media (max-width:760px){.biz-offer{grid-template-columns:1fr}.biz-bar{display:flex;gap:8px;position:fixed;left:10px;right:76px;bottom:12px;z-index:40;background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:8px;box-shadow:0 10px 30px rgba(0,0,0,.2)}.biz-bar .btn{flex:1;justify-content:center;min-height:44px;padding:8px}body:has(.biz-bar) .mbar{display:none !important}}
+.ts-widget{margin:4px 0}.ts-widget:empty{display:none}
 /* header search */
 .tools .ico.search{background:none;border:0;cursor:pointer;color:inherit;padding:0;display:inline-grid;place-items:center}
 .srch{border:0;padding:0;background:transparent;width:min(760px,calc(100vw - 24px));max-width:none;max-height:none;margin:9vh auto 0;color:var(--ink)}
@@ -1219,6 +1220,24 @@ const mbar=$('#mbar'),heroEl=$('#hero')||$('.phero');if(mbar&&heroEl){const hero
       enq.innerHTML='<div class="hb-sent"><strong>Thanks, message sent.</strong><p>We\'ll reply to you by email, usually within a day or two.</p><button type="button" class="btn ghost small" id="hb-done">Back to questions</button></div>';
       document.getElementById('hb-done').onclick=function(){location.reload();};}
     catch(err){m.textContent=err.message;btn.disabled=false;}});
+})();
+</script>
+
+<!-- Spam protection for forms (Cloudflare Turnstile). Only active when a site key is set. -->
+<script>
+(function(){
+  var m=document.querySelector('meta[name="ts-key"]');if(!m)return;var KEY=m.content,loading=null,widgets=new Map(),lastForm=null;
+  var SEL='#ctf,#hb-enq,#lyb,#lead,#rvf,form[data-captcha]',API=['/api/enquiry','/api/listing','/api/lead','/api/review'];
+  function load(){if(window.turnstile)return Promise.resolve();if(loading)return loading;loading=new Promise(function(res,rej){var s=document.createElement('script');s.src='https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';s.async=true;s.onload=function(){res();};s.onerror=rej;document.head.appendChild(s);});return loading;}
+  function ensure(form){if(widgets.has(form))return Promise.resolve(widgets.get(form));return load().then(function(){var box=document.createElement('div');box.className='ts-widget';var btn=form.querySelector('[type=submit]');(btn?btn.parentNode:form).insertBefore(box,btn||null);
+    var id=window.turnstile.render(box,{sitekey:KEY,theme:'light',size:'flexible',appearance:'interaction-only'});widgets.set(form,id);return id;});}
+  document.addEventListener('focusin',function(e){var f=e.target.closest&&e.target.closest(SEL);if(f)ensure(f).catch(function(){});},true);
+  document.addEventListener('submit',function(e){var f=e.target.closest&&e.target.closest(SEL);if(f){lastForm=f;ensure(f).catch(function(){});}},true);
+  var of=window.fetch;window.fetch=function(u,o){var path=typeof u==='string'?u:(u&&u.url)||'';
+    if(!(o&&o.method==='POST'&&API.some(function(p){return path.indexOf(p)===0;})&&typeof o.body==='string'))return of.apply(this,arguments);
+    var form=lastForm,self=this;return (form?ensure(form):Promise.reject()).then(function(id){return new Promise(function(res){var n=0;(function wait(){var tk=window.turnstile.getResponse(id);if(tk||n++>40)return res({id:id,tk:tk||''});setTimeout(wait,150);})();});})
+      .catch(function(){return {id:null,tk:''};}).then(function(x){var b={};try{b=JSON.parse(o.body);}catch(e){}b.cf_turnstile=x.tk;var o2=Object.assign({},o,{body:JSON.stringify(b)});
+        return of.call(self,u,o2).then(function(r){try{if(x.id!=null)window.turnstile.reset(x.id);}catch(e){}return r;});});};
 })();
 </script>
 </body>

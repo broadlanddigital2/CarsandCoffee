@@ -25,6 +25,7 @@ export function shell({ title, description, path, image, noindex, ld, main, part
     .replace(/<link rel="preload" as="image"[^>]*>/g, "")
     .replace(/<main>[\s\S]*?<\/main>/, `<main>\n${main}\n</main>`)
     .replace("{{LD}}", JSON.stringify(ld).replace(/</g, "\\u003c"))
+    .replace("</head>", globalThis.TS_KEY ? `<meta name="ts-key" content="${E(globalThis.TS_KEY)}"></head>` : "</head>")
     .replace("{{FOOTER_PARTNERS}}", (partners || []).map((p) => `<a href="${utm(p.page_path, "footer", p.slug)}" rel="noopener"><img src="${E(img(p.logo_dark_path || p.logo_path))}" alt="${E(p.name)}" loading="lazy"></a>`).join(""))
     .replace(/\{\{ARROW\}\}/g, ARROW)
     .replace(/\{\{[^}]+\}\}/g, "");
