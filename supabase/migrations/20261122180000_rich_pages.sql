@@ -50,3 +50,6 @@ alter table site.articles add constraint articles_gallery_is_array check (jsonb_
 alter table site.events add column if not exists focus_keyword text;
 alter table site.articles add column if not exists focus_keyword text;
 alter table site.guides add column if not exists focus_keyword text;
+
+-- visual editor content for SEO / location pages
+alter table site.pages add column if not exists body_html text;

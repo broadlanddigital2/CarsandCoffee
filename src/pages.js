@@ -1,6 +1,7 @@
 // Renders content pages (location pages for now) from site.pages, inside the homepage's header and footer.
 import TEMPLATE from "./home-template.html";
 import { E, img, utm, ARROW, q, eventCard, bizCard, townSearch, SVC_ICON, SVC_DEFAULT } from "./home.js";
+import { sanitize } from "./sanitize.js";
 
 const SITE = "https://www.carsandcoffee.uk";
 const CLUB = "https://club.carsandcoffee.uk";
@@ -233,7 +234,7 @@ export async function renderLocation(p) {
     parts.push(mapSection(place, events, listings));
     if (c.scene?.length) {
       const interests = (c.interests || []).map((n) => [n, INTEREST_LINKS[n] ? `/cars/${INTEREST_LINKS[n]}` : "/cars"]);
-      parts.push(sec(`The ${E(place)} car scene`, `<div class="lp-split"><div class="lp-prose">${c.scene.map((x) => `<p>${E(x)}</p>`).join("")}</div>
+      parts.push(sec(`The ${E(place)} car scene`, `<div class="lp-split"><div class="lp-prose rich">${c.scene_html ? sanitize(c.scene_html) : c.scene.map((x) => `<p>${E(x)}</p>`).join("")}</div>
         <div class="lp-panel">${interests.length ? `<h3>Popular here</h3>${chips(interests)}` : ""}<h3>Useful guides</h3>${chips([["Your first car meet", "/guides/your-first-car-meet"], ["Before you buy a classic", "/guides/before-you-buy-a-classic"], ["Photographing cars at a meet", "/guides/photographing-cars-at-a-meet"]])}</div></div>`, { id: "scene" }));
     }
     if (c.drives?.length) parts.push(sec(`Best drives from ${E(place)}`, `<div class="lp-drives">${c.drives.map((d) => card({ image: d.image, title: d.title, text: d.text, small: d.distance })).join("")}</div>`, { id: "drives", lead: "Favourite routes for a weekend run. Drive to the conditions and respect the villages you pass through." }));
@@ -247,13 +248,15 @@ export async function renderLocation(p) {
     const townsHTML = towns.length ? `<div class="lp-cards">${towns.map((x) => card({ href: x.path, image: x.hero_image_path || "homepage/ev-breakfast.webp", title: x.town || x.title, text: x.intro ? x.intro.split(". ")[0] + "." : "" })).join("")}</div>` : "";
     const more = (c.more_places || []).filter((n) => !towns.some((x) => x.town === n));
     if (townsHTML || more.length) parts.push(sec(isTown ? "Nearby towns" : `Towns in ${E(p.county)}`, townsHTML + (more.length ? `<h3 style="margin-top:22px">More places</h3>${chips(more.map((n) => [n, `${countyPath(p.county)}/${slug(n)}`]))}` : "")));
-    if (c.getting_there?.car || c.getting_there?.no_car) parts.push(sec(`Getting around ${E(place)}`, `<div class="lp-split eq"><div class="lp-panel"><h3>By car</h3><p>${E(c.getting_there.car || "")}</p></div><div class="lp-panel"><h3>Without a car</h3><p>${E(c.getting_there.no_car || "")}</p></div></div>`));
+    if (c.getting_there?.car || c.getting_there?.no_car || c.getting_there?.car_html || c.getting_there?.no_car_html) { const gt = c.getting_there, rt = (h, t) => (h ? sanitize(h) : t ? `<p>${E(t)}</p>` : "");
+      parts.push(sec(`Getting around ${E(place)}`, `<div class="lp-split eq"><div class="lp-panel rich"><h3>By car</h3>${rt(gt.car_html, gt.car)}</div><div class="lp-panel rich"><h3>Without a car</h3>${rt(gt.no_car_html, gt.no_car)}</div></div>`)); }
   } else {
     parts.push(mapSection("Norfolk and Suffolk", events, listings));
     parts.push(howItWorks());
   }
   if (c.faqs?.length) parts.push(sec("Frequently asked questions", faqHTML(c.faqs), { id: "faqs" }));
-  if (p.body_md) parts.push(sec("", `<div class="lp-prose">${p.body_md.split(/\n\s*\n/).map((x) => `<p>${E(x.trim())}</p>`).join("")}</div>`));
+  if (p.body_html) parts.push(sec("", `<div class="lp-prose rich">${sanitize(p.body_html)}</div>`));
+  else if (p.body_md) parts.push(sec("", `<div class="lp-prose">${p.body_md.split(/\n\s*\n/).map((x) => `<p>${E(x.trim())}</p>`).join("")}</div>`));
   parts.push(newsletterHTML());
 
   const url = SITE + p.path;

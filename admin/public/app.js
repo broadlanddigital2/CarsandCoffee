@@ -235,6 +235,8 @@ const scoreBadge = (n) => n == null ? "" : `<span class="badge ${n >= 80 ? "text
 const htmlText = (h) => String(h || "").replace(/<\/(p|h[1-6]|li|blockquote)>/gi, "\n\n").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&#39;|&rsquo;/g, "'").replace(/[ \t]+/g, " ").trim();
 const htmlHeadings = (h) => [...String(h || "").matchAll(/<h([23])[^>]*>([\s\S]*?)<\/h\1>/gi)].map((m) => "#".repeat(+m[1]) + " " + htmlText(m[2])).join("\n\n");
 const htmlLinks = (h) => [...String(h || "").matchAll(/<a [^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)].map((m) => `[${htmlText(m[2])}](${m[1]})`).join(" ");
+const richVal = (id) => { const a = document.getElementById(id + "_area"); return a ? cleanHTML(a.innerHTML) : ""; };
+const htmlToMd = (h) => [htmlHeadings(h), htmlText(h), htmlLinks(h), [...String(h || "").matchAll(/<img [^>]*alt="([^"]*)"[^>]*>/gi)].map((m) => `![${m[1]}](x)`).join(" ")].filter(Boolean).join("\n\n");
 function locationScoreInput(d) {
   const lcx = d.content || {};
   return { ...d, body_md: [d.body_md, ...(lcx.scene || []).map((x, i) => (i === 0 ? "## The local car scene\n\n" : "") + x), (lcx.drives || []).length ? "## Best drives\n\n" + lcx.drives.map((x) => x.title + ". " + x.text).join("\n\n") : "", (lcx.faqs || []).length ? "## Frequently asked questions\n\n" + lcx.faqs.map(([qq, an]) => qq + " " + an).join("\n\n") : "", "[events](/events) [club](/club)"].filter(Boolean).join("\n\n") };
@@ -368,9 +370,8 @@ route("/pages/:id", async ({ id }) => {
           <div class="col-md-6 loc-only"><label class="form-label" for="town">Town or area</label><input class="form-control" id="town" value="${esc(p.town || "")}" placeholder="e.g. Norwich"></div>
           <div class="col-12"><label class="form-label" for="h1">Main heading (H1)</label><input class="form-control" id="h1" maxlength="120" value="${esc(p.h1 || "")}" placeholder="Leave blank to use the page name"></div>
           <div class="col-12"><label class="form-label" for="intro">Opening paragraph</label><textarea class="form-control" id="intro" rows="3" placeholder="One or two sentences that answer the search straight away. Use the focus keyword.">${esc(p.intro || "")}</textarea></div>
-          <div class="col-12"><label class="form-label d-flex justify-content-between" for="body_md"><span>Page content</span><span class="small text-body-secondary" id="wc"></span></label>
-            <textarea class="form-control code" id="body_md" rows="18" placeholder="## Upcoming meets in Norwich&#10;&#10;Write the page here. Use ## for section headings, - for lists, **bold**, [link text](/events) and ![photo description](/images/photo.webp).">${esc(p.body_md || "")}</textarea>
-            <div class="form-text">Formatting: <code>## Heading</code> · <code>- list item</code> · <code>**bold**</code> · <code>[link](/path)</code> · <code>![alt text](/image.webp)</code></div></div>
+          <div class="col-12"><label class="form-label d-flex justify-content-between" for="body_html_area"><span>Page content</span><span class="small text-body-secondary" id="wc"></span></label>
+            ${richField("body_html", p.body_html || (p.body_md ? md(p.body_md) : ""), esc)}</div>
         </div></div></div>
       <div class="card mb-4"><div class="card-header bg-white fw-semibold">Image and call to action</div><div class="card-body"><div class="row g-3">
         <div class="col-12"><label class="form-label" for="hero_image_path">Main image</label>${imageInput("hero_image_path", p.hero_image_path || "")}</div>
@@ -388,14 +389,14 @@ route("/pages/:id", async ({ id }) => {
         <div class="place-only">
           <label class="form-label">At a glance <span class="small text-body-secondary">(up to 4 facts: a short value and what it means)</span></label>
           ${[0, 1, 2, 3].map((i) => `<div class="row g-2 mb-2"><div class="col-5"><input class="form-control" data-stat-n="${i}" value="${esc(lc.stats?.[i]?.[0] || "")}" placeholder="${["Monthly", "About 10 miles", "About 25 miles", "Free"][i]}"></div><div class="col-7"><input class="form-control" data-stat-l="${i}" value="${esc(lc.stats?.[i]?.[1] || "")}" placeholder="${["Breakfast meet", "To Lotus at Hethel", "To Snetterton Circuit", "Morning meets"][i]}"></div></div>`).join("")}
-          <div class="mb-3 mt-3"><label class="form-label" for="lc_scene">The local car scene <span class="small text-body-secondary">(leave a blank line between paragraphs)</span></label><textarea class="form-control" id="lc_scene" rows="9">${esc((lc.scene || []).join("\n\n"))}</textarea></div>
+          <div class="mb-3 mt-3"><label class="form-label" for="lc_scene_area">The local car scene</label>${richField("lc_scene", lc.scene_html || (lc.scene || []).map((x) => `<p>${esc(x)}</p>`).join(""), esc)}</div>
           <div class="mb-3"><label class="form-label" for="lc_interests">Popular interests here <span class="small text-body-secondary">(comma separated, e.g. Classic cars, Track days)</span></label><input class="form-control" id="lc_interests" value="${esc((lc.interests || []).join(", "))}"></div>
           <label class="form-label">Best drives <span class="small text-body-secondary">(up to 4)</span></label>
           <div id="drives">${[0, 1, 2, 3].map((i) => { const d = lc.drives?.[i] || {}; return `<div class="border rounded p-3 mb-2" data-drive="${i}"><div class="row g-2"><div class="col-md-6"><input class="form-control" data-dk="title" value="${esc(d.title || "")}" placeholder="Route name, e.g. North Norfolk coast"></div><div class="col-md-6"><input class="form-control" data-dk="distance" value="${esc(d.distance || "")}" placeholder="About 25 miles"></div>
             <div class="col-12"><input class="form-control" data-dk="text" value="${esc(d.text || "")}" placeholder="One line about the route"></div><div class="col-12">${imageInput("drive_img_" + i, d.image || "")}</div></div></div>`; }).join("")}</div>
           <div class="mb-3 mt-3"><label class="form-label" for="lc_more">More places to link <span class="small text-body-secondary">(comma separated; town pages that exist are shown as cards automatically)</span></label><textarea class="form-control" id="lc_more" rows="2">${esc((lc.more_places || []).join(", "))}</textarea></div>
-          <div class="row g-3 mb-3"><div class="col-md-6"><label class="form-label" for="lc_car">Getting there by car</label><textarea class="form-control" id="lc_car" rows="4">${esc(lc.getting_there?.car || "")}</textarea></div>
-            <div class="col-md-6"><label class="form-label" for="lc_nocar">Getting there without a car</label><textarea class="form-control" id="lc_nocar" rows="4">${esc(lc.getting_there?.no_car || "")}</textarea></div></div>
+          <div class="row g-3 mb-3"><div class="col-lg-6"><label class="form-label" for="lc_car_area">Getting around by car</label>${richField("lc_car", lc.getting_there?.car_html || (lc.getting_there?.car ? `<p>${esc(lc.getting_there.car)}</p>` : ""), esc, { compact: true })}</div>
+            <div class="col-lg-6"><label class="form-label" for="lc_nocar_area">Getting around without a car</label>${richField("lc_nocar", lc.getting_there?.no_car_html || (lc.getting_there?.no_car ? `<p>${esc(lc.getting_there.no_car)}</p>` : ""), esc, { compact: true })}</div></div>
         </div>
         <label class="form-label">Frequently asked questions</label>
         <div id="faqs">${(lc.faqs?.length ? lc.faqs : [["", ""]]).map(([qq, a]) => faqRow(qq, a)).join("")}</div>
@@ -444,6 +445,7 @@ route("/pages/:id", async ({ id }) => {
 
   const f = $("#pf");
   wireImageInputs(f);
+  wireRich(f, { upload: uploadSiteImage, onChange: () => { dirty = true; f.dispatchEvent(new Event("input", { bubbles: true })); } });
   $("#addfaq").onclick = () => { $("#faqs").insertAdjacentHTML("beforeend", faqRow()); dirty = true; };
   $("#faqs").addEventListener("click", (e) => { if (e.target.matches("[data-rmfaq]")) { e.target.closest("[data-faq]").remove(); dirty = true; refresh(); } });
   const val = (id) => $("#" + id)?.value ?? "";
@@ -451,7 +453,7 @@ route("/pages/:id", async ({ id }) => {
     const ad = (name) => $$(`[data-ad="${name}"]`).map((i) => i.value.trim()).filter(Boolean);
     return {
       page_type: val("page_type"), title: val("title").trim(), path: val("path").trim(), county: val("county") || null, town: val("town").trim() || null,
-      h1: val("h1").trim() || null, intro: val("intro").trim() || null, body_md: val("body_md"), hero_image_path: val("hero_image_path").trim() || null,
+      h1: val("h1").trim() || null, intro: val("intro").trim() || null, body_html: richVal("body_html") || null, body_md: htmlToMd(richVal("body_html")) || null, hero_image_path: val("hero_image_path").trim() || null,
       hero_image_alt: val("hero_image_alt").trim() || null, cta_label: val("cta_label").trim() || null, cta_url: val("cta_url").trim() || null,
       focus_keyword: val("focus_keyword").trim() || null, secondary_keywords: val("secondary_keywords").split(",").map((s) => s.trim()).filter(Boolean),
       meta_title: val("meta_title").trim() || null, meta_description: val("meta_description").trim() || null, status: val("status"),
@@ -469,11 +471,12 @@ route("/pages/:id", async ({ id }) => {
     out.faqs = $$("[data-faq]").map((r) => [$("[data-fq]", r).value.trim(), $("[data-fa]", r).value.trim()]).filter(([qq, an]) => qq && an);
     if (!val("county")) { out.norfolk_towns = list("lc_ntowns"); out.suffolk_towns = list("lc_stowns"); out.coming_soon = val("lc_soon").trim(); return out; }
     out.stats = [0, 1, 2, 3].map((i) => [$(`[data-stat-n="${i}"]`).value.trim(), $(`[data-stat-l="${i}"]`).value.trim()]).filter(([n]) => n);
-    out.scene = val("lc_scene").split(/\n\s*\n/).map((x) => x.trim()).filter(Boolean);
+    out.scene_html = richVal("lc_scene"); out.scene = htmlText(out.scene_html).split(/\n\s*\n/).map((x) => x.trim()).filter(Boolean);
     out.interests = list("lc_interests");
     out.drives = $$("[data-drive]").map((r, i) => ({ title: $('[data-dk="title"]', r).value.trim(), distance: $('[data-dk="distance"]', r).value.trim(), text: $('[data-dk="text"]', r).value.trim(), image: $("#drive_img_" + i).value.trim() })).filter((d) => d.title);
     out.more_places = list("lc_more");
-    out.getting_there = { car: val("lc_car").trim(), no_car: val("lc_nocar").trim() };
+    const car = richVal("lc_car"), nocar = richVal("lc_nocar");
+    out.getting_there = { car_html: car, no_car_html: nocar, car: htmlText(car).replace(/\s*\n\s*/g, " ").trim(), no_car: htmlText(nocar).replace(/\s*\n\s*/g, " ").trim() };
     return out;
   }
   const countEl = (el, n, [lo, hi]) => { el.textContent = `${n} / ${hi}`; el.className = "count " + (n === 0 ? "" : n > hi ? "bad" : n < lo ? "warn" : "good"); };
@@ -519,7 +522,7 @@ route("/pages/:id", async ({ id }) => {
     const d = collect(); const pv = $("#pv");
     pv.hidden = false;
     pv.innerHTML = `<div class="modal-lite-box card"><div class="card-header bg-white d-flex justify-content-between align-items-center"><strong>Preview</strong><button class="btn-close" type="button" aria-label="Close"></button></div>
-      <div class="card-body md-preview">${d.hero_image_path ? `<img src="${esc(d.hero_image_path.startsWith("/") ? SITE + d.hero_image_path : d.hero_image_path)}" alt="${esc(d.hero_image_alt || "")}" class="mb-3 rounded">` : ""}<h1>${esc(d.h1 || d.title)}</h1>${d.intro ? `<p class="lead">${esc(d.intro)}</p>` : ""}${md(d.body_md)}${d.cta_label ? `<p><span class="btn btn-primary">${esc(d.cta_label)}</span></p>` : ""}</div></div>`;
+      <div class="card-body md-preview">${d.hero_image_path ? `<img src="${esc(d.hero_image_path.startsWith("/") ? SITE + d.hero_image_path : d.hero_image_path)}" alt="${esc(d.hero_image_alt || "")}" class="mb-3 rounded">` : ""}<h1>${esc(d.h1 || d.title)}</h1>${d.intro ? `<p class="lead">${esc(d.intro)}</p>` : ""}${(d.body_html || md(d.body_md))}${d.cta_label ? `<p><span class="btn btn-primary">${esc(d.cta_label)}</span></p>` : ""}</div></div>`;
     pv.onclick = (e) => { if (e.target === pv || e.target.closest(".btn-close")) pv.hidden = true; };
   };
   f.onsubmit = async (e) => {

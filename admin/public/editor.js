@@ -42,8 +42,8 @@ export function cleanHTML(html) {
 
 const B = (cmd, label, title, val = "") => `<button type="button" class="btn btn-sm rte-b" data-cmd="${cmd}" data-val="${val}" title="${title}" aria-label="${title}">${label}</button>`;
 const SVG = (d) => `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
-export function richField(id, value, esc) {
-  return `<div class="rte" data-rte="${id}">
+export function richField(id, value, esc, opts = {}) {
+  return `<div class="rte${opts.compact ? " rte-compact" : ""}" data-rte="${id}">
     <div class="rte-bar" role="toolbar" aria-label="Formatting">
       <select class="form-select form-select-sm rte-block" aria-label="Text style"><option value="p">Paragraph</option><option value="h2">Heading</option><option value="h3">Subheading</option></select>
       <span class="rte-sep"></span>
