@@ -84,7 +84,8 @@ const isTeam = () => state.profile && state.profile.status === "approved" && ["a
 const routes = {};
 const route = (path, fn) => (routes[path] = fn);
 const withMock = (p) => (MOCK ? p + (p.includes("?") ? "&" : "?") + "mock=" + MOCK : p);
-function go(path, replace = false) { path = withMock(path); replace ? history.replaceState(null, "", path) : history.pushState(null, "", path); render(); }
+// depth counts in-app page visits, so Back only uses browser history when it stays inside the club
+function go(path, replace = false) { path = withMock(path); replace ? history.replaceState({ depth: history.state?.depth || 0 }, "", path) : history.pushState({ depth: (history.state?.depth || 0) + 1 }, "", path); render(); }
 document.addEventListener("click", (e) => {
   const a = e.target.closest("a[data-link]");
   if (a && a.origin === location.origin && !e.metaKey && !e.ctrlKey) { e.preventDefault(); go(a.pathname + a.search.replace(/[?&]mock=[^&]*/, "")); }
@@ -120,8 +121,22 @@ async function render() {
   const fn = routes[clean] || routes["/404"];
   app.innerHTML = "";
   await fn();
+  addBack(clean);
   app.focus({ preventScroll: true });
   window.scrollTo(0, 0);
+}
+
+// Back link at the top of every page except the landing page and members' home.
+const NO_BACK = ["/", "/home", "/auth/callback"];
+const PARENT = { "/invite": "/recommend", "/recommend": "/home", "/admin": "/home" };
+function addBack(path) {
+  if (NO_BACK.includes(path) || $(".backbar", app)) return;
+  const fallback = PARENT[path] || (state.profile?.status === "approved" ? "/home" : "/");
+  const b = document.createElement("a");
+  b.className = "backbar"; b.href = withMock(fallback); b.innerHTML = `<span aria-hidden="true">&larr;</span> Back`;
+  b.onclick = (e) => { e.preventDefault(); if ((history.state?.depth || 0) > 0) history.back(); else go(fallback); };
+  const host = $(".narrow", app) && app.firstElementChild === $(".narrow", app) ? $(".narrow", app) : app;
+  host.prepend(b);
 }
 
 // ---------- screens ----------

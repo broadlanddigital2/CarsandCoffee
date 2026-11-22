@@ -147,3 +147,7 @@ th{color:var(--soft);font-weight:600;font-size:13px}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 
 @media(max-width:480px){.brand span{display:none}.barnav a,.barnav button{padding:8px 9px}}
+
+.backbar{display:inline-flex;align-items:center;gap:6px;margin:0 0 18px;padding:8px 14px 8px 10px;min-height:40px;border:1px solid var(--line);border-radius:999px;color:var(--ink);text-decoration:none;font-weight:700;font-size:14px}
+.backbar:hover,.backbar:focus-visible{border-color:var(--amber);color:var(--amber)}
+.backbar + .eyebrow{display:block}
