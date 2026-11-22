@@ -1,7 +1,7 @@
 // Cars and Coffee Club – Phase 1a: sign in, apply, status, welcome, recommend a mate, admin queue.
 // Plain ES modules, no build step. Data lives in the "Cars and Coffee Community" Supabase project.
 
-const SUPABASE_URL = "https://mslidnchoopgsnbraaxe.supabase.co";
+const SUPABASE_URL = "https://auth.carsandcoffee.uk";
 const SUPABASE_KEY = "sb_publishable_O9p-X8To8z-GisYYSBKoxg_RxAe1-cU"; // publishable key: safe in the browser
 
 const MOCK = new URLSearchParams(location.search).get("mock");

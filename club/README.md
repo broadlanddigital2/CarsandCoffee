@@ -5,7 +5,7 @@ Recommend a mate, and the team approval queue and invite list.
 
 - **Hosting:** separate Cloudflare Worker `carsandcoffee-club`, root directory `club/`, no build step.
   `wrangler.jsonc` serves `./public` as a single-page app and attaches `club.carsandcoffee.uk`.
-- **Data and sign-in:** Supabase project **Cars and Coffee Community** (`mslidnchoopgsnbraaxe`),
+- **Data and sign-in:** Supabase project **Cars and Coffee Community** (`mslidnchoopgsnbraaxe`), served at **auth.carsandcoffee.uk** (custom domain),
   publishable key only in the browser; every rule is enforced by row level security and database functions.
 - **Sign-in:** Google and email sign-in links. Invite-only until `signups_open` is switched on in Team → Invite list.
 - **Emails:** application emails are queued in `email_outbox` and sent once an email provider is connected.
