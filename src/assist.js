@@ -20,6 +20,9 @@ export async function handleAssist(request, env, url) {
   if (url.pathname === "/api/ask" && request.method === "POST") return ask(request, env);
   if (url.pathname === "/api/enquiry" && request.method === "POST") return enquiry(request);
   if (url.pathname === "/api/listing" && request.method === "POST") return listing(request);
+  if (url.pathname === "/api/track" && request.method === "POST") return track(request);
+  if (url.pathname === "/api/lead" && request.method === "POST") return directoryRpc(request, "submit_lead", "lead", 4, (b) => ({ p_slug: String(b.slug || "").slice(0, 120), p_name: String(b.name || "").slice(0, 120), p_email: String(b.email || "").slice(0, 200), p_phone: String(b.phone || "").slice(0, 40), p_message: String(b.message || "").slice(0, 4000) }));
+  if (url.pathname === "/api/review" && request.method === "POST") return directoryRpc(request, "submit_review", "rev", 3, (b) => ({ p_slug: String(b.slug || "").slice(0, 120), p_name: String(b.name || "").slice(0, 80), p_email: String(b.email || "").slice(0, 200), p_rating: Math.round(Number(b.rating) || 0), p_body: String(b.body || "").slice(0, 2000) }));
   return json({ error: "Not found" }, 404);
 }
 
@@ -138,6 +141,27 @@ async function listing(request) {
   const p = { name: clip(b.name, 120), services: (Array.isArray(b.services) ? b.services : []).slice(0, 12).map((s) => clip(s, 40)), town: clip(b.town, 80), county: clip(b.county, 40), address: clip(b.address, 200), postcode: clip(b.postcode, 10),
     website: clip(b.website, 200), phone: clip(b.phone, 40), public_email: clip(b.public_email, 200), summary: clip(b.summary, 600), contact_name: clip(b.contact_name, 120), contact_email: clip(b.contact_email, 200), notes: clip(b.notes, 1000) };
   const r = await fetch(`${SB_URL}/rest/v1/rpc/submit_listing`, { method: "POST", headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, "Content-Type": "application/json", "Content-Profile": "site" }, body: JSON.stringify({ p }) });
+  if (r.ok) return json({ ok: true });
+  let msg = "Sorry, that didn't send. Please try again.";
+  try { const e = await r.json(); if (e && e.message && !/permission|function|schema|violates/i.test(e.message)) msg = e.message; } catch {}
+  return json({ error: msg }, 400);
+}
+
+// ---------- directory tracking, enquiries and reviews ----------
+const rpc = (fn, body) => fetch(`${SB_URL}/rest/v1/rpc/${fn}`, { method: "POST", headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, "Content-Type": "application/json", "Content-Profile": "site" }, body: JSON.stringify(body) });
+async function track(request) {
+  const ua = request.headers.get("User-Agent") || "";
+  if (/bot|crawl|spider|slurp|preview|headless|lighthouse/i.test(ua)) return new Response(null, { status: 204 });
+  let b; try { b = await request.json(); } catch { return new Response(null, { status: 204 }); }
+  if (await limited(request, "trk", 60)) return new Response(null, { status: 204 });
+  await rpc("track_listing", { p_slug: String(b.slug || "").slice(0, 120), p_type: String(b.type || "").slice(0, 20) }).catch(() => null);
+  return new Response(null, { status: 204 });
+}
+async function directoryRpc(request, fn, key, max, shape) {
+  let b; try { b = await request.json(); } catch { return json({ error: "Bad request" }, 400); }
+  if (b.website) return json({ ok: true }); // honeypot
+  if (await limited(request, key, max)) return json({ error: "Please wait a minute before sending again." }, 429);
+  const r = await rpc(fn, shape(b));
   if (r.ok) return json({ ok: true });
   let msg = "Sorry, that didn't send. Please try again.";
   try { const e = await r.json(); if (e && e.message && !/permission|function|schema|violates/i.test(e.message)) msg = e.message; } catch {}

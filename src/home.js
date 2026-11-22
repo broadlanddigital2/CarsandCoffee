@@ -110,7 +110,7 @@ ${townSearch(townItems(places), { cls: "near-f" })}
 <div class="near-l">${links.map((p) => `<a href="${E(p.path)}">${E(p.town || p.county)}</a>`).join("")}<a href="/car-meets">All areas ${ARROW}</a></div></div>`;
 }
 
-export const bizCard = (l) => `<article class="biz"><a href="/directory/${E(l.slug)}"><div class="ph"><img src="${E(img(l.image_path))}" alt="${E(l.image_alt)}" width="600" height="300" loading="lazy">${l.featured === false ? "" : `<span class="tag feat-tag">Featured</span>`}</div>
+export const bizCard = (l) => `<article class="biz"${l.lat != null ? ` data-lat="${l.lat}" data-lng="${l.lng}"` : ""}><a href="/directory/${E(l.slug)}"><div class="ph"><img src="${E(img(l.image_path))}" alt="${E(l.image_alt)}" width="600" height="300" loading="lazy">${l.featured === false ? "" : `<span class="tag feat-tag">Featured</span>`}</div>
 <div class="bizb"><h3>${E(l.name)}</h3><p class="svc">${(l.services || []).map(E).join(" · ")}</p>
 <p class="meta"><span class="loc"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s7-7.5 7-13a7 7 0 0 0-14 0c0 5.5 7 13 7 13z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="9" r="2.5" fill="currentColor"/></svg>${E(l.town)}</span>
 <span class="ver"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5 9-10" fill="none" stroke="currentColor" stroke-width="2.6"/></svg>Checked by us</span></p>

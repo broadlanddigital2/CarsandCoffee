@@ -174,3 +174,7 @@ h1, h2, h3, .h4, .h5 { color: #1d130f; }
 .ai-sugg{margin-top:8px;padding:10px;border:1px dashed #e8b7b0;border-radius:10px;background:#fff8f6;display:grid;gap:6px}
 .ai-opt{text-align:left;font:inherit;font-size:14px;border:1px solid #e3d5c5;background:#fff;border-radius:8px;padding:8px 10px;cursor:pointer;color:#241712}.ai-opt:hover{border-color:#c00d0d}
 .ai-len{float:right;font-size:12px;color:#6b5a50;margin-left:8px}
+
+/* directory editor */
+.off-row{border:1px solid #e3d5c5;border-radius:10px;padding:10px;margin-bottom:8px;background:#fff}
+.hours-ed{display:grid;gap:6px;max-width:560px}.hours-row{display:grid;grid-template-columns:100px 1fr auto 1fr auto;gap:8px;align-items:center}.hours-row>span:first-child{font-weight:600;font-size:14px}

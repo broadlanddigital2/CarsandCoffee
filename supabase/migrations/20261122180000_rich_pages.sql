@@ -53,3 +53,6 @@ alter table site.guides add column if not exists focus_keyword text;
 
 -- visual editor content for SEO / location pages
 alter table site.pages add column if not exists body_html text;
+
+-- Directory: business pages, enquiries to businesses, reviews, interaction tracking, opening hours.
+-- (Applied as migrations directory_pages, directory_sections_tracking, directory_hours; see the live database for function bodies.)

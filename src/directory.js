@@ -3,12 +3,13 @@
 import { E, img, ARROW, q, bizCard, SVC_ICON, SVC_DEFAULT } from "./home.js";
 import { shell, crumbsHTML, newsletterHTML, directions } from "./pages.js";
 import { sanitize } from "./sanitize.js";
+import { galleryHTML, galleryOf } from "./ui.js";
 
 const SITE = "https://www.carsandcoffee.uk";
 const enc = encodeURIComponent;
 const slugify = (s) => String(s || "").toLowerCase().replace(/[’']/g, "").replace(/&/g, "and").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const partnersQ = () => q("partners?select=slug,name,page_path,logo_path,logo_dark_path&order=sort").catch(() => []);
-const LIST = "slug,name,services,town,county,image_path,image_alt,featured,featured_until,summary,checked_at";
+const LIST = "slug,name,services,town,county,image_path,image_alt,featured,featured_until,summary,checked_at,lat,lng,approximate";
 const svcMatch = (l, s) => (l.services || []).some((x) => { const a = x.toLowerCase(), b = s.name.toLowerCase(); return a === b || a.startsWith(b.split(" ")[0]) || b.startsWith(a.split(" ")[0]); });
 const icon = (slug) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">${SVC_ICON[slug] || SVC_DEFAULT}</svg>`;
 const ld = (crumbs) => ({ "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: crumbs.map(([name, href], i) => ({ "@type": "ListItem", position: i + 1, name, item: SITE + href })) });
@@ -49,58 +50,167 @@ export async function directoryHome(params = {}) {
         featured.length ? `<section class="lp-sec"><div class="wrap"><h2>Featured businesses</h2><div class="bizs">${featured.map(bizCard).join("")}</div></div></section>` : "",
         `<section class="lp-sec"><div class="wrap dir-two"><div><h2>Browse by area</h2><div class="dir-areas">${areaLinks}</div>
           ${hubs.length ? `<p class="small" style="margin-top:14px">Or see meets, drives and businesses together on your <a href="/car-meets">local car hub</a>.</p>` : ""}</div>${howWeCheck}</div></section>`,
-        `<section class="lp-sec"><div class="wrap"><h2>All businesses</h2><div class="bizs">${listings.map(bizCard).join("")}</div></div></section>`].join("\n"),
+        `<section class="lp-sec"><div class="wrap"><div class="dir-allhead"><h2>All businesses</h2><button type="button" class="btn ghost small" id="nearme">📍 Sort by distance from me</button></div><p class="dir-nearmsg small" role="status"></p><div class="bizs" id="allbiz">${listings.map(bizCard).join("")}</div></div></section>
+        <script>(function(){var b=document.getElementById('nearme');if(!b)return;b.onclick=function(){var m=document.querySelector('.dir-nearmsg');if(!navigator.geolocation){m.textContent='Your browser can\'t share your location.';return;}m.textContent='Finding you…';
+          navigator.geolocation.getCurrentPosition(function(p){var g=document.getElementById('allbiz'),cards=[].slice.call(g.children),R=3958.8,r=Math.PI/180;
+            cards.forEach(function(c){var la=parseFloat(c.dataset.lat),ln=parseFloat(c.dataset.lng),mi=Infinity;if(!isNaN(la)){var dl=(la-p.coords.latitude)*r,dn=(ln-p.coords.longitude)*r,x=Math.sin(dl/2)*Math.sin(dl/2)+Math.cos(p.coords.latitude*r)*Math.cos(la*r)*Math.sin(dn/2)*Math.sin(dn/2);mi=2*R*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));}
+              c.dataset.mi=mi;var t=c.querySelector('.dist-tag');if(!t){t=document.createElement('span');t.className='tag dist-tag';(c.querySelector('.ph')||c).appendChild(t);}t.textContent=mi===Infinity?'Distance unknown':mi<1?'Under a mile':Math.round(mi)+' miles';});
+            cards.sort(function(a,b){return a.dataset.mi-b.dataset.mi;}).forEach(function(c){g.appendChild(c);});m.textContent='Sorted by distance from you (worked out on your device; your location isn\'t sent anywhere).';},
+            function(){m.textContent='Couldn\'t get your location. Check your browser\'s location setting.';},{maximumAge:600000,timeout:10000});};})();</script>`].join("\n"),
     listCta, newsletterHTML()].join("\n");
   return shell({ title: searching ? "Search the directory | Cars and Coffee UK" : "Car Garages, Detailers and Specialists in Norfolk and Suffolk | Cars and Coffee", description: "Find trusted local car businesses in Norfolk and Suffolk: garages, detailers, restorers, tuners, wrap shops and more, checked by the Cars and Coffee team.",
     path: "/directory", noindex: searching, ld: [ld(crumbs), { "@context": "https://schema.org", "@type": "ItemList", name: "Car businesses in Norfolk and Suffolk", itemListElement: listings.slice(0, 30).map((l, i) => ({ "@type": "ListItem", position: i + 1, url: `${SITE}/directory/${l.slug}`, name: l.name })) }], main, partners });
 }
 
 // ---------- /directory/<business> ----------
+const DAYS = [["mon", "Monday"], ["tue", "Tuesday"], ["wed", "Wednesday"], ["thu", "Thursday"], ["fri", "Friday"], ["sat", "Saturday"], ["sun", "Sunday"]];
+const stars = (n) => `<span class="stars" aria-label="${n} out of 5 stars">${[1, 2, 3, 4, 5].map((i) => `<span class="${i <= Math.round(n) ? "on" : ""}">★</span>`).join("")}</span>`;
+function videoEmbed(url, poster, name) {
+  if (!url) return "";
+  let m, src = null;
+  if ((m = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{6,15})/))) src = `https://www.youtube-nocookie.com/embed/${m[1]}?autoplay=1&rel=0`;
+  else if ((m = url.match(/vimeo\.com\/(?:video\/)?(\d{5,12})/))) src = `https://player.vimeo.com/video/${m[1]}?autoplay=1&dnt=1`;
+  if (!src) return "";
+  return `<div class="biz-video" data-src="${E(src)}" role="button" tabindex="0" aria-label="Play video about ${E(name)}" data-track="video">${poster ? `<img src="${E(img(poster))}" alt="" loading="lazy">` : ""}<span class="biz-play" aria-hidden="true">▶</span></div>`;
+}
+const socialHref = (v, base) => (!v ? null : /^https?:\/\//.test(v) ? v : base + v.replace(/^@/, ""));
+
 export async function businessPage(slug) {
   const [rows, partners] = await Promise.all([q(`directory_listings?select=*&slug=eq.${enc(slug)}&limit=1`), partnersQ()]);
   const l = rows[0]; if (!l) return null;
-  const [near, services, hubs] = await Promise.all([
+  const [near, services, hubs, reviews] = await Promise.all([
     q(`directory_listings?select=${LIST}&slug=neq.${enc(slug)}${l.county ? `&county=eq.${enc(l.county)}` : ""}&limit=12`).catch(() => []),
     q("directory_services?select=name,slug&order=sort").catch(() => []),
     q(`pages?select=path,town,county&page_type=eq.location&status=eq.published&county=not.is.null`).catch(() => []),
+    l.reviews_enabled ? q(`directory_reviews?select=id,name,rating,body,source,created_at&listing_id=eq.${l.id}&order=created_at.desc&limit=50`).catch(() => []) : [],
   ]);
   const related = near.filter((x) => (x.services || []).some((s) => (l.services || []).includes(s))).concat(near).filter((x, i, a) => a.findIndex((y) => y.slug === x.slug) === i).slice(0, 3);
   const hub = hubs.find((h) => h.town && h.town === l.town) || hubs.find((h) => !h.town && h.county === l.county);
-  const svcLink = (name) => { const s = services.find((x) => svcMatch({ services: [name] }, x)); return s ? `<a class="lp-chip" href="/directory/service/${E(s.slug)}">${E(name)}</a>` : `<span class="lp-chip">${E(name)}</span>`; };
+  const svcOf = (name) => services.find((x) => svcMatch({ services: [name] }, x));
+  const svcLink = (name) => { const s = svcOf(name); return s ? `<a class="lp-chip" href="/directory/service/${E(s.slug)}">${E(name)}</a>` : `<span class="lp-chip">${E(name)}</span>`; };
   const addr = [l.address_line, l.town, l.county, l.postcode].filter(Boolean).join(", ");
   const d = l.lat != null || l.town ? directions({ ...l, name: l.name }) : null;
   const web = l.website ? (/^https?:\/\//.test(l.website) ? l.website : "https://" + l.website) : null;
   const webUtm = web ? `${web}${web.includes("?") ? "&" : "?"}utm_source=carsandcoffee&utm_medium=directory&utm_campaign=${enc(l.slug)}` : null;
+  const tel = l.phone ? l.phone.replace(/[^+\d]/g, "") : "";
+  const showPhone = l.phone && l.show_phone !== false;
   const crumbs = [["Home", "/"], ["Directory", "/directory"], [l.name, `/directory/${l.slug}`]];
   const gallery = (Array.isArray(l.gallery) ? l.gallery : []).filter((x) => x && x.src);
+  const offerings = (Array.isArray(l.offerings) ? l.offerings : []).filter((x) => x && x.name);
+  const video = videoEmbed(l.video_url, l.image_path, l.name);
+  const avg = reviews.length ? reviews.reduce((n, r) => n + r.rating, 0) / reviews.length : 0;
+  const hours = l.hours && Object.keys(l.hours).length ? l.hours : null;
   const about = l.body_html ? sanitize(l.body_html) : l.summary ? `<p>${E(l.summary)}</p>` : `<p>More details about ${E(l.name)} coming soon.</p>`;
+  const socials = [["Instagram", socialHref(l.instagram, "https://instagram.com/")], ["Facebook", socialHref(l.facebook, "https://facebook.com/")], ["YouTube", socialHref(l.youtube, "https://youtube.com/@")], ["TikTok", socialHref(l.tiktok, "https://tiktok.com/@")], ["X", socialHref(l.x_url, "https://x.com/")], ["LinkedIn", socialHref(l.linkedin, "https://www.linkedin.com/company/")]].filter(([, h]) => h);
+  const phoneBtn = (cls) => showPhone ? `<button type="button" class="btn ${cls}" data-reveal="${E(tel)}" data-label="${E(l.phone)}" data-track="phone_reveal">Show number</button>` : "";
+  const nav = [["About", "#about"], offerings.length && ["Services", "#offer"], gallery.length && ["Photos", "#photos"], video && ["Video", "#video"], l.reviews_enabled && ["Reviews", "#reviews"], l.enquiries_enabled && ["Enquire", "#enquire"], ["Location", "#location"]].filter(Boolean);
+  const hoursHTML = hours ? `<table class="biz-hours" data-hours="${E(JSON.stringify(hours))}"><tbody>${DAYS.map(([k, n]) => { const h = hours[k] || {}; return `<tr data-day="${k}"><th>${n}</th><td>${h.closed || !h.open ? "Closed" : `${E(h.open)} to ${E(h.close)}`}</td></tr>`; }).join("")}</tbody></table>` : "";
+
+  // related searches
+  const town = l.town && !/^(norfolk|suffolk)$/i.test(l.town) ? l.town : null, place = town || l.county || "Norfolk";
+  const rel = [];
+  for (const s of (l.services || []).slice(0, 3)) { const sv = svcOf(s); if (!sv) continue; rel.push([`${sv.name} in ${place}`, town ? `/directory?service=${sv.slug}&area=${enc(town)}` : `/directory/service/${sv.slug}`]); rel.push([`${sv.name} in Norfolk and Suffolk`, `/directory/service/${sv.slug}`]); }
+  if (hub) { rel.push([`Car meets in ${hub.town || hub.county}`, hub.path]); rel.push([`Car businesses in ${hub.town || hub.county}`, `${hub.path}#services`]); }
+  rel.push(["All car services", "/directory/services"]);
+  const relUnique = rel.filter((x, i, a) => a.findIndex((y) => y[0] === x[0]) === i).slice(0, 8);
+
   const main = [crumbsHTML(crumbs),
     `<section class="biz-hero"><div class="wrap biz-hero-in">
       <div class="biz-photo">${l.image_path ? `<img src="${E(img(l.image_path))}" alt="${E(l.image_alt || l.name)}">` : `<div class="biz-ph">${icon(services.find((s) => svcMatch(l, s))?.slug)}</div>`}${l.featured ? `<span class="tag feat-tag">Featured</span>` : ""}</div>
       <div class="biz-head">${l.logo_path ? `<img class="biz-logo" src="${E(img(l.logo_path))}" alt="">` : ""}<h1>${E(l.name)}</h1>
-        <p class="biz-where"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s7-7.5 7-13a7 7 0 0 0-14 0c0 5.5 7 13 7 13z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="9" r="2.5" fill="currentColor"/></svg>${E([l.town, l.county].filter(Boolean).join(", "))}</p>
+        <p class="biz-where"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s7-7.5 7-13a7 7 0 0 0-14 0c0 5.5 7 13 7 13z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="9" r="2.5" fill="currentColor"/></svg>${E([l.town, l.county].filter((x, i, a) => x && a.indexOf(x) === i).join(", "))}
+          ${hours ? `<span class="biz-open" data-open-status></span>` : ""}<span class="biz-dist" data-dist hidden></span></p>
+        ${reviews.length ? `<a class="biz-rating" href="#reviews">${stars(avg)} <b>${avg.toFixed(1)}</b> · ${reviews.length} review${reviews.length === 1 ? "" : "s"}</a>` : ""}
         <div class="lp-chips">${(l.services || []).map(svcLink).join("")}</div>
         <p class="biz-ok"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5 9-10" fill="none" stroke="currentColor" stroke-width="2.6"/></svg>Checked by Cars and Coffee${l.checked_at ? ` · ${new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric" }).format(new Date(l.checked_at))}` : ""}</p>
-        <div class="btns">${webUtm ? `<a class="btn red" href="${E(webUtm)}" target="_blank" rel="noopener">Visit website ${ARROW}</a>` : ""}${l.phone ? `<a class="btn ghost" href="tel:${E(l.phone.replace(/[^+\d]/g, ""))}">Call ${E(l.phone)}</a>` : ""}</div></div></div></section>`,
-    `<section class="lp-sec"><div class="wrap ep-grid"><div><h2>About ${E(l.name)}</h2><div class="rich">${about}</div>
-      ${gallery.length ? `<h2 style="margin-top:30px">Photos</h2><div class="biz-gal">${gallery.slice(0, 9).map((g) => `<img src="${E(img(g.src))}" alt="${E(g.alt || "")}" loading="lazy">`).join("")}</div>` : ""}
-      ${hub ? `<div class="ep-first" style="margin-top:26px"><div><strong>More in ${E(hub.town || hub.county)}:</strong> meets, drives and other trusted businesses on the local car hub.</div><a class="btn ghost small" href="${E(hub.path)}">${E(hub.town || hub.county)} car hub</a></div>` : ""}</div>
-      <aside class="ep-card biz-card-side"><h3>Contact and location</h3>
-        ${addr ? `<p><strong>Address</strong><br>${E(addr)}</p>` : ""}${l.phone ? `<p><strong>Phone</strong><br><a href="tel:${E(l.phone.replace(/[^+\d]/g, ""))}">${E(l.phone)}</a></p>` : ""}${l.email ? `<p><strong>Email</strong><br><a href="mailto:${E(l.email)}">${E(l.email)}</a></p>` : ""}
-        ${web ? `<p><strong>Website</strong><br><a href="${E(webUtm)}" target="_blank" rel="noopener">${E(web.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, ""))}</a></p>` : ""}
-        ${l.opening_hours?.length ? `<p><strong>Opening hours</strong></p><ul class="biz-hours">${l.opening_hours.map((h) => `<li>${E(h)}</li>`).join("")}</ul>` : ""}
-        ${l.instagram || l.facebook ? `<p class="biz-social">${l.instagram ? `<a href="${E(/^https?:/.test(l.instagram) ? l.instagram : "https://instagram.com/" + l.instagram.replace(/^@/, ""))}" target="_blank" rel="noopener">Instagram</a>` : ""}${l.facebook ? `<a href="${E(/^https?:/.test(l.facebook) ? l.facebook : "https://facebook.com/" + l.facebook)}" target="_blank" rel="noopener">Facebook</a>` : ""}</p>` : ""}
-        ${d ? `<div class="lp-dir"><a class="btn red small" href="${E(d.google)}" target="_blank" rel="noopener">Directions</a><a class="btn ghost small" href="${E(d.apple)}" target="_blank" rel="noopener">Apple Maps</a></div>` : ""}
-        ${l.approximate ? `<p class="small">Map location is approximate.</p>` : ""}
-        <p class="small" style="margin-top:14px">Is this your business? <a href="/contact?topic=directory">Update your listing</a>.</p></aside></div></section>`,
+        <div class="btns">${webUtm ? `<a class="btn red" href="${E(webUtm)}" target="_blank" rel="noopener" data-track="website">Visit website ${ARROW}</a>` : ""}${phoneBtn("ghost")}${l.enquiries_enabled ? `<a class="btn ghost" href="#enquire">Send an enquiry</a>` : ""}</div></div></div></section>`,
+    `<nav class="hubnav" aria-label="On this page"><div class="wrap">${nav.map(([t, h]) => `<a href="${h}">${E(t)}</a>`).join("")}</div></nav>`,
+    `<section class="lp-sec"><div class="wrap ep-grid biz-grid"><div class="biz-main">
+      <div id="about" class="biz-sec"><h2>About ${E(l.name)}</h2><div class="rich">${about}</div></div>
+      ${offerings.length ? `<div id="offer" class="biz-sec"><h2>Services and products</h2><div class="biz-offer">${offerings.map((o) => `<div class="biz-off">${o.image ? `<img src="${E(img(o.image))}" alt="" loading="lazy">` : ""}<div><h3>${E(o.name)}</h3>${o.description ? `<p>${E(o.description)}</p>` : ""}${o.price ? `<p class="biz-price">${E(o.price)}</p>` : ""}</div></div>`).join("")}</div></div>` : ""}
+      ${gallery.length ? `<div id="photos" class="biz-sec" data-track-gallery>${galleryHTML(galleryOf(gallery), l.name).replace('<h2 id="gal-h">Gallery', '<h2 id="gal-h">Photos')}</div>` : ""}
+      ${video ? `<div id="video" class="biz-sec"><h2>Video</h2>${video}</div>` : ""}
+      ${l.reviews_enabled ? `<div id="reviews" class="biz-sec"><h2>Reviews</h2>
+        ${reviews.length ? `<div class="rv-sum">${stars(avg)}<strong>${avg.toFixed(1)} out of 5</strong><span>${reviews.length} review${reviews.length === 1 ? "" : "s"}</span></div>
+          <ul class="rv-list">${reviews.map((r) => `<li>${stars(r.rating)}<p>${E(r.body)}</p><small>${E(r.name)} · ${new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric" }).format(new Date(r.created_at))}${r.source !== "website" ? ` · via ${E(r.source)}` : ""}</small></li>`).join("")}</ul>` : `<p class="lp-empty">No reviews yet. Used ${E(l.name)}? Be the first to review them.</p>`}
+        <details class="rv-write"><summary class="btn ghost small">Write a review</summary>
+          <form class="ct-form" id="rvf" novalidate><div class="rv-stars" role="radiogroup" aria-label="Your rating">${[1, 2, 3, 4, 5].map((i) => `<label><input type="radio" name="rating" value="${i}"><span>★</span><b class="sr">${i} star${i > 1 ? "s" : ""}</b></label>`).join("")}</div>
+            <div class="ct-row"><label>Your name (shown)<input name="name" maxlength="80" required></label><label>Email (not shown)<input name="email" type="email" maxlength="200" required></label></div>
+            <label>Your review<textarea name="body" rows="4" maxlength="2000" required placeholder="What did they do for you, and how did it go?"></textarea></label>
+            <p class="ct-small">Reviews are checked by our team before they appear. Please only review businesses you've used.</p>
+            <button class="btn red" type="submit">Send review</button><p class="ct-msg" role="status"></p></form></details></div>` : ""}
+      ${l.enquiries_enabled ? `<div id="enquire" class="biz-sec"><h2>Send ${E(l.name)} an enquiry</h2>
+        <form class="ct-form" id="lead" novalidate><div class="ct-row"><label>Your name<input name="name" autocomplete="name" required maxlength="120"></label><label>Email<input name="email" type="email" autocomplete="email" required maxlength="200"></label></div>
+          <label>Phone (optional)<input name="phone" type="tel" autocomplete="tel" maxlength="40"></label>
+          <label>Message<textarea name="message" rows="5" required maxlength="4000" placeholder="Tell them about your car and what you need."></textarea></label>
+          <label class="hb-hp" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off"></label>
+          <p class="ct-small">Your message and contact details go to ${E(l.name)} so they can reply. See our <a href="/privacy">privacy policy</a>.</p>
+          <button class="btn red" type="submit">Send enquiry ${ARROW}</button><p class="ct-msg" role="status"></p></form></div>` : ""}
+      ${hub ? `<div class="ep-first"><div><strong>More in ${E(hub.town || hub.county)}:</strong> meets, drives and other trusted businesses on the local car hub.</div><a class="btn ghost small" href="${E(hub.path)}">${E(hub.town || hub.county)} car hub</a></div>` : ""}
+    </div>
+    <aside class="ep-card biz-card-side" id="location"><h3>Contact and location</h3>
+      ${addr ? `<p><strong>Address</strong><br>${E(addr)}</p>` : ""}
+      ${showPhone ? `<p><strong>Phone</strong><br><button type="button" class="linkish" data-reveal="${E(tel)}" data-label="${E(l.phone)}" data-track="phone_reveal">Show number</button></p>` : ""}
+      ${l.email ? `<p><strong>Email</strong><br><a href="mailto:${E(l.email)}" data-track="email">${E(l.email)}</a></p>` : ""}
+      ${web ? `<p><strong>Website</strong><br><a href="${E(webUtm)}" target="_blank" rel="noopener" data-track="website">${E(web.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, ""))}</a></p>` : ""}
+      ${hours ? `<p><strong>Opening times</strong> <span class="biz-open" data-open-status></span></p>${hoursHTML}` : ""}
+      ${l.opening_hours?.length ? `<ul class="biz-notes">${l.opening_hours.map((h) => `<li>${E(h)}</li>`).join("")}</ul>` : ""}
+      ${socials.length ? `<p class="biz-social">${socials.map(([n, h]) => `<a href="${E(h)}" target="_blank" rel="noopener" data-track="social">${n}</a>`).join("")}</p>` : ""}
+      ${d ? `<div class="lp-dir"><a class="btn red small" href="${E(d.google)}" target="_blank" rel="noopener" data-track="directions">Directions</a><a class="btn ghost small" href="${E(d.apple)}" target="_blank" rel="noopener" data-track="directions">Apple Maps</a></div>` : ""}
+      ${l.lat != null ? `<p><button type="button" class="linkish" data-distance="${l.lat},${l.lng}">How far is it from me?</button></p>` : ""}
+      ${l.approximate ? `<p class="small">Map location is approximate.</p>` : ""}
+      <p class="small" style="margin-top:14px">Is this your business? <a href="/contact?topic=directory">Update your listing</a>.</p></aside></div></section>`,
+    relUnique.length ? `<section class="lp-sec"><div class="wrap"><h2>Related searches</h2><div class="lp-chips rel-chips">${relUnique.map(([t, h]) => `<a class="lp-chip" href="${E(h)}">${E(t)}</a>`).join("")}</div></div></section>` : "",
     related.length ? `<section class="lp-sec"><div class="wrap"><h2>Similar businesses nearby</h2><div class="bizs">${related.map(bizCard).join("")}</div></div></section>` : "",
-    listCta].join("\n");
+    listCta,
+    `<div class="biz-bar">${showPhone ? `<button type="button" class="btn ghost" data-reveal="${E(tel)}" data-label="Call" data-track="phone_reveal">Call</button>` : ""}${l.enquiries_enabled ? `<a class="btn ghost" href="#enquire">Enquire</a>` : ""}${webUtm ? `<a class="btn red" href="${E(webUtm)}" target="_blank" rel="noopener" data-track="website">Website</a>` : ""}</div>`,
+    bizScript(l.slug)].join("\n");
   const schema = { "@context": "https://schema.org", "@type": (l.services || []).some((s) => /servic|mot|tuning|repair|restor|bodywork/i.test(s)) ? "AutoRepair" : "AutomotiveBusiness", name: l.name, url: `${SITE}/directory/${l.slug}`, description: l.summary || undefined,
-    image: l.image_path ? SITE + img(l.image_path) : undefined, telephone: l.phone || undefined, email: l.email || undefined, sameAs: [web, l.instagram && (/^https?:/.test(l.instagram) ? l.instagram : "https://instagram.com/" + l.instagram.replace(/^@/, "")), l.facebook].filter(Boolean),
+    image: l.image_path ? SITE + img(l.image_path) : undefined, telephone: l.phone || undefined, email: l.email || undefined, sameAs: [web, ...socials.map(([, h]) => h)].filter(Boolean),
     address: { "@type": "PostalAddress", streetAddress: l.address_line || undefined, addressLocality: l.town || undefined, addressRegion: l.county || undefined, postalCode: l.postcode || undefined, addressCountry: "GB" },
-    ...(l.lat != null && !l.approximate ? { geo: { "@type": "GeoCoordinates", latitude: l.lat, longitude: l.lng } } : {}) };
+    ...(l.lat != null && !l.approximate ? { geo: { "@type": "GeoCoordinates", latitude: l.lat, longitude: l.lng } } : {}),
+    ...(hours ? { openingHoursSpecification: DAYS.filter(([k]) => hours[k] && !hours[k].closed && hours[k].open).map(([k, n]) => ({ "@type": "OpeningHoursSpecification", dayOfWeek: n, opens: hours[k].open, closes: hours[k].close })) } : {}),
+    ...(reviews.length ? { aggregateRating: { "@type": "AggregateRating", ratingValue: avg.toFixed(1), reviewCount: reviews.length }, review: reviews.slice(0, 5).map((r) => ({ "@type": "Review", reviewRating: { "@type": "Rating", ratingValue: r.rating }, author: { "@type": "Person", name: r.name }, reviewBody: r.body, datePublished: r.created_at.slice(0, 10) })) } : {}) };
   return shell({ title: l.meta_title || `${l.name}: ${(l.services || []).slice(0, 2).join(" and ")} in ${l.town || l.county || "Norfolk"} | Cars and Coffee`, description: l.meta_description || l.summary || `${l.name} in ${l.town || l.county}: ${(l.services || []).join(", ")}. Checked by Cars and Coffee UK.`,
     path: `/directory/${l.slug}`, image: l.image_path, ld: [ld(crumbs), schema], main, partners });
+}
+
+// tracking, number reveal, opening status, distance, video, review and enquiry forms
+function bizScript(slug) {
+  return `<script>(function(){var S=${JSON.stringify(slug)};
+  function t(type){try{var b=JSON.stringify({slug:S,type:type});if(navigator.sendBeacon)navigator.sendBeacon('/api/track',new Blob([b],{type:'application/json'}));else fetch('/api/track',{method:'POST',headers:{'Content-Type':'application/json'},body:b,keepalive:true});}catch(e){}
+    try{window.dataLayer=window.dataLayer||[];window.dataLayer.push({event:'directory_'+type,business:S});}catch(e){}}
+  try{var k='cac-v-'+S;if(!sessionStorage.getItem(k)){sessionStorage.setItem(k,'1');t('view');}}catch(e){t('view');}
+  document.addEventListener('click',function(e){var r=e.target.closest('[data-reveal]');
+    if(r){e.preventDefault();var tel=r.getAttribute('data-reveal'),lab=r.getAttribute('data-label');document.querySelectorAll('[data-reveal]').forEach(function(x){var a=document.createElement('a');a.href='tel:'+tel;a.className=x.className;a.textContent=x.getAttribute('data-label');a.setAttribute('data-track','phone_call');x.replaceWith(a);});t('phone_reveal');return;}
+    var a=e.target.closest('[data-track]');if(a&&a.getAttribute('data-track')!=='video')t(a.getAttribute('data-track'));
+    if(e.target.closest('[data-track-gallery] .agal-t'))t('gallery');});
+  // video: load the player only when asked (no third-party requests before)
+  document.querySelectorAll('.biz-video').forEach(function(v){function play(){var f=document.createElement('iframe');f.src=v.getAttribute('data-src');f.allow='autoplay; encrypted-media; picture-in-picture; fullscreen';f.allowFullscreen=true;f.title='Video';v.innerHTML='';v.appendChild(f);v.classList.add('on');t('video');}
+    v.addEventListener('click',play,{once:true});v.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();play();}});});
+  // open now / closed, in UK time
+  var H=document.querySelector('[data-hours]');if(H){var hrs=JSON.parse(H.getAttribute('data-hours')),days=['sun','mon','tue','wed','thu','fri','sat'],names={mon:'Monday',tue:'Tuesday',wed:'Wednesday',thu:'Thursday',fri:'Friday',sat:'Saturday',sun:'Sunday'};
+    var p=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',weekday:'short',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(new Date()),o={};p.forEach(function(x){o[x.type]=x.value;});
+    var di=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].indexOf(o.weekday),now=o.hour+':'+o.minute,today=days[di],h=hrs[today]||{},open=!h.closed&&h.open&&now>=h.open&&now<h.close,msg;
+    var row=H.querySelector('[data-day="'+today+'"]');if(row)row.classList.add('today');
+    if(open)msg='<b class="ok">Open now</b> · closes '+h.close;else{var nx=null;for(var i=0;i<8;i++){var dd=days[(di+i)%7],hh=hrs[dd]||{};if(!hh.closed&&hh.open&&(i>0||now<hh.open)){nx=(i===0?'today':i===1?'tomorrow':names[dd])+' '+hh.open;break;}}msg='<b class="no">Closed</b>'+(nx?' · opens '+nx:'');}
+    document.querySelectorAll('[data-open-status]').forEach(function(x){x.innerHTML=msg;});}
+  // distance from you (worked out in your browser; your location isn't sent anywhere)
+  document.querySelectorAll('[data-distance]').forEach(function(b){b.addEventListener('click',function(){if(!navigator.geolocation){b.textContent='Your browser can\\'t share your location.';return;}
+    b.textContent='Finding you…';navigator.geolocation.getCurrentPosition(function(pos){var ll=b.getAttribute('data-distance').split(',').map(Number),R=3958.8,r=Math.PI/180,dl=(ll[0]-pos.coords.latitude)*r,dn=(ll[1]-pos.coords.longitude)*r,
+      x=Math.sin(dl/2)*Math.sin(dl/2)+Math.cos(pos.coords.latitude*r)*Math.cos(ll[0]*r)*Math.sin(dn/2)*Math.sin(dn/2),mi=2*R*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
+      var txt=mi<1?'Less than a mile from you':'About '+Math.round(mi)+' miles from you';b.outerHTML='<span class="biz-distv">'+txt+' (in a straight line)</span>';var d=document.querySelector('[data-dist]');if(d){d.hidden=false;d.textContent=txt;}},
+      function(){b.textContent='Couldn\\'t get your location. Check your browser\\'s location setting.';},{maximumAge:600000,timeout:10000});});});
+  function send(form,url,data,okHtml){var m=form.querySelector('.ct-msg'),btn=form.querySelector('[type=submit]');btn.disabled=true;m.className='ct-msg';m.textContent='Sending…';
+    fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}).then(function(r){return r.json().catch(function(){return{};}).then(function(j){if(!r.ok)throw new Error(j.error||'Sorry, that didn\\'t send. Please try again.');form.outerHTML=okHtml;});})
+      .catch(function(err){m.textContent=err.message;m.className='ct-msg bad';btn.disabled=false;});}
+  var L=document.getElementById('lead');if(L)L.addEventListener('submit',function(e){e.preventDefault();var m=L.querySelector('.ct-msg');
+    if(!L.name.value.trim()||!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(L.email.value.trim())||L.message.value.trim().length<5){m.textContent='Please add your name, a valid email and a message.';m.className='ct-msg bad';return;}
+    send(L,'/api/lead',{slug:S,name:L.name.value,email:L.email.value,phone:L.phone.value,message:L.message.value,website:L.website.value},'<div class="ct-sent"><h3>Enquiry sent.</h3><p>The business will reply to you directly by email or phone.</p></div>');});
+  var R=document.getElementById('rvf');if(R)R.addEventListener('submit',function(e){e.preventDefault();var m=R.querySelector('.ct-msg'),rt=R.querySelector('[name=rating]:checked');
+    if(!rt||!R.name.value.trim()||!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(R.email.value.trim())||R.body.value.trim().length<10){m.textContent='Please choose a rating and add your name, email and a few words.';m.className='ct-msg bad';return;}
+    send(R,'/api/review',{slug:S,name:R.name.value,email:R.email.value,rating:+rt.value,body:R.body.value},'<div class="ct-sent"><h3>Thanks for your review.</h3><p>Our team will check it and it will appear here soon.</p></div>');});
+})();</script>`;
 }
 
 // ---------- /directory/service/<service> and /directory/services ----------

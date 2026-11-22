@@ -87,6 +87,7 @@ function navHTML() {
   return `<li class="nav-item"><a class="nav-link" href="/" data-link>${icon("dash")}Dashboard</a></li>
     <li class="nav-title">Marketing</li>
     ${item("/marketing", "dash", "SEO overview")}
+    ${item("/marketing/directory", "dir", "Directory performance")}
     ${item("/pages?type=location", "pin", "Location pages")}
     ${item("/pages?type=landing", "ad", "Ad landing pages")}
     ${item("/pages", "page", "All SEO pages")}
@@ -641,9 +642,13 @@ const CONTENT = {
     help: "Businesses in the directory. New submissions from the website arrive as Pending: check them, add details, then set Status to Published.",
     fields: [F("h_basics", "The business", "heading"), F("name", "Business name", "text", { required: true }), F("slug", "Slug", "slug", { from: "name" }), F("services", "Services (comma separated)", "array"),
       F("summary", "Short summary (shown on cards and in Google)", "textarea", { ai: "summary" }), F("body_html", "About the business", "rich", { ai: "body" }),
-      F("image_path", "Main photo", "image"), F("image_alt", "Photo description"), F("logo_path", "Logo", "image"), F("gallery", "More photos", "gallery"),
-      F("h_contact", "Contact and location", "heading"), F("website", "Website"), F("phone", "Public phone"), F("email", "Public email"), F("instagram", "Instagram (handle or link)"), F("facebook", "Facebook (page name or link)"),
-      F("opening_hours", "Opening hours (one line each, e.g. Mon to Fri 8:00 to 17:30)", "lines"),
+      F("image_path", "Main photo", "image"), F("image_alt", "Photo description"), F("logo_path", "Logo", "image"),
+      F("h_sections", "Page sections", "heading", { note: "Each section only shows on the business page when it has something in it." }),
+      F("offerings", "Services and products (name, short description, optional price and photo)", "offerings"), F("gallery", "Photo gallery", "gallery"), F("video_url", "Video (YouTube or Vimeo link)", "text", { ph: "https://www.youtube.com/watch?v=…" }),
+      F("enquiries_enabled", "Show the enquiry form", "bool", { def: true }), F("lead_email", "Send enquiries to (private, never shown)", "lead"), F("reviews_enabled", "Show reviews and the review form", "bool", { def: true }),
+      F("h_contact", "Contact and location", "heading"), F("website", "Website"), F("phone", "Public phone"), F("show_phone", "Show the phone number (visitors click to reveal it)", "bool", { def: true }), F("email", "Public email"),
+      F("instagram", "Instagram (handle or link)"), F("facebook", "Facebook (page name or link)"), F("youtube", "YouTube (channel handle or link)"), F("tiktok", "TikTok (handle or link)"), F("x_url", "X (handle or link)"), F("linkedin", "LinkedIn (company page or link)"),
+      F("hours", "Opening times", "hours"), F("opening_hours", "Opening notes (optional, one per line, e.g. Closed bank holidays)", "lines"),
       F("address_line", "Street address (shown publicly)"), F("town", "Town"), F("county", "County", "select", { options: ["Norfolk", "Suffolk", "Cambridgeshire", "Essex"] }), F("postcode", "Postcode", "postcode"), F("lat", "Latitude", "number", { step: "any" }), F("lng", "Longitude", "number", { step: "any" }), F("approximate", "Map pin is only approximate", "bool"), F("region", "Region"),
       F("h_status", "Status and promotion", "heading"), F("status", "Status", "select", { options: ["pending", "published", "rejected"] }), F("checked_at", "Checked on", "date"), F("featured", "Featured", "bool"), F("featured_until", "Featured until", "date"),
       F("h_seo", "Search engines", "heading", { note: "Optional. Left empty, the name and summary are used." }), F("focus_keyword", "Focus keyword", "text", { ph: "e.g. car detailing norwich" }), F("meta_title", "Google title", "text", { ai: "meta_title" }), F("meta_description", "Google description", "textarea", { ai: "meta_description" })] },
@@ -788,6 +793,9 @@ route("/content/:table/:id", async ({ table, id }) => {
       case "textarea": return `<textarea class="form-control" id="${id}" rows="4" ${req}>${esc(v ?? "")}</textarea>`;
       case "rich": return richField(id, v || (row.body ? md(row.body) : ""), esc, f.ai ? { ai: f.ai } : {});
       case "gallery": return galleryField(id, v);
+      case "offerings": return offeringsField(id, v);
+      case "hours": return hoursField(id, v);
+      case "lead": return `<input class="form-control" id="${id}" type="email" placeholder="e.g. enquiries@business.co.uk (leave empty to send enquiries to the team)" data-lead><div class="form-check mt-2"><input class="form-check-input" type="checkbox" id="${id}_copy" data-lead-copy><label class="form-check-label small" for="${id}_copy">Also send our team a copy of every enquiry</label></div>`;
       case "lines": return `<textarea class="form-control" id="${id}" rows="${Math.max(3, (v || []).length + 1)}">${esc((v || []).join("\n"))}</textarea>`;
       case "markdown": return `<textarea class="form-control code" id="${id}" rows="14">${esc(v ?? "")}</textarea>`;
       case "select": return `<select class="form-select" id="${id}">${f.options.map((o) => `<option value="${o}" ${o === v ? "selected" : ""}>${esc(LABELS[o] || o)}</option>`).join("")}</select>`;
@@ -806,7 +814,7 @@ route("/content/:table/:id", async ({ table, id }) => {
     ${c.help ? `<p class="text-body-secondary">${esc(c.help)}</p>` : ""}
     <div class="card"><div class="card-body"><div class="row g-3">
       ${c.fields.map((f) => f.type === "heading" ? `<div class="col-12 form-section"><h2 class="h5 mb-0">${esc(f.label)}</h2>${f.note ? `<p class="small text-body-secondary mb-0">${esc(f.note)}</p>` : ""}</div>`
-        : `<div class="${["textarea", "markdown", "rich", "lines", "gallery", "readonly_long"].includes(f.type) ? "col-12" : "col-md-6"}">${f.type === "bool" ? "" : `<label class="form-label" for="f_${f.name}${f.type === "rich" ? "_area" : ""}">${esc(f.label)}${f.required ? ' <span class="text-danger">*</span>' : ""}${f.ai && f.type !== "rich" ? aiBtn(f.ai, "f_" + f.name) : ""}</label>`}${input(f)}</div>`).join("")}
+        : `<div class="${["textarea", "markdown", "rich", "lines", "gallery", "readonly_long", "offerings", "hours"].includes(f.type) ? "col-12" : "col-md-6"}">${f.type === "bool" ? "" : `<label class="form-label" for="f_${f.name}${f.type === "rich" ? "_area" : ""}">${esc(f.label)}${f.required ? ' <span class="text-danger">*</span>' : ""}${f.ai && f.type !== "rich" ? aiBtn(f.ai, "f_" + f.name) : ""}</label>`}${input(f)}</div>`).join("")}
     </div></div></div>
     ${SEO_KINDS[table] ? `<div class="card mt-3" id="seo"><div class="card-body"><div class="row g-4">
       <div class="col-lg-6"><h2 class="h5">SEO score</h2><div class="d-flex align-items-center gap-3 mb-2"><div class="score-ring" id="ring">–</div><div><div class="fw-semibold" id="grade"></div><div class="small text-body-secondary">Updates as you type · <span id="wc"></span></div></div></div>
@@ -828,7 +836,11 @@ route("/content/:table/:id", async ({ table, id }) => {
       url: table === "directory_listings" ? `/directory/${v("slug")}` : table === "events" ? `/events/${v("slug")}` : table === "articles" ? `/news/${v("slug")}` : table === "guides" ? `/guides/${v("slug")}` : "" }; };
   wireRich($("#cf"), { upload: uploadSiteImage, onChange: () => (dirty = true), ai: async (field, brief) => (await aiCall(field, contentCtx(), brief)).html });
   wireAiSuggest($("#cf"), contentCtx);
+  if (table === "directory_listings") wireOfferings($("#cf"));
   if (table === "directory_listings" && !isNew) {
+    const { data: ct } = await site().from("directory_contacts").select("lead_email,copy_team").eq("listing_id", row.id).maybeSingle();
+    if (ct && $("[data-lead]")) { $("[data-lead]").value = ct.lead_email || ""; $("[data-lead-copy]").checked = !!ct.copy_team; }
+    await directoryExtras(row);
     const { data: subs } = await site().from("directory_submissions").select("*").eq("listing_id", row.id).order("created_at", { ascending: false });
     if (subs && subs.length) $("#cf .card").insertAdjacentHTML("beforebegin", `<div class="alert alert-warning"><strong>Submitted from the website</strong> ${fmtDate(subs[0].created_at, true)} by ${esc(subs[0].contact_name)} · <a href="mailto:${esc(subs[0].contact_email)}?subject=${encodeURIComponent("Your Cars and Coffee directory listing")}">${esc(subs[0].contact_email)}</a>${subs[0].contact_phone ? ` · ${esc(subs[0].contact_phone)}` : ""}${subs[0].notes ? `<div class="small mt-1">Note: ${esc(subs[0].notes)}</div>` : ""}<div class="small mt-1">Only the team can see this. ${row.status === "pending" ? "Check the details, then set Status to Published." : ""}</div></div>`);
   }
@@ -865,7 +877,7 @@ route("/content/:table/:id", async ({ table, id }) => {
     e.preventDefault();
     const out = {};
     for (const f of c.fields) {
-      if (f.type === "readonly" || f.type === "readonly_long" || f.type === "heading") continue;
+      if (f.type === "readonly" || f.type === "readonly_long" || f.type === "heading" || f.type === "lead") continue;
       const el = $("#f_" + f.name); let v;
       if (f.type === "bool") v = el.checked;
       else if (f.type === "number") v = el.value === "" ? null : Number(el.value);
@@ -874,6 +886,9 @@ route("/content/:table/:id", async ({ table, id }) => {
       else if (f.type === "image") v = el.value.trim() || null;
       else if (f.type === "rich") { v = cleanHTML($("#f_" + f.name + "_area").innerHTML) || null; }
       else if (f.type === "gallery") v = JSON.parse(el.value || "[]").filter((x) => x.src);
+      else if (f.type === "offerings") v = $$(`[data-off-row]`).map((r) => ({ name: $("[data-o=name]", r).value.trim(), description: $("[data-o=description]", r).value.trim(), price: $("[data-o=price]", r).value.trim(), image: $("[data-o=image]", r).value.trim() || null })).filter((o) => o.name);
+      else if (f.type === "hours") { v = {}; for (const [k] of DAYS_ADMIN) { const r = $(`[data-hday="${k}"]`); const closed = $("[data-hclosed]", r).checked, open = $("[data-hopen]", r).value, close = $("[data-hclose]", r).value; if (closed || open || close) v[k] = closed ? { closed: true } : { open, close }; } }
+      else if (f.type === "lead") continue;
       else if (f.type === "lines") v = el.value.split("\n").map((s) => s.trim()).filter(Boolean);
       else v = el.value.trim() === "" ? null : el.value.trim();
       if (f.required && (v == null || v === "")) { toast(`${f.label} is required`, true); el.focus(); return; }
@@ -882,6 +897,11 @@ route("/content/:table/:id", async ({ table, id }) => {
     if (slugF && out[slugF.name]) out[slugF.name] = slugify(out[slugF.name]);
     const res = isNew ? await site().from(table).insert(out).select(pk).single() : await site().from(table).update(out).eq(pk, row[pk]).select(pk).single();
     if (res.error) return toast(/duplicate|unique/i.test(res.error.message) ? "That slug is already used" : res.error.message, true);
+    if (table === "directory_listings" && $("[data-lead]")) {
+      const le = $("[data-lead]").value.trim();
+      const { error: ce } = await site().from("directory_contacts").upsert({ listing_id: res.data[pk], lead_email: le || null, copy_team: $("[data-lead-copy]").checked, updated_at: new Date().toISOString() }, { onConflict: "listing_id" });
+      if (ce) return toast("Saved, but the enquiry email didn't save: " + ce.message, true);
+    }
     dirty = false; toast("Saved. Live on the website within a minute."); go(`/content/${table}`, true);
   };
   if ($("#del")) { let armed = false; $("#del").onclick = async () => {
@@ -889,6 +909,75 @@ route("/content/:table/:id", async ({ table, id }) => {
     const { error } = await site().from(table).delete().eq(pk, row[pk]); if (error) return oops(error);
     dirty = false; toast("Deleted"); go(`/content/${table}`, true);
   }; }
+});
+
+// ---------- directory: services/products, opening times, reviews and enquiries ----------
+const DAYS_ADMIN = [["mon", "Monday"], ["tue", "Tuesday"], ["wed", "Wednesday"], ["thu", "Thursday"], ["fri", "Friday"], ["sat", "Saturday"], ["sun", "Sunday"]];
+const offRow = (o = {}, i = 0) => `<div class="off-row" data-off-row><div class="row g-2"><div class="col-md-4"><input class="form-control form-control-sm" data-o="name" value="${esc(o.name || "")}" placeholder="Name, e.g. Ceramic coating"></div>
+  <div class="col-md-5"><input class="form-control form-control-sm" data-o="description" value="${esc(o.description || "")}" placeholder="Short description"></div><div class="col-md-3"><input class="form-control form-control-sm" data-o="price" value="${esc(o.price || "")}" placeholder="Price (optional), e.g. From £350"></div>
+  <div class="col-12">${imageInput("off_img_" + Math.random().toString(36).slice(2, 8), o.image || "").replace('class="form-control mb-2"', 'class="form-control form-control-sm mb-2" data-o="image"')}</div></div>
+  <button type="button" class="btn btn-sm btn-link text-danger p-0 mt-1" data-off-rm>Remove</button></div>`;
+function offeringsField(id, v) { const list = Array.isArray(v) ? v : []; return `<div id="${id}" data-offerings>${list.map(offRow).join("")}</div><button type="button" class="btn btn-sm btn-outline-secondary" data-off-add>Add a service or product</button>`; }
+function wireOfferings(root) {
+  root.addEventListener("click", (e) => {
+    if (e.target.matches("[data-off-add]")) { $("[data-offerings]", root).insertAdjacentHTML("beforeend", offRow()); wireImageInputs($("[data-offerings]", root)); dirty = true; }
+    if (e.target.matches("[data-off-rm]")) { e.target.closest("[data-off-row]").remove(); dirty = true; }
+  });
+}
+function hoursField(id, v) {
+  const h = v && typeof v === "object" ? v : {};
+  return `<div id="${id}" class="hours-ed">${DAYS_ADMIN.map(([k, n]) => { const d = h[k] || {}; return `<div class="hours-row" data-hday="${k}"><span>${n}</span><input type="time" class="form-control form-control-sm" data-hopen value="${esc(d.open || "")}" aria-label="${n} opens"><span class="small">to</span><input type="time" class="form-control form-control-sm" data-hclose value="${esc(d.close || "")}" aria-label="${n} closes"><label class="form-check-label small"><input type="checkbox" class="form-check-input me-1" data-hclosed ${d.closed ? "checked" : ""}>Closed</label></div>`; }).join("")}
+    <button type="button" class="btn btn-sm btn-link p-0" data-hcopy>Copy Monday to Tuesday–Friday</button></div>`;
+}
+document.addEventListener("click", (e) => { if (!e.target.matches("[data-hcopy]")) return; const ed = e.target.closest(".hours-ed"), mon = $('[data-hday="mon"]', ed);
+  ["tue", "wed", "thu", "fri"].forEach((k) => { const r = $(`[data-hday="${k}"]`, ed); $("[data-hopen]", r).value = $("[data-hopen]", mon).value; $("[data-hclose]", r).value = $("[data-hclose]", mon).value; $("[data-hclosed]", r).checked = $("[data-hclosed]", mon).checked; }); dirty = true; });
+async function directoryExtras(row) {
+  const [{ data: reviews }, { data: leads }] = await Promise.all([site().from("directory_reviews").select("*").eq("listing_id", row.id).order("created_at", { ascending: false }), site().from("directory_leads").select("*").eq("listing_id", row.id).order("created_at", { ascending: false }).limit(20)]);
+  const starsTxt = (n) => "★".repeat(n) + "☆".repeat(5 - n);
+  const box = document.createElement("div");
+  box.innerHTML = `<div class="card mt-3" id="reviews"><div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">Reviews <span class="small fw-normal text-body-secondary">${(reviews || []).filter((r) => r.status === "pending").length} waiting for approval</span></div><div class="card-body">
+      ${(reviews || []).length ? `<div class="table-responsive"><table class="table table-sm align-middle"><thead><tr><th>Rating</th><th>Review</th><th>From</th><th>Status</th><th></th></tr></thead><tbody>${reviews.map((r) => `<tr data-rv="${r.id}"><td class="text-warning text-nowrap">${starsTxt(r.rating)}</td><td class="small">${esc(r.body)}</td><td class="small">${esc(r.name)}<br><span class="text-body-secondary">${esc(r.source)}${r.email ? " · " + esc(r.email) : ""} · ${fmtDate(r.created_at)}</span></td><td>${r.status === "published" ? '<span class="badge text-bg-success">Live</span>' : r.status === "pending" ? '<span class="badge text-bg-warning">Pending</span>' : '<span class="badge text-bg-light border">Rejected</span>'}</td>
+        <td class="text-nowrap">${r.status !== "published" ? `<button type="button" class="btn btn-sm btn-success" data-rvs="published">Approve</button>` : ""} ${r.status !== "rejected" ? `<button type="button" class="btn btn-sm btn-outline-secondary" data-rvs="rejected">Reject</button>` : ""} <button type="button" class="btn btn-sm btn-outline-danger" data-rvdel>Delete</button></td></tr>`).join("")}</tbody></table></div>` : '<p class="text-body-secondary">No reviews yet.</p>'}
+      <details class="mt-2"><summary class="btn btn-sm btn-outline-secondary">Add a genuine review you've received</summary><div class="row g-2 mt-2"><div class="col-md-3"><input class="form-control form-control-sm" id="rv_name" placeholder="Reviewer's name"></div><div class="col-md-2"><select class="form-select form-select-sm" id="rv_rating">${[5, 4, 3, 2, 1].map((n) => `<option value="${n}">${n} stars</option>`).join("")}</select></div>
+        <div class="col-md-3"><select class="form-select form-select-sm" id="rv_source"><option value="google">From Google</option><option value="facebook">From Facebook</option><option value="in person">In person</option><option value="other">Other</option></select></div><div class="col-12"><textarea class="form-control form-control-sm" id="rv_body" rows="2" placeholder="Their review, word for word"></textarea></div>
+        <div class="col-12"><button type="button" class="btn btn-sm btn-primary" id="rv_add">Add review</button> <span class="small text-body-secondary">Only add real reviews with the reviewer's permission. Made-up reviews are against the law.</span></div></div></details></div></div>
+    <div class="card mt-3"><div class="card-header bg-white fw-semibold">Recent enquiries <span class="small fw-normal text-body-secondary">(sent from this business's page)</span></div><div class="card-body">
+      ${(leads || []).length ? `<div class="table-responsive"><table class="table table-sm"><thead><tr><th>When</th><th>From</th><th>Message</th><th>Sent to</th></tr></thead><tbody>${leads.map((x) => `<tr><td class="small text-nowrap">${fmtDate(x.created_at, true)}</td><td class="small">${esc(x.name)}<br><a href="mailto:${esc(x.email)}">${esc(x.email)}</a>${x.phone ? "<br>" + esc(x.phone) : ""}</td><td class="small">${esc(x.message)}</td><td class="small">${esc(x.sent_to || "")}</td></tr>`).join("")}</tbody></table></div>` : '<p class="text-body-secondary mb-0">No enquiries yet.</p>'}
+      <a class="small" href="/marketing/directory" data-link>See all directory performance</a></div></div>`;
+  $("#cf").appendChild(box);
+  box.addEventListener("click", async (e) => {
+    const tr = e.target.closest("[data-rv]");
+    if (tr && e.target.matches("[data-rvs]")) { const { error } = await site().from("directory_reviews").update({ status: e.target.dataset.rvs }).eq("id", +tr.dataset.rv); if (error) return oops(error); toast(e.target.dataset.rvs === "published" ? "Review approved. It shows within a minute." : "Review rejected"); render(); }
+    if (tr && e.target.matches("[data-rvdel]")) { if (!e.target.dataset.armed) { e.target.dataset.armed = 1; e.target.textContent = "Confirm"; return; } const { error } = await site().from("directory_reviews").delete().eq("id", +tr.dataset.rv); if (error) return oops(error); tr.remove(); toast("Review deleted"); }
+    if (e.target.id === "rv_add") { const name = $("#rv_name").value.trim(), body = $("#rv_body").value.trim(); if (!name || body.length < 10) return toast("Add the reviewer's name and their review", true);
+      const { error } = await site().from("directory_reviews").insert({ listing_id: row.id, name, body, rating: +$("#rv_rating").value, source: $("#rv_source").value, status: "published" }); if (error) return oops(error); toast("Review added"); render(); }
+  });
+}
+
+// ---------- Marketing: directory performance ----------
+route("/marketing/directory", async () => {
+  crumbs([["Marketing", "/marketing"], ["Directory performance"]]);
+  const days = Number(qs().get("days") || 30);
+  const [{ data: stats, error }, { data: leads }] = await Promise.all([(MOCK ? Promise.resolve({ data: [{ listing_id: "d1", slug: "coastline-detailing", name: "Coastline Detailing", status: "published", views: 120, website: 14, phone_reveal: 9, phone_call: 4, email: 2, directions: 6, social: 3, video: 5, gallery: 11, enquiry: 3, review: 1 }] }) : sb.schema("site").rpc("directory_stats", { p_days: days })), site().from("directory_leads").select("id,listing_id,name,email,phone,message,sent_to,created_at").gte("created_at", new Date(Date.now() - days * 864e5).toISOString()).order("created_at", { ascending: false }).limit(200)]);
+  if (error) throw error;
+  const rows = (stats || []).filter((r) => r.status !== "rejected");
+  const cols = [["views", "Page views"], ["website", "Website clicks"], ["phone_reveal", "Number shown"], ["phone_call", "Calls tapped"], ["email", "Email clicks"], ["directions", "Directions"], ["social", "Social clicks"], ["video", "Video plays"], ["gallery", "Photos opened"], ["enquiry", "Enquiries"], ["review", "Reviews"]];
+  const tot = Object.fromEntries(cols.map(([k]) => [k, rows.reduce((n, r) => n + Number(r[k] || 0), 0)]));
+  const actions = (r) => ["website", "phone_reveal", "phone_call", "email", "directions", "enquiry"].reduce((n, k) => n + Number(r[k] || 0), 0);
+  const rate = (r) => (Number(r.views) ? Math.round((actions(r) / Number(r.views)) * 100) + "%" : "–");
+  const nameOf = Object.fromEntries((stats || []).map((r) => [r.listing_id, r.name]));
+  const tab = (d, l) => `<a href="/marketing/directory?days=${d}" data-link class="${days === d ? "on" : ""}">${l}</a>`;
+  view.innerHTML = `<div class="page-head"><h1>Directory performance</h1><button class="btn btn-outline-secondary" id="leadcsv">Download enquiries (CSV)</button></div>
+    <p class="text-body-secondary">How visitors interact with each business page: anonymous counts, no cookies. Use it to show businesses the value of their listing.</p>
+    <div class="pill-tabs">${tab(7, "Last 7 days")}${tab(30, "Last 30 days")}${tab(90, "Last 90 days")}${tab(365, "Last year")}</div>
+    <div class="row g-3 mb-3">${[["views", "Page views"], ["website", "Website clicks"], ["phone_reveal", "Phone numbers shown"], ["enquiry", "Enquiries sent"]].map(([k, l]) => `<div class="col-6 col-lg-3"><div class="card stat"><div class="card-body"><div class="value">${tot[k]}</div><div class="label">${l}</div></div></div></div>`).join("")}</div>
+    <div class="card"><div class="table-responsive"><table class="table table-hover mb-0 align-middle small"><thead><tr><th>Business</th>${cols.map(([, l]) => `<th class="text-end">${l}</th>`).join("")}<th class="text-end" title="Website, phone, email, directions and enquiries per page view">Action rate</th></tr></thead><tbody>
+      ${rows.map((r) => `<tr class="${r.status === "published" ? "" : "row-off"}"><td><a class="rowlink" href="/content/directory_listings/${r.listing_id}" data-link>${esc(r.name)}</a>${r.status === "published" ? "" : ' <span class="badge text-bg-warning">' + esc(r.status) + "</span>"}</td>${cols.map(([k]) => `<td class="text-end">${Number(r[k] || 0) || '<span class="text-body-secondary">0</span>'}</td>`).join("")}<td class="text-end fw-semibold">${rate(r)}</td></tr>`).join("")}
+      <tr class="fw-semibold"><td>Total</td>${cols.map(([k]) => `<td class="text-end">${tot[k]}</td>`).join("")}<td class="text-end">${rate(tot)}</td></tr></tbody></table></div></div>
+    <h2 class="h5 mt-4">Enquiries in this period</h2>
+    <div class="card">${(leads || []).length ? `<div class="table-responsive"><table class="table table-sm mb-0"><thead><tr><th>When</th><th>Business</th><th>From</th><th>Message</th><th>Sent to</th></tr></thead><tbody>${leads.map((x) => `<tr><td class="small text-nowrap">${fmtDate(x.created_at, true)}</td><td class="small">${esc(nameOf[x.listing_id] || "")}</td><td class="small">${esc(x.name)}<br><a href="mailto:${esc(x.email)}">${esc(x.email)}</a>${x.phone ? " · " + esc(x.phone) : ""}</td><td class="small">${esc(x.message)}</td><td class="small">${esc(x.sent_to || "")}</td></tr>`).join("")}</tbody></table></div>` : '<div class="empty">No enquiries in this period yet.</div>'}</div>`;
+  $("#leadcsv").onclick = () => { const head = ["created_at", "business", "name", "email", "phone", "message", "sent_to"]; const csv = [head.join(","), ...(leads || []).map((x) => [x.created_at, nameOf[x.listing_id] || "", x.name, x.email, x.phone || "", x.message, x.sent_to || ""].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","))].join("\n");
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); a.download = `directory-enquiries-${new Date().toISOString().slice(0, 10)}.csv`; a.click(); };
 });
 
 // ---------- photo gallery field ----------

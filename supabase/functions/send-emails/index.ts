@@ -113,6 +113,21 @@ function render(t: string, d: Record<string, unknown>): { subject: string; html:
         replyTo: s(d.email),
       };
     }
+    case "business_lead": {
+      const url = `${SITE}/directory/${s(d.slug)}`;
+      return {
+        subject: `${d.team_copy ? "[Copy] " : ""}New enquiry for ${s(d.business)} from ${s(d.name)}`,
+        html: layout(`${s(d.name)} sent ${s(d.business)} an enquiry through Cars and Coffee UK.`,
+          `${d.no_business_email ? `<p style="background:#fff4e5;padding:10px 14px;border-radius:6px"><strong>Team note:</strong> this business has no enquiry email set, so this came to you. Forward it to them, and add their email in Admin → Directory.</p>` : ""}
+          <p><strong>${esc(d.name)}</strong> sent <strong>${esc(d.business)}</strong> an enquiry from its page on <a href="${esc(url)}">Cars and Coffee UK</a>:</p>
+          ${quote(d.message)}
+          <p><strong>Email:</strong> <a href="mailto:${esc(d.email)}">${esc(d.email)}</a>${s(d.phone) ? `<br><strong>Phone:</strong> ${esc(d.phone)}` : ""}</p>
+          <p>Just press reply to answer them.</p>`,
+          `You're getting this because ${esc(s(d.business))} is listed in the Cars and Coffee UK directory. To change where enquiries go, contact us at ${SITE}/contact.`),
+        text: `New enquiry for ${s(d.business)} from ${s(d.name)} <${s(d.email)}>${s(d.phone) ? `, ${s(d.phone)}` : ""}:\n\n${s(d.message)}\n\nJust reply to answer them. Listing: ${url}`,
+        replyTo: s(d.email),
+      };
+    }
     case "team_new_application":
       return {
         subject: `${d.fast_track ? "[Fast-track] " : ""}New application: ${s(d.applicant)}`,
