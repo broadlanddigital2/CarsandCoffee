@@ -432,6 +432,15 @@ a.lp-card:hover{border-color:var(--red)}
 .tf-next{margin-top:22px;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;color:var(--soft);font-size:15px}
 .tf-pills{display:inline-flex;gap:6px}.tf-pills span{border:1px dashed var(--line);border-radius:99px;padding:4px 10px;font-weight:700;font-size:13px;color:var(--ink)}
 @media (max-width:860px){.tf-head,.tf-grid{grid-template-columns:1fr}.tf{padding:48px 0}.tf-tiles{grid-template-columns:1fr 1fr}}
+.hiw-panels{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:44px}
+.hiw-panel{background:rgba(255,255,255,.05);border:1px solid rgba(242,169,59,.28);border-radius:14px;padding:22px 24px}
+.hiw-panel h3{font-family:Anton,Impact,sans-serif;font-weight:400;text-transform:uppercase;font-size:22px;color:#fff;margin:0 0 12px}
+.hiw-panel p{color:#d9c9b8;margin:0 0 12px}
+.hiw-ticks{list-style:none;margin:0;padding:0}.hiw-ticks li{color:#f0e2d2;padding:7px 0 7px 28px;position:relative;border-bottom:1px solid rgba(255,255,255,.08)}.hiw-ticks li:last-child{border-bottom:0}
+.hiw-ticks li::before{content:"✓";position:absolute;left:4px;color:var(--amber);font-weight:800}
+.hiw-link{color:var(--amber);font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:8px}.hiw-link:hover{text-decoration:underline}
+.hiw-expect::before{left:-140px;right:auto;top:auto;bottom:-160px}
+@media (max-width:760px){.hiw-panels{grid-template-columns:1fr;margin-top:30px}}
 @media (max-width:860px){.lp-stats{grid-template-columns:1fr 1fr}.lp-split,.lp-split.eq{grid-template-columns:1fr}.lp-drives,.lp-cards{grid-template-columns:1fr}.phero{min-height:380px}}
 </style>
 <style id="reveal-css">
@@ -723,7 +732,7 @@ $('#nl')&&$('#nl').addEventListener('submit',async ev=>{ev.preventDefault();cons
  $$('main .head, main .lp-sec > .wrap > h2, main .lp-split > *, main .galintro, .intro > div, .quick, .joinbox, .dirtop, .dirsearch, .dirhead, .dirlinks, .listcta, .strip h2, .adv-band .wrap, .news-band .wrap, .faq > div, .spon > div, .why > div').forEach(el=>mark(el));
  mark($('.spon > img'),'rv-r');mark($('.why > img'),'rv-l');
  // card grids: stagger children
- const grids=['.tf-grid','.hiw-steps','.lp-stats','.lp-steps','.lp-tiles','.lp-drives','.lp-faq','.newsgrid','.posts','.prods','.svcgrid','.bizs','.wrap.gal','.benefits','.stats','.strip','.faq > div:last-child','.quick'];
+ const grids=['.hiw-panels','.tf-grid','.hiw-steps','.lp-stats','.lp-steps','.lp-tiles','.lp-drives','.lp-faq','.newsgrid','.posts','.prods','.svcgrid','.bizs','.wrap.gal','.benefits','.stats','.strip','.faq > div:last-child','.quick'];
  const gset=new Set();grids.forEach(g=>$$(g).forEach(p=>{let i=0;gset.add(p);for(const c of p.children){if(c.matches('h2,.galintro,script'))continue;
   if(c.classList.contains('rv')&&!p.matches('.quick'))continue;c.classList.add('rv');c.classList.remove('rv-l','rv-r');
   if(p.matches('.wrap.gal'))c.classList.add('rv-z');c.style.setProperty('--rvd',Math.min(i++,7)*80+'ms')}}));

@@ -95,6 +95,30 @@ function howItWorks() {
   </div></section>`;
 }
 
+
+// Town and county pages: "What to expect at a meet" in the same designed band
+Object.assign(ICONS, {
+  park: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="32" height="32" rx="6"/><path d="M19 34V14h7a6 6 0 0 1 0 12h-7"/></svg>',
+  look: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 30l4-10a5 5 0 0 1 4.7-3.3h18.6A5 5 0 0 1 38 20l4 10v7a2 2 0 0 1-2 2h-3a2 2 0 0 1-2-2v-2H13v2a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2z"/><path d="M6 30h36"/><circle cx="14" cy="30" r="0.5"/><circle cx="34" cy="30" r="0.5"/></svg>',
+  quiet: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 19h7l9-7v24l-9-7H8z"/><path d="m32 19 10 10M42 19 32 29"/></svg>',
+});
+function whatToExpect(place) {
+  const steps = [
+    ["park", "Arrive and park", "Display cars and visitors usually park separately. Follow the marshals and keep entrances clear."],
+    ["look", "Walk the line-up", "Take your time and ask owners about their cars. Ask before photographing people or number plates."],
+    ["quiet", "Leave quietly", "No revving, no wheelspin. How we leave decides whether we're welcome back."],
+  ];
+  return `<section class="hiw hiw-expect" aria-labelledby="wte-h"><div class="wrap">
+    <div class="hiw-head"><span class="eyebrow">First time at a meet in ${E(place)}?</span><h2 id="wte-h">What to expect at a meet</h2><p>Relaxed, friendly and over by lunchtime. Here's how a morning meet goes.</p></div>
+    <ol class="hiw-steps">${steps.map(([ic, h, t], i) => `<li><div class="hiw-icon">${ICONS[ic]}<span class="hiw-n">${i + 1}</span></div><h3>${h}</h3><p>${t}</p></li>`).join("")}</ol>
+    <div class="hiw-panels">
+      <div class="hiw-panel"><h3>Bring with you</h3><ul class="hiw-ticks"><li>A warm layer: mornings can be cold</li><li>Your phone or camera</li><li>Cash or card for coffee and food</li><li>Your RSVP or ticket, if the event needs one</li></ul></div>
+      <div class="hiw-panel"><h3>Accessibility and families</h3><p>Each event page lists step-free access, toilets and blue-badge parking where available. Morning meets are family-friendly; keep little ones close around moving cars.</p>
+        <a class="hiw-link" href="/guides/your-first-car-meet">Read the first-timer's guide ${ARROW}</a></div>
+    </div>
+  </div></section>`;
+}
+
 // ---------- map and directions ----------
 const venuesOf = (events) => { const seen = new Map(); for (const e of events) { const v = e.venue_info; if (v && !seen.has(v.id)) seen.set(v.id, { ...v, events: [] }); if (v) seen.get(v.id).events.push(e); } return [...seen.values()]; };
 export function directions(v) {
@@ -184,12 +208,7 @@ export async function renderLocation(p) {
         <div class="lp-panel">${interests.length ? `<h3>Popular here</h3>${chips(interests)}` : ""}<h3>Useful guides</h3>${chips([["Your first car meet", "/guides/your-first-car-meet"], ["Before you buy a classic", "/guides/before-you-buy-a-classic"], ["Photographing cars at a meet", "/guides/photographing-cars-at-a-meet"]])}</div></div>`));
     }
     if (c.drives?.length) parts.push(sec(`Best drives from ${E(place)}`, `<div class="lp-drives">${c.drives.map((d) => card({ image: d.image, title: d.title, text: d.text, small: d.distance })).join("")}</div>`, { lead: "Favourite routes for a weekend run. Drive to the conditions and respect the villages you pass through." }));
-    parts.push(sec("What to expect at a meet", `<div class="lp-split"><ol class="lp-steps">
-        <li><h3>Arrive and park</h3><p>Display cars and visitors usually park separately. Follow the marshals and keep entrances clear.</p></li>
-        <li><h3>Walk the line-up</h3><p>Take your time, ask owners about their cars, and ask before photographing people or number plates.</p></li>
-        <li><h3>Leave quietly</h3><p>No revving, no wheelspin. How we leave decides whether we are welcome back.</p></li></ol>
-      <div class="lp-panel"><h3>Bring with you</h3><ul class="ticks"><li>A warm layer: mornings can be cold</li><li>Your phone or camera</li><li>Cash or card for coffee and food</li><li>Your RSVP or ticket, if the event needs one</li></ul>
-        <h3>Accessibility</h3><p>Each event page lists step-free access, toilets and blue-badge parking where available.</p></div></div>`));
+    parts.push(whatToExpect(place));
     parts.push(sec(`Clubs and hubs near ${E(place)}`, `<div class="lp-cards">${[
       card({ href: `${CLUB}/hubs/${slug(p.county)}`, image: "homepage/com-1.webp", small: "Club hub", title: `${p.county} hub`, text: `Meets, drives and car news across ${p.county}.` }),
       card({ href: `${CLUB}/hubs/classic-cars`, image: "homepage/gal-aston.webp", small: "Club hub", title: "Classic cars", text: "Ownership, restoration and runs." }),
