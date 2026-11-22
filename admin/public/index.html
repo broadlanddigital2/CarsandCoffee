@@ -7,25 +7,13 @@
 <title>Cars and Coffee Admin</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-<script>
-// CoreUI stylesheet: try jsDelivr, then unpkg.
-(function () {
-  var srcs = [
-    "https://cdn.jsdelivr.net/npm/@coreui/coreui@5.2.0/dist/css/coreui.min.css",
-    "https://unpkg.com/@coreui/coreui@5.2.0/dist/css/coreui.min.css"
-  ], i = 0;
-  function next() {
-    if (i >= srcs.length) return;
-    var l = document.createElement("link"); l.rel = "stylesheet"; l.href = srcs[i++];
-    l.onerror = function () { l.remove(); next(); };
-    document.head.insertBefore(l, document.getElementById("admin-css"));
-  }
-  next();
-})();
-</script>
+<link rel="preconnect" href="https://auth.carsandcoffee.uk" crossorigin>
+<!-- CoreUI stylesheet: a normal link so the page waits for it (no unstyled flash); unpkg if jsDelivr fails -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@coreui/coreui@5.2.0/dist/css/coreui.min.css" crossorigin onerror="this.onerror=null;this.href='https://unpkg.com/@coreui/coreui@5.2.0/dist/css/coreui.min.css'">
 <link rel="stylesheet" href="/admin.css" id="admin-css">
 </head>
 <body>
+<div class="busy" id="busy" hidden aria-hidden="true"></div>
 <div class="sidebar sidebar-dark sidebar-fixed border-end" id="sidebar" aria-label="Main navigation" hidden>
   <div class="sidebar-header border-bottom">
     <a class="sidebar-brand" href="/" data-link><img src="/logo.svg" alt="" width="36" height="35"><span>Admin</span></a>

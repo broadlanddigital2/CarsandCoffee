@@ -41,3 +41,7 @@ grant all on site.guides to service_role;
 create or replace function site.touch_updated_at() returns trigger language plpgsql set search_path = '' as $$
 begin new.updated_at := now(); return new; end $$;
 create trigger guides_touch before update on site.guides for each row execute function site.touch_updated_at();
+
+-- article photo galleries: [{ "src": "...", "alt": "...", "caption": "..." }]
+alter table site.articles add column if not exists gallery jsonb not null default '[]'::jsonb;
+alter table site.articles add constraint articles_gallery_is_array check (jsonb_typeof(gallery) = 'array');

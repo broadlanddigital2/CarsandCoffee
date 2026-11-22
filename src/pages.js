@@ -10,7 +10,7 @@ const slug = (x) => String(x).toLowerCase().replace(/[’']/g, "").replace(/ and
 const enc = (s) => encodeURIComponent(s);
 
 // The page shell: the homepage template with its <main>, title and meta swapped for this page's.
-export function shell({ title, description, path, image, noindex, ld, main, partners }) {
+export function shell({ title, description, path, image, noindex, ld, main, partners, ogType, published }) {
   let html = TEMPLATE;
   const url = SITE + path;
   html = html.replace(/<title>[\s\S]*?<\/title>/, `<title>${E(title)}</title>`)
@@ -20,6 +20,7 @@ export function shell({ title, description, path, image, noindex, ld, main, part
     .replace(/<meta property="og:description" content="[^"]*">/, `<meta property="og:description" content="${E(description)}">`)
     .replace(/<meta property="og:url" content="[^"]*">/, `<meta property="og:url" content="${E(url)}">`)
     .replace(/<meta property="og:image" content="[^"]*">/, `<meta property="og:image" content="${E(image ? (image.startsWith("http") ? image : SITE + img(image)) : SITE + "/og-home.jpg")}">`)
+    .replace(/<meta property="og:type" content="[^"]*">/, `<meta property="og:type" content="${ogType || "website"}">${published ? `<meta property="article:published_time" content="${E(published)}">` : ""}`)
     .replace(/<link rel="preload" as="image"[^>]*>/g, "")
     .replace(/<main>[\s\S]*?<\/main>/, `<main>\n${main}\n</main>`)
     .replace("{{LD}}", JSON.stringify(ld).replace(/</g, "\\u003c"))

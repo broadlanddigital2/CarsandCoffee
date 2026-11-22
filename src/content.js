@@ -111,7 +111,7 @@ async function eventPage(slug) {
     ${book}
     ${past ? "" : `<div class="ep-cal"><span>Add to calendar:</span> <a href="${E(gcal)}" target="_blank" rel="noopener">Google</a> · <a href="/events/${E(e.slug)}.ics">Apple / Outlook</a></div>`}
     ${d ? `<div class="ep-dir"><span>Directions:</span> <a href="${E(d.google)}" target="_blank" rel="noopener">Google Maps</a> · <a href="${E(d.apple)}" target="_blank" rel="noopener">Apple Maps</a> · <a href="${E(d.waze)}" target="_blank" rel="noopener">Waze</a></div>` : ""}
-    <div class="ep-share"><span>Share:</span> <a href="https://www.facebook.com/sharer/sharer.php?u=${enc(SITE + "/events/" + e.slug)}" target="_blank" rel="noopener">Facebook</a> · <a href="https://wa.me/?text=${enc(e.title + " " + SITE + "/events/" + e.slug)}" target="_blank" rel="noopener">WhatsApp</a> · <a href="mailto:?subject=${enc(e.title)}&body=${enc(SITE + "/events/" + e.slug)}">Email</a></div>
+    ${shareBar(`${SITE}/events/${e.slug}`, e.title, { label: "Share" })}
   </aside>`;
 
   const rich = body(e);
@@ -190,25 +190,28 @@ async function eventIcs(slug) {
 async function articlePage(slug) {
   const [rows, partners] = await Promise.all([q(`articles?select=*&slug=eq.${enc(slug)}&limit=1`), partnersQ()]);
   const a = rows[0]; if (!a) return null;
-  const related = await q(`articles?select=slug,title,category,excerpt,image_path,image_alt,published_at,read_minutes&id=neq.${a.id}&order=published_at.desc&limit=3`);
+  const [related, nextRows] = await Promise.all([q(`articles?select=slug,title,category,excerpt,image_path,image_alt,published_at,read_minutes&id=neq.${a.id}&order=published_at.desc&limit=3`),
+    q(`events?select=slug,title,starts_at,venue&ends_at=gte.${new Date().toISOString()}&order=starts_at&limit=1`)]);
+  const nextEv = nextRows[0];
   const rich = body(a);
   const crumbs = [["Home", "/"], ["News", "/news"], [a.title, `/news/${a.slug}`]];
   const date = a.published_at ? fmt(a.published_at, { day: "numeric", month: "long", year: "numeric" }) : "";
   const url = `${SITE}/news/${a.slug}`;
+  const gallery = galleryOf(a.gallery);
   const html = [crumbsHTML(crumbs),
     `<article class="art"><header class="phero art-hero"><img class="bg" src="${E(img(a.image_path) || "/homepage/hero.webp")}" alt="${E(a.image_alt || "")}"><div class="wrap"><span class="eyebrow">${E(a.category || "News")}</span><h1>${E(a.title)}</h1>${a.excerpt ? `<p>${E(a.excerpt)}</p>` : ""}
-      <p class="art-meta">${a.author ? `By ${E(a.author)} · ` : ""}${date ? `<time datetime="${E(a.published_at)}">${E(date)}</time>` : ""}${a.read_minutes ? ` · ${a.read_minutes} min read` : ""}</p></div></header>
-      <section class="lp-sec"><div class="wrap ep-grid art-grid"><div class="rich">${rich || "<p>Full story coming soon.</p>"}</div>
+      <p class="art-meta">${a.author ? `By ${E(a.author)} · ` : ""}${date ? `<time datetime="${E(a.published_at)}">${E(date)}</time>` : ""}${a.read_minutes ? ` · ${a.read_minutes} min read` : ""}${gallery.length ? ` · ${gallery.length} photos` : ""}</p>${shareBar(url, a.title, { light: true })}</div></header>
+      <section class="lp-sec"><div class="wrap ep-grid art-grid"><div class="art-main"><div class="rich">${rich || "<p>Full story coming soon.</p>"}</div>${galleryHTML(gallery, a.title)}<div class="art-end">${shareBar(url, a.title, { label: "Enjoyed this? Share it" })}</div></div>
         <aside class="art-side">
-          <div class="ep-card"><h3>Share this story</h3><div class="art-share-btns"><a class="btn ghost small" href="https://www.facebook.com/sharer/sharer.php?u=${enc(url)}" target="_blank" rel="noopener">Facebook</a><a class="btn ghost small" href="https://wa.me/?text=${enc(a.title + " " + url)}" target="_blank" rel="noopener">WhatsApp</a><a class="btn ghost small" href="https://twitter.com/intent/tweet?url=${enc(url)}&text=${enc(a.title)}" target="_blank" rel="noopener">X</a><a class="btn ghost small" href="mailto:?subject=${enc(a.title)}&body=${enc(url)}">Email</a></div>
-            <div class="art-join"><strong>Into this kind of thing?</strong><p>Join the Cars and Coffee club to share your own car and chat with members.</p><a class="btn red small" href="${CLUB}/apply">Join the club ${ARROW}</a></div></div>
+          <div class="ep-card"><div class="art-join"><h3>Into this kind of thing?</h3><p>Join the Cars and Coffee club to share your own car, post photos and chat with members.</p><a class="btn red small" href="${CLUB}/apply">Join the club ${ARROW}</a></div></div>
+          ${nextEv ? `<div class="ep-card art-next"><small>Next meet</small><h3><a href="/events/${E(nextEv.slug)}">${E(nextEv.title)}</a></h3><p>${E(longDate(nextEv.starts_at))} · ${E(nextEv.venue)}</p><a class="btn ghost small" href="/events/${E(nextEv.slug)}">See details</a></div>` : ""}
         </aside></div></section></article>`,
     related.length ? `<section class="lp-sec"><div class="wrap"><h2>More stories</h2><div class="news-grid">${related.map(newsCard).join("")}</div><div class="btns" style="margin-top:18px"><a class="btn red" href="/news">All news ${ARROW}</a></div></div></section>` : "",
     newsletterHTML()].join("\n");
   const ld = [ldLink(crumbs), { "@context": "https://schema.org", "@type": "NewsArticle", headline: a.title, description: a.excerpt || clip(plain(rich)), datePublished: a.published_at, mainEntityOfPage: url,
-    image: a.image_path ? [SITE + img(a.image_path)] : undefined, author: { "@type": a.author && a.author !== "Cars and Coffee team" ? "Person" : "Organization", name: a.author || "Cars and Coffee UK" },
+    image: [a.image_path, ...gallery.map((x) => x.src)].filter(Boolean).slice(0, 6).map((x) => (x.startsWith("http") ? x : SITE + img(x))), author: { "@type": a.author && a.author !== "Cars and Coffee team" ? "Person" : "Organization", name: a.author || "Cars and Coffee UK" },
     publisher: { "@type": "Organization", name: "Cars and Coffee UK", logo: { "@type": "ImageObject", url: `${SITE}/favicon.svg` } } }];
-  return shell({ title: a.meta_title || `${a.title} | Cars and Coffee UK`, description: a.meta_description || a.excerpt || clip(plain(rich)), path: `/news/${a.slug}`, image: a.image_path, ld, main: html, partners });
+  return shell({ title: a.meta_title || `${a.title} | Cars and Coffee UK`, description: a.meta_description || a.excerpt || clip(plain(rich)), path: `/news/${a.slug}`, image: a.image_path || gallery[0]?.src, ld, main: html, partners, ogType: "article", published: a.published_at });
 }
 const newsCard = (a) => `<a class="news-card" href="/news/${E(a.slug)}">${a.image_path ? `<img src="${E(img(a.image_path))}" alt="${E(a.image_alt || "")}" loading="lazy" width="600" height="340">` : ""}<div class="pad"><small>${E(a.category || "News")}${a.published_at ? ` · ${E(fmt(a.published_at, { day: "numeric", month: "short", year: "numeric" }))}` : ""}</small><h3>${E(a.title)}</h3>${a.excerpt ? `<p>${E(a.excerpt)}</p>` : ""}<span class="more">Read more ${ARROW}</span></div></a>`;
 async function newsList() {
@@ -262,6 +265,45 @@ async function guidesList() {
 }
 
 // ---------- shared ----------
+const SI = {
+  fb: '<path d="M14 8h3V4h-3a4 4 0 0 0-4 4v2H8v4h2v6h4v-6h3l1-4h-4V8z" fill="currentColor" stroke="none"/>',
+  x: '<path d="M4 4l16 16M20 4L4 20" />',
+  wa: '<path d="M4 20l1.3-4A8 8 0 1 1 8 18.7z"/><path d="M9 9.5c.3 2.2 2.3 4.2 4.5 4.5l1.2-1.2 1.8.8v1.4c-3.8.3-8-3.9-7.7-7.7h1.4l.8 1.8z" fill="currentColor" stroke="none"/>',
+  li: '<rect x="4" y="9" width="3.5" height="11" fill="currentColor" stroke="none"/><circle cx="5.75" cy="5.5" r="2" fill="currentColor" stroke="none"/><path d="M11 20v-11h3.3v1.6c.7-1.2 2-1.9 3.4-1.9 2.6 0 3.3 1.7 3.3 4.3v7h-3.5v-6.2c0-1.3-.3-2.3-1.6-2.3-1.4 0-1.9 1-1.9 2.4V20z" fill="currentColor" stroke="none"/>',
+  mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
+  link: '<path d="M10 14a4 4 0 0 0 6 0l3-3a4 4 0 0 0-6-6l-1 1"/><path d="M14 10a4 4 0 0 0-6 0l-3 3a4 4 0 0 0 6 6l1-1"/>',
+  share: '<circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.6-4.4M8.2 13.2l7.6 4.4"/>',
+};
+const si = (k) => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${SI[k]}</svg>`;
+let shareN = 0;
+function shareBar(url, title, opts = {}) {
+  const u = enc(url), t = enc(title), id = "sh" + ++shareN;
+  const a = (href, k, label) => `<a class="sh-b sh-${k}" href="${E(href)}" target="_blank" rel="noopener" aria-label="Share on ${label}" title="${label}">${si(k)}</a>`;
+  return `<div class="sh${opts.light ? " sh-light" : ""}" id="${id}"><span class="sh-l">${opts.label || "Share"}</span>
+    <button type="button" class="sh-b sh-native" hidden aria-label="Share" title="Share">${si("share")}</button>
+    ${a(`https://www.facebook.com/sharer/sharer.php?u=${u}`, "fb", "Facebook")}${a(`https://twitter.com/intent/tweet?url=${u}&text=${t}`, "x", "X")}${a(`https://wa.me/?text=${t}%20${u}`, "wa", "WhatsApp")}${a(`https://www.linkedin.com/sharing/share-offsite/?url=${u}`, "li", "LinkedIn")}
+    <a class="sh-b sh-mail" href="mailto:?subject=${t}&body=${t}%0A%0A${u}" aria-label="Share by email" title="Email">${si("mail")}</a>
+    <button type="button" class="sh-b sh-copy" aria-label="Copy link" title="Copy link">${si("link")}<span class="sh-done" role="status"></span></button>
+    <script>(function(){var r=document.getElementById('${id}'),url=${JSON.stringify(url).replace(/</g, "\\u003c")},title=${JSON.stringify(title).replace(/</g, "\\u003c")};
+      var n=r.querySelector('.sh-native');if(navigator.share){n.hidden=false;n.onclick=function(){navigator.share({title:title,url:url}).catch(function(){});};}
+      r.querySelector('.sh-copy').onclick=function(){var d=r.querySelector('.sh-done');function ok(){d.textContent='Link copied';setTimeout(function(){d.textContent='';},2000);}
+        if(navigator.clipboard){navigator.clipboard.writeText(url).then(ok,function(){prompt('Copy this link',url);});}else{prompt('Copy this link',url);}};})();</script></div>`;
+}
+const galleryOf = (g) => (Array.isArray(g) ? g : []).filter((x) => x && x.src && safeUrl(String(x.src), true)).map((x) => ({ src: safeUrl(String(x.src), true), alt: String(x.alt || ""), caption: String(x.caption || "") }));
+function galleryHTML(items, title) {
+  if (!items.length) return "";
+  return `<section class="agal" aria-labelledby="gal-h"><h2 id="gal-h">Gallery <span>${items.length} photo${items.length === 1 ? "" : "s"}</span></h2>
+    <div class="agal-grid${items.length < 3 ? " few" : ""}">${items.map((x, i) => `<button type="button" class="agal-t${i === 0 && items.length > 4 ? " big" : ""}" data-i="${i}" aria-label="Open photo ${i + 1} of ${items.length}${x.alt ? ": " + E(x.alt) : ""}"><img src="${E(x.src)}" alt="${E(x.alt)}" loading="lazy"></button>`).join("")}</div>
+    <dialog class="lb" aria-label="Photo viewer"><div class="lb-in"><button type="button" class="lb-x" aria-label="Close">×</button>
+      <button type="button" class="lb-p" aria-label="Previous photo">‹</button><figure><img alt=""><figcaption><span class="lb-c"></span><span class="lb-n"></span></figcaption></figure><button type="button" class="lb-nx" aria-label="Next photo">›</button></div></dialog>
+    <script>(function(){var items=${JSON.stringify(items).replace(/</g, "\\u003c")},s=document.currentScript.parentNode,d=s.querySelector('.lb'),im=d.querySelector('img'),c=d.querySelector('.lb-c'),n=d.querySelector('.lb-n'),i=0,x0=null;
+      function show(k){i=(k+items.length)%items.length;var it=items[i];im.src=it.src;im.alt=it.alt;c.textContent=it.caption||it.alt||'';n.textContent=(i+1)+' / '+items.length;}
+      s.querySelectorAll('.agal-t').forEach(function(b){b.onclick=function(){show(+b.dataset.i);d.showModal?d.showModal():d.setAttribute('open','');};});
+      d.querySelector('.lb-x').onclick=function(){d.close();};d.querySelector('.lb-p').onclick=function(){show(i-1);};d.querySelector('.lb-nx').onclick=function(){show(i+1);};
+      d.addEventListener('click',function(e){if(e.target===d||e.target.classList.contains('lb-in'))d.close();});
+      d.addEventListener('keydown',function(e){if(e.key==='ArrowLeft')show(i-1);if(e.key==='ArrowRight')show(i+1);});
+      d.addEventListener('touchstart',function(e){x0=e.touches[0].clientX;},{passive:true});d.addEventListener('touchend',function(e){if(x0==null)return;var dx=e.changedTouches[0].clientX-x0;if(Math.abs(dx)>50)show(i+(dx<0?1:-1));x0=null;});})();</script></section>`;
+}
 const IC = {
   cal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
   pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s7-7.5 7-13a7 7 0 0 0-14 0c0 5.5 7 13 7 13z"/><circle cx="12" cy="9" r="2.5"/></svg>',

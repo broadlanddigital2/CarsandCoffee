@@ -135,3 +135,20 @@ h1, h2, h3, .h4, .h5 { color: #1d130f; }
 .rte-area img:hover{outline:3px solid rgba(192,13,13,.4)}.rte-area hr{border-top:2px solid #e3d5c5;opacity:1}
 .rte .form-text{padding:6px 10px;margin:0;background:#f8f4ef;border-top:1px solid #e3d5c5}
 .form-section{border-top:1px solid #e3d5c5;padding-top:18px;margin-top:10px}.form-section:first-child{border-top:0;padding-top:0;margin-top:0}
+
+/* page loading: a thin bar at the very top instead of blanking the page */
+.busy{position:fixed;top:0;left:0;right:0;height:3px;z-index:2000;overflow:hidden;background:rgba(192,13,13,.15)}
+.busy::before{content:"";position:absolute;top:0;bottom:0;left:-40%;width:40%;background:#c00d0d;animation:busy 1s ease-in-out infinite}
+.busy[hidden]{display:none}
+@keyframes busy{to{left:100%}}
+@media (prefers-reduced-motion:reduce){.busy::before{animation:none;left:0;width:100%;opacity:.6}}
+#view.is-loading{opacity:.55;transition:opacity .15s;pointer-events:none}
+
+/* gallery field */
+.galf-list{display:grid;gap:8px;margin-bottom:10px}
+.galf-item{display:grid;grid-template-columns:96px 1fr auto;gap:12px;align-items:center;background:#fff;border:1px solid #e3d5c5;border-radius:10px;padding:8px;cursor:grab}
+.galf-item.dragging{opacity:.4}.galf-item img{width:96px;height:72px;object-fit:cover;border-radius:6px}
+.galf-fields{display:grid;gap:6px}.galf-btns{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.galf-empty{padding:16px;border:1px dashed #cbbcad;border-radius:10px;color:#6b5a50;text-align:center;background:#fffaf3}
+.rte-area figure{margin:.8em 0}.rte-area figcaption{font-size:.9rem;color:#6b5a50;font-style:italic}
+@media (max-width:640px){.galf-item{grid-template-columns:72px 1fr}.galf-item img{width:72px;height:56px}.galf-btns{grid-column:1/-1}}

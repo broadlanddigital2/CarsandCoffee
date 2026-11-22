@@ -63,7 +63,7 @@ export function richField(id, value, esc) {
       <span class="ms-auto rte-words small text-body-secondary"></span>
     </div>
     <div class="rte-pop" hidden><input class="form-control form-control-sm" placeholder="Paste a web address, e.g. /events or https://…"><button type="button" class="btn btn-sm btn-primary" data-pop-ok>Add link</button><button type="button" class="btn btn-sm btn-outline-secondary" data-pop-cancel>Cancel</button></div>
-    <div class="rte-pop rte-alt" hidden><span class="small">Describe the photo for people who can't see it:</span><input class="form-control form-control-sm" placeholder="e.g. Red MGB parked at the breakfast meet"><button type="button" class="btn btn-sm btn-primary" data-alt-ok>Save</button></div>
+    <div class="rte-pop rte-alt" hidden><input class="form-control form-control-sm" data-alt placeholder="Describe the photo (for people who can't see it)" aria-label="Photo description"><input class="form-control form-control-sm" data-cap placeholder="Caption (optional, shown under the photo)" aria-label="Photo caption"><button type="button" class="btn btn-sm btn-primary" data-alt-ok>Save</button><button type="button" class="btn btn-sm btn-outline-danger" data-img-rm>Remove photo</button></div>
     <div class="rte-area form-control" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Write-up" id="${id}_area">${cleanHTML(value || "") || "<p><br></p>"}</div>
     <input type="hidden" id="${id}" value="${esc(value || "")}">
     <div class="form-text">Write as you would in Word. Paste from Word or Google Docs and the formatting is tidied up for you. Use Heading for section titles.</div>
@@ -96,7 +96,9 @@ export function wireRich(root, { upload, onChange }) {
       const clean = html ? cleanHTML(html) : text.split(/\n\s*\n/).map((p) => `<p>${p.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c])).replace(/\n/g, "<br>")}</p>`).join("");
       document.execCommand("insertHTML", false, clean); sync();
     });
-    area.addEventListener("click", (e) => { if (e.target.tagName === "IMG") { lastImg = e.target; altPop.hidden = false; altPop.querySelector("input").value = lastImg.alt || ""; } });
+    const capOf = (im) => { const f = im.closest("figure"); return f ? (f.querySelector("figcaption")?.textContent || "") : ""; };
+    const openAlt = (im) => { lastImg = im; altPop.hidden = false; altPop.querySelector("[data-alt]").value = im.alt || ""; altPop.querySelector("[data-cap]").value = capOf(im); altPop.querySelector("[data-alt]").focus(); };
+    area.addEventListener("click", (e) => { if (e.target.tagName === "IMG") openAlt(e.target); });
     blockSel.onchange = () => { restore(); document.execCommand("formatBlock", false, `<${blockSel.value}>`); sync(); };
     box.querySelector(".rte-bar").addEventListener("mousedown", (e) => { if (e.target.closest("button")) e.preventDefault(); });
     box.querySelector(".rte-bar").addEventListener("click", (e) => {
@@ -118,8 +120,20 @@ export function wireRich(root, { upload, onChange }) {
     linkPop.querySelector("[data-pop-ok]").onclick = addLink;
     linkPop.querySelector("input").onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); addLink(); } if (e.key === "Escape") linkPop.hidden = true; };
     linkPop.querySelector("[data-pop-cancel]").onclick = () => { linkPop.hidden = true; area.focus(); };
-    altPop.querySelector("[data-alt-ok]").onclick = () => { if (lastImg) lastImg.alt = altPop.querySelector("input").value.trim(); altPop.hidden = true; sync(); };
-    altPop.querySelector("input").onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); altPop.querySelector("[data-alt-ok]").click(); } };
+    altPop.querySelector("[data-alt-ok]").onclick = () => {
+      if (lastImg) {
+        lastImg.alt = altPop.querySelector("[data-alt]").value.trim();
+        const cap = altPop.querySelector("[data-cap]").value.trim();
+        let fig = lastImg.closest("figure");
+        if (cap) {
+          if (!fig) { fig = document.createElement("figure"); lastImg.replaceWith(fig); fig.appendChild(lastImg); }
+          let fc = fig.querySelector("figcaption"); if (!fc) { fc = document.createElement("figcaption"); fig.appendChild(fc); } fc.textContent = cap;
+        } else if (fig) { fig.replaceWith(lastImg); }
+      }
+      altPop.hidden = true; sync();
+    };
+    altPop.querySelector("[data-img-rm]").onclick = () => { if (lastImg) (lastImg.closest("figure") || lastImg).remove(); lastImg = null; altPop.hidden = true; sync(); };
+    for (const inp of altPop.querySelectorAll("input")) inp.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); altPop.querySelector("[data-alt-ok]").click(); } };
     const fi = box.querySelector("[data-rteimg]");
     fi.addEventListener("mousedown", keep);
     fi.onchange = async () => {
@@ -128,8 +142,7 @@ export function wireRich(root, { upload, onChange }) {
       try {
         const url = await upload(f);
         restore(); document.execCommand("insertHTML", false, `<img src="${url.replace(/"/g, "&quot;")}" alt=""><p><br></p>`);
-        lastImg = [...area.querySelectorAll("img")].find((i) => i.getAttribute("src") === url) || null;
-        altPop.hidden = false; altPop.querySelector("input").value = ""; altPop.querySelector("input").focus(); sync();
+        const im = [...area.querySelectorAll("img")].find((i) => i.getAttribute("src") === url); if (im) openAlt(im); sync();
       } catch (err) { words.textContent = "Upload failed: " + (err.message || err); }
     };
     sync();

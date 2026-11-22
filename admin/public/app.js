@@ -36,7 +36,10 @@ const site = () => sb.schema("site");
 const state = { session: null, profile: null, stats: null };
 const isTeam = () => state.profile?.status === "approved" && ["admin", "moderator"].includes(state.profile?.role);
 const isAdmin = () => state.profile?.status === "approved" && state.profile?.role === "admin";
-async function loadMe() {
+let meLoaded = false;
+async function loadMe(force = false) {
+  if (meLoaded && !force) return;
+  meLoaded = true;
   const { data: { session } } = await sb.auth.getSession();
   state.session = session; state.profile = null;
   if (!session) return;
@@ -120,26 +123,44 @@ function markNav() {
 function openSidebar() { $("#sidebar").classList.add("open"); $("#backdrop").hidden = false; }
 function closeSidebar() { $("#sidebar").classList.remove("open"); $("#backdrop").hidden = true; }
 $("#sidebar-open").onclick = openSidebar; $("#sidebar-close").onclick = closeSidebar; $("#backdrop").onclick = closeSidebar;
-$("#signout").onclick = async () => { await sb.auth.signOut(); go("/", true); };
+$("#signout").onclick = async () => { await sb.auth.signOut(); await loadMe(true); go("/", true); };
 function crumbs(list) { $("#crumbs").innerHTML = list.map((c, i) => i < list.length - 1 && c[1] ? `<li class="breadcrumb-item"><a href="${c[1]}" data-link>${esc(c[0])}</a></li>` : `<li class="breadcrumb-item active" aria-current="page">${esc(c[0])}</li>`).join(""); document.title = list[list.length - 1][0] + " · Cars and Coffee Admin"; }
 function chrome(show) {
   $("#sidebar").hidden = !show; $("#topbar").hidden = !show; document.body.classList.toggle("has-sidebar", show);
   if (show) { $("#sidenav").innerHTML = navHTML(); $("#whoami").textContent = `${state.profile?.display_name || state.session?.user?.email || ""} · ${state.profile?.role || ""}`; markNav(); }
 }
 
+// Who's signed in is checked once, and again only when they sign in or out (not on every click).
+if (sb.auth.onAuthStateChange) sb.auth.onAuthStateChange((ev) => { if (ev === "SIGNED_IN" || ev === "SIGNED_OUT" || ev === "USER_UPDATED") { const had = state.session?.user?.id; loadMe(true).then(() => { if ((state.session?.user?.id || null) !== (had || null)) render(); }); } });
+// Dashboard figures and the sidebar badges refresh in the background.
+let statsAt = 0;
+async function refreshStats(force = false) {
+  if (!force && Date.now() - statsAt < 60e3) return;
+  statsAt = Date.now();
+  try { const { data } = await sb.rpc("admin_dashboard_stats"); state.stats = data; if (!$("#sidebar").hidden) { $("#sidenav").innerHTML = navHTML(); markNav(); } } catch {}
+}
+let busyTimer;
+const busy = (on) => { clearTimeout(busyTimer); $("#busy").hidden = !on; };
+let renderSeq = 0;
 async function render() {
   if (dirty && !confirmLeave()) return;
   dirty = false;
+  const seq = ++renderSeq;
+  busy(true);
+  try { await renderInner(seq); } finally { if (seq === renderSeq) busy(false); }
+}
+async function renderInner(seq) {
   await loadMe();
   const path = location.pathname.replace(/\/+$/, "") || "/";
   if (path === "/auth/callback") { history.replaceState(null, "", withMock("/")); return render(); }
   if (!state.session) { chrome(false); return signInScreen(); }
   if (!isTeam()) { chrome(false); return noAccess(); }
-  try { const { data } = await sb.rpc("admin_dashboard_stats"); state.stats = data; } catch {}
-  chrome(true);
+  if (!state.stats || path === "/") await refreshStats(path === "/"); else refreshStats();
+  if (seq !== renderSeq) return;
+  if ($("#sidebar").hidden) chrome(true); else markNav();
   for (const r of routes) {
     const m = path.match(r.re);
-    if (m) { view.innerHTML = `<div class="py-5 text-center text-body-secondary">Loading…</div>`; try { await r.fn(m.groups || {}); } catch (e) { view.innerHTML = `<div class="alert alert-danger mt-3">${esc(e.message || e)}</div>`; } $("#main").focus({ preventScroll: true }); window.scrollTo(0, 0); return; }
+    if (m) { view.classList.add("is-loading"); const slow = setTimeout(() => { if (seq === renderSeq) view.innerHTML = `<div class="py-5 text-center text-body-secondary">Loading…</div>`; }, 600); try { await r.fn(m.groups || {}); } catch (e) { view.innerHTML = `<div class="alert alert-danger mt-3">${esc(e.message || e)}</div>`; } clearTimeout(slow); view.classList.remove("is-loading"); $("#main").focus({ preventScroll: true }); window.scrollTo(0, 0); return; }
   }
   crumbs([["Not found"]]); view.innerHTML = `<div class="empty"><h1 class="h4">Page not found</h1><a href="/" data-link>Back to the dashboard</a></div>`;
 }
@@ -474,7 +495,8 @@ const CONTENT = {
       F("h_seo", "Search engines", "heading", { note: "Optional. Left empty, the title and summary are used." }), F("meta_title", "Google title"), F("meta_description", "Google description", "textarea")] },
   articles: { title: "News", order: ["published_at", false], list: ["title", "category", "published_at", "status", "featured"], view: "/news/",
     fields: [F("title", "Headline", "text", { required: true }), F("slug", "Address (slug)", "slug", { from: "title" }), F("category", "Category", "text", { required: true, ph: "Restoration, WEC, Technical…" }), F("author", "Author", "text", { ph: "Cars and Coffee team" }),
-      F("excerpt", "Summary (shown on cards and under the headline)", "textarea"), F("body_html", "Article", "rich"), F("image_path", "Image", "image"), F("image_alt", "Image description"), F("read_minutes", "Reading time (minutes)", "number"),
+      F("excerpt", "Summary (shown on cards and under the headline)", "textarea"), F("body_html", "Article", "rich"), F("image_path", "Main photo (the header)", "image"), F("image_alt", "Main photo description"),
+      F("gallery", "Photo gallery (shown under the article; visitors can open each photo full screen)", "gallery"), F("read_minutes", "Reading time (minutes)", "number"),
       F("featured", "Featured on the homepage", "bool"), F("status", "Status", "select", { options: ["draft", "published"] }), F("published_at", "Publish date", "date"),
       F("h_seo", "Search engines", "heading", { note: "Optional. Left empty, the headline and summary are used." }), F("meta_title", "Google title"), F("meta_description", "Google description", "textarea")] },
   guides: { title: "Guides", order: ["sort", true], list: ["title", "slug", "sort", "status"], view: "/guides/",
@@ -628,6 +650,7 @@ route("/content/:table/:id", async ({ table, id }) => {
       case "bool": return `<div class="form-check form-switch mt-1"><input class="form-check-input" type="checkbox" id="${id}" ${v ? "checked" : ""}><label class="form-check-label" for="${id}">${esc(f.label)}</label></div>`;
       case "textarea": return `<textarea class="form-control" id="${id}" rows="4" ${req}>${esc(v ?? "")}</textarea>`;
       case "rich": return richField(id, v || (row.body ? md(row.body) : ""), esc);
+      case "gallery": return galleryField(id, v);
       case "lines": return `<textarea class="form-control" id="${id}" rows="${Math.max(3, (v || []).length + 1)}">${esc((v || []).join("\n"))}</textarea>`;
       case "markdown": return `<textarea class="form-control code" id="${id}" rows="14">${esc(v ?? "")}</textarea>`;
       case "select": return `<select class="form-select" id="${id}">${f.options.map((o) => `<option value="${o}" ${o === v ? "selected" : ""}>${esc(LABELS[o] || o)}</option>`).join("")}</select>`;
@@ -646,7 +669,7 @@ route("/content/:table/:id", async ({ table, id }) => {
     ${c.help ? `<p class="text-body-secondary">${esc(c.help)}</p>` : ""}
     <div class="card"><div class="card-body"><div class="row g-3">
       ${c.fields.map((f) => f.type === "heading" ? `<div class="col-12 form-section"><h2 class="h5 mb-0">${esc(f.label)}</h2>${f.note ? `<p class="small text-body-secondary mb-0">${esc(f.note)}</p>` : ""}</div>`
-        : `<div class="${["textarea", "markdown", "rich", "lines"].includes(f.type) ? "col-12" : "col-md-6"}">${f.type === "bool" ? "" : `<label class="form-label" for="f_${f.name}${f.type === "rich" ? "_area" : ""}">${esc(f.label)}${f.required ? ' <span class="text-danger">*</span>' : ""}</label>`}${input(f)}</div>`).join("")}
+        : `<div class="${["textarea", "markdown", "rich", "lines", "gallery"].includes(f.type) ? "col-12" : "col-md-6"}">${f.type === "bool" ? "" : `<label class="form-label" for="f_${f.name}${f.type === "rich" ? "_area" : ""}">${esc(f.label)}${f.required ? ' <span class="text-danger">*</span>' : ""}</label>`}${input(f)}</div>`).join("")}
     </div></div></div>
     ${!isNew && !c.noDelete ? `<button class="btn btn-sm btn-outline-danger mt-3" type="button" id="del">Delete</button>` : ""}</form>`;
   const slugF = c.fields.find((f) => f.type === "slug");
@@ -655,6 +678,7 @@ route("/content/:table/:id", async ({ table, id }) => {
   $("#cf").addEventListener("input", () => (dirty = true));
   wireImageInputs($("#cf"));
   wireRich($("#cf"), { upload: uploadSiteImage, onChange: () => (dirty = true) });
+  wireGallery($("#cf"));
   for (const b of $$("[data-pclookup]")) b.onclick = async () => {
     const id = b.dataset.pclookup, msg = $(`[data-pcmsg="${id}"]`), pc = $("#" + id).value.trim();
     if (!pc) { msg.textContent = "Enter a postcode first."; return; }
@@ -680,6 +704,7 @@ route("/content/:table/:id", async ({ table, id }) => {
       else if (f.type === "array") v = el.value.split(",").map((s) => s.trim()).filter(Boolean);
       else if (f.type === "image") v = el.value.trim() || null;
       else if (f.type === "rich") { v = cleanHTML($("#f_" + f.name + "_area").innerHTML) || null; }
+      else if (f.type === "gallery") v = JSON.parse(el.value || "[]").filter((x) => x.src);
       else if (f.type === "lines") v = el.value.split("\n").map((s) => s.trim()).filter(Boolean);
       else v = el.value.trim() === "" ? null : el.value.trim();
       if (f.required && (v == null || v === "")) { toast(`${f.label} is required`, true); el.focus(); return; }
@@ -696,6 +721,50 @@ route("/content/:table/:id", async ({ table, id }) => {
     dirty = false; toast("Deleted"); go(`/content/${table}`, true);
   }; }
 });
+
+// ---------- photo gallery field ----------
+function galleryField(id, v) {
+  return `<div class="galf" data-gal="${id}"><input type="hidden" id="${id}" value="${esc(JSON.stringify(Array.isArray(v) ? v : []))}">
+    <div class="galf-list"></div>
+    <div class="d-flex align-items-center gap-2 flex-wrap"><label class="btn btn-outline-secondary btn-sm mb-0">Add photos<input type="file" accept="image/webp,image/jpeg,image/png,image/avif" multiple hidden data-galadd></label>
+      <span class="small text-body-secondary" data-galmsg>Choose several at once if you like. Up to 5 MB each. Drag to reorder or use the arrows.</span></div></div>`;
+}
+function wireGallery(root) {
+  for (const box of $$("[data-gal]", root)) {
+    const hidden = $("input[type=hidden]", box), list = $(".galf-list", box), msg = $("[data-galmsg]", box);
+    let items = JSON.parse(hidden.value || "[]");
+    const save = () => { hidden.value = JSON.stringify(items); dirty = true; };
+    const draw = () => {
+      list.innerHTML = items.length ? items.map((x, i) => `<div class="galf-item" draggable="true" data-i="${i}">
+        <img src="${esc(imgSrc(x.src))}" alt=""><div class="galf-fields"><input class="form-control form-control-sm" data-k="alt" value="${esc(x.alt || "")}" placeholder="Describe the photo (for people who can't see it)" aria-label="Photo ${i + 1} description">
+        <input class="form-control form-control-sm" data-k="caption" value="${esc(x.caption || "")}" placeholder="Caption (optional, shown under the photo)" aria-label="Photo ${i + 1} caption"></div>
+        <div class="galf-btns"><button type="button" class="btn btn-sm btn-outline-secondary" data-mv="-1" ${i === 0 ? "disabled" : ""} aria-label="Move earlier">↑</button><button type="button" class="btn btn-sm btn-outline-secondary" data-mv="1" ${i === items.length - 1 ? "disabled" : ""} aria-label="Move later">↓</button><button type="button" class="btn btn-sm btn-outline-danger" data-rm aria-label="Remove photo">Remove</button></div></div>`).join("")
+        : '<div class="galf-empty">No gallery photos yet.</div>';
+    };
+    list.addEventListener("input", (e) => { const it = e.target.closest(".galf-item"); if (!it || !e.target.dataset.k) return; items[+it.dataset.i][e.target.dataset.k] = e.target.value; save(); });
+    list.addEventListener("click", (e) => {
+      const it = e.target.closest(".galf-item"); if (!it) return; const i = +it.dataset.i;
+      if (e.target.dataset.mv) { const j = i + +e.target.dataset.mv; [items[i], items[j]] = [items[j], items[i]]; save(); draw(); }
+      if (e.target.hasAttribute("data-rm")) { items.splice(i, 1); save(); draw(); }
+    });
+    let from = null;
+    list.addEventListener("dragstart", (e) => { const it = e.target.closest(".galf-item"); if (it) { from = +it.dataset.i; it.classList.add("dragging"); } });
+    list.addEventListener("dragover", (e) => { if (from != null) e.preventDefault(); });
+    list.addEventListener("drop", (e) => { e.preventDefault(); const it = e.target.closest(".galf-item"); if (from == null || !it) return; const to = +it.dataset.i; const [m] = items.splice(from, 1); items.splice(to, 0, m); from = null; save(); draw(); });
+    list.addEventListener("dragend", () => { from = null; draw(); });
+    $("[data-galadd]", box).onchange = async (e) => {
+      const files = [...e.target.files]; e.target.value = ""; if (!files.length) return;
+      let done = 0, failed = 0;
+      for (const f of files) {
+        msg.textContent = `Uploading ${done + 1} of ${files.length}…`;
+        try { const url = await uploadSiteImage(f); items.push({ src: url, alt: "", caption: "" }); save(); draw(); } catch (err) { failed++; }
+        done++;
+      }
+      msg.textContent = failed ? `${files.length - failed} uploaded, ${failed} failed (check they're photos under 5 MB). Add a description to each, then save.` : `${files.length} photo${files.length === 1 ? "" : "s"} added. Add a description to each, then save.`;
+    };
+    draw();
+  }
+}
 
 // ---------- images ----------
 async function uploadSiteImage(file) {
