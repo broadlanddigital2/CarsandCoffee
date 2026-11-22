@@ -379,7 +379,7 @@ route("/pages", async () => {
       <div class="col-md-3"><button class="btn btn-outline-secondary w-100">Filter</button></div></form></div>
     ${rows.length ? `<div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>Page</th><th>Type</th><th>Focus keyword</th><th>SEO</th><th>Status</th><th>Updated</th><th class="text-end">Actions</th></tr></thead><tbody>
       ${rows.map((p) => `<tr><td><a class="rowlink" href="/pages/${p.id}" data-link>${esc(p.title)}</a><div class="small text-body-secondary">${esc(p.path)}</div></td><td>${labelType(p.page_type)}</td><td class="small">${esc(p.focus_keyword || "–")}</td><td>${scoreBadge(scoreOf("pages", p).score)}</td><td>${statusBadge(p.status)}</td><td class="small text-body-secondary">${ago(p.updated_at)}</td>
-        <td class="text-end text-nowrap"><a class="btn btn-sm btn-primary" href="/pages/${p.id}" data-link>Edit</a> ${p.status === "published" ? `<a class="btn btn-sm btn-outline-secondary" href="${SITE}${esc(p.path)}" target="_blank" rel="noopener">View</a>` : `<span class="btn btn-sm btn-outline-secondary disabled" title="Not live yet">View</span>`}</td></tr>`).join("")}
+        <td class="text-end text-nowrap"><a class="btn btn-sm btn-primary" href="/pages/${p.id}" data-link>Edit</a> ${p.status === "published" ? `<a class="btn btn-sm btn-outline-secondary" href="${SITE}${esc(p.path)}" target="_blank" rel="noopener">View</a>` : `<a class="btn btn-sm btn-outline-secondary" href="${SITE}${esc(p.path)}?preview=${esc(String(p.id).replace(/-/g, "").slice(0, 12))}" target="_blank" rel="noopener" title="Draft: preview only">Preview</a>`}</td></tr>`).join("")}
     </tbody></table></div>` : `<div class="empty">No pages here yet.${type ? ` ${esc(TYPE_HELP[type])}` : ""} <a href="/pages/new${type ? "?type=" + type : ""}" data-link>Create one</a>.</div>`}</div>`;
   $("#filt").onsubmit = (e) => { e.preventDefault(); const f = new FormData(e.target); const p = new URLSearchParams(); if (type) p.set("type", type); if (f.get("q")) p.set("q", f.get("q")); if (f.get("status")) p.set("status", f.get("status")); go("/pages" + (p.toString() ? "?" + p : "")); };
 });
@@ -407,7 +407,7 @@ route("/pages/:id", async ({ id }) => {
   <div class="page-head"><h1>${isNew ? "New page" : esc(p.title)}</h1>
     <div class="d-flex flex-wrap gap-2 align-items-center">
       ${!isNew ? `<span class="small text-body-secondary">${revisions} earlier version${revisions === 1 ? "" : "s"} saved</span>` : ""}
-      ${!isNew && p.status === "published" ? `<a class="btn btn-outline-secondary" href="${SITE}${esc(p.path)}" target="_blank" rel="noopener">View live ↗</a>` : ""}
+      ${!isNew && p.status === "published" ? `<a class="btn btn-outline-secondary" href="${SITE}${esc(p.path)}" target="_blank" rel="noopener">View live ↗</a>` : ""}${!isNew && p.status !== "published" ? `<a class="btn btn-outline-secondary" href="${SITE}${esc(p.path)}?preview=${esc(p.id.replace(/-/g, "").slice(0, 12))}" target="_blank" rel="noopener">Preview draft ↗</a>` : ""}
       <button class="btn btn-outline-secondary" type="button" id="prev">Preview</button>
       <button class="btn btn-outline-primary" type="submit" data-status="draft">Save draft</button>
       <button class="btn btn-primary" type="submit" data-status="published">${p.status === "published" ? "Update live page" : "Publish"}</button>

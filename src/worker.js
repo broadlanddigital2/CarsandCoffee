@@ -7,6 +7,7 @@ import { loadHome, renderHome } from "./home.js";
 import { loadPage, renderLocation } from "./pages.js";
 import { loadContent, renderContent, sitemap } from "./content.js";
 import { handleAssist } from "./assist.js";
+import { q } from "./home.js";
 import { renderStandard, carsIndex } from "./standard.js";
 import { shopApi } from "./shop.js";
 
@@ -61,6 +62,18 @@ async function contentPage(request, env, ctx, url, rich = false, maybe = false) 
   if (path === "/search") {
     const out = await renderContent({ kind: "search", q: url.searchParams.get("q") || "" });
     return withHeaders(new Response(out, { headers: { "Content-Type": "text/html; charset=utf-8" } }), "NOCACHE");
+  }
+  // Draft preview from the admin: /path?preview=<first 8+ characters of the page id>. Never cached, never indexed.
+  const pv = url.searchParams.get("preview");
+  if (pv && !rich && /^[0-9a-f]{8,32}$/i.test(pv)) {
+    const rows = await q(`rpc/preview_page?p_path=${encodeURIComponent(path)}&p_key=${encodeURIComponent(pv)}`).catch(() => []);
+    const page = rows[0];
+    if (!page) return env.ASSETS.fetch(new Request(new URL("/__missing__", url), request));
+    page.noindex = true;
+    const html = (page.page_type === "location" ? await renderLocation(page) : await renderStandard(page))
+      .replace("<body", `<body data-preview="1"`).replace("</body>", `<div style="position:fixed;left:12px;bottom:12px;z-index:99;background:#c00d0d;color:#fff;font:700 13px Inter,sans-serif;padding:8px 12px;border-radius:6px">Preview: ${page.status === "published" ? "live page" : "draft, not public yet"}</div></body>`);
+    const r = new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8", "X-Robots-Tag": "noindex" } });
+    return withHeaders(r, "PREVIEW");
   }
   const cache = caches.default;
   const freshKey = new Request(`https://${url.hostname}/__page/fresh${path}`);
