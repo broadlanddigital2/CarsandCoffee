@@ -7,6 +7,7 @@ import { loadHome, renderHome } from "./home.js";
 import { loadPage, renderLocation } from "./pages.js";
 import { loadContent, renderContent, sitemap } from "./content.js";
 import { handleAssist } from "./assist.js";
+import { renderStandard, carsIndex } from "./standard.js";
 
 const FRESH_SECONDS = 60;       // how long a rendered homepage is reused
 const STALE_SECONDS = 86400;    // how long the last good copy is kept as a fallback
@@ -24,7 +25,7 @@ export default {
     if ((/^\/car-meets\/?$/.test(url.pathname) || /^\/(norfolk|suffolk|cambridgeshire|essex)(\/[a-z0-9-]+)?\/?$/.test(url.pathname)) && (request.method === "GET" || request.method === "HEAD")) {
       return contentPage(request, env, ctx, url);
     }
-    if (/^\/(events|news|guides)(\/[a-z0-9-]+(\.ics)?)?\/?$/.test(url.pathname) && (request.method === "GET" || request.method === "HEAD")) {
+    if ((/^\/(events|news|guides|galleries|search)(\/[a-z0-9-]+(\.ics)?)?\/?$/.test(url.pathname) || url.pathname === "/cars") && (request.method === "GET" || request.method === "HEAD")) {
       return contentPage(request, env, ctx, url, true);
     }
     if (url.pathname.startsWith("/api/")) return handleAssist(request, env, url);
@@ -32,14 +33,22 @@ export default {
       try { return new Response(await sitemap(), { headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=3600" } }); }
       catch { return env.ASSETS.fetch(request); }
     }
+    // Any other one- or two-part address may be an editable page from the admin (legal pages, About, Contact, /cars/..., /go/...)
+    if (/^\/[a-z0-9-]+(\/[a-z0-9-]+)?\/?$/.test(url.pathname) && !/^\/(homepage|partners|email)\//.test(url.pathname) && (request.method === "GET" || request.method === "HEAD")) {
+      return contentPage(request, env, ctx, url, false, true);
+    }
     return env.ASSETS.fetch(request);
   },
 };
 
 // Location and other content pages from site.pages, cached like the homepage.
-async function contentPage(request, env, ctx, url, rich = false) {
+async function contentPage(request, env, ctx, url, rich = false, maybe = false) {
   const path = url.pathname.replace(/\/+$/, "") || "/";
   if (path !== url.pathname) return Response.redirect(url.origin + path + url.search, 301);
+  if (path === "/search") {
+    const out = await renderContent({ kind: "search", q: url.searchParams.get("q") || "" });
+    return withHeaders(new Response(out, { headers: { "Content-Type": "text/html; charset=utf-8" } }), "NOCACHE");
+  }
   const cache = caches.default;
   const freshKey = new Request(`https://${url.hostname}/__page/fresh${path}`);
   const staleKey = new Request(`https://${url.hostname}/__page/stale${path}`);
@@ -55,8 +64,8 @@ async function contentPage(request, env, ctx, url, rich = false) {
         : new Response(out.ics, { headers: { "Content-Type": "text/calendar; charset=utf-8", "Content-Disposition": `attachment; filename="${out.filename}"` } });
     } else {
       const page = await loadPage(path);
-      if (!page) return env.ASSETS.fetch(new Request(new URL("/__missing__", url), request));
-      res = new Response(await renderLocation(page), { headers: { "Content-Type": "text/html; charset=utf-8" } });
+      if (!page) return maybe ? env.ASSETS.fetch(request) : env.ASSETS.fetch(new Request(new URL("/__missing__", url), request));
+      res = new Response(page.page_type === "location" ? await renderLocation(page) : await renderStandard(page), { headers: { "Content-Type": "text/html; charset=utf-8" } });
     }
     ctx.waitUntil(Promise.all([cache.put(freshKey, withCache(res.clone(), FRESH_SECONDS)), cache.put(staleKey, withCache(res.clone(), STALE_SECONDS))]));
     return withHeaders(res, "MISS");

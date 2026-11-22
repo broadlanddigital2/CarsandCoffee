@@ -2,6 +2,8 @@
 import { E, img, ARROW, q, eventCard, EVENT_TYPES, TICKET, money, fmt, nearYou, placesQ } from "./home.js";
 import { shell, directions, newsletterHTML, crumbsHTML } from "./pages.js";
 import { sanitize, safeUrl } from "./sanitize.js";
+import { carsIndex } from "./standard.js";
+import { findAll } from "./assist.js";
 export { sanitize };
 
 const SITE = "https://www.carsandcoffee.uk";
@@ -29,7 +31,8 @@ const body = (row) => (row.body_html ? sanitize(row.body_html) : row.body ? sani
 
 // ---------- routing ----------
 export async function loadContent(path) {
-  const m = path.match(/^\/(events|news|guides)(?:\/([a-z0-9-]+))?(\.ics)?$/);
+  if (path === "/cars") return { kind: "cars" };
+  const m = path.match(/^\/(events|news|guides|galleries)(?:\/([a-z0-9-]+))?(\.ics)?$/);
   if (!m) return null;
   const [, kind, slug, ics] = m;
   if (ics && kind !== "events") return null;
@@ -37,7 +40,10 @@ export async function loadContent(path) {
 }
 export async function renderContent({ kind, slug, ics }) {
   if (kind === "events") return slug ? (ics ? eventIcs(slug) : eventPage(slug)) : eventsList();
-  if (kind === "news") return slug ? articlePage(slug) : newsList();
+  if (kind === "news") return slug ? (await articlePage(slug)) || (await categoryPage(slug)) : newsList();
+  if (kind === "galleries") return slug ? galleryPage(slug) : galleriesList();
+  if (kind === "cars") return carsIndex();
+  if (kind === "search") return searchPage(arguments[0].q);
   if (kind === "guides") return slug ? guidePage(slug) : guidesList();
   return null;
 }
@@ -282,12 +288,70 @@ const MAP_SCRIPT = `<script>(function(){var el=document.getElementById('epmap');
 // ---------- sitemap (published, indexable pages only) ----------
 export async function sitemap() {
   const now = new Date().toISOString();
+  const gals = await q("gallery_items?select=slug").catch(() => []);
   const [evs, arts, guides, pages] = await Promise.all([
     q(`events?select=slug,created_at,ends_at&ends_at=gte.${now}`), q("articles?select=slug,published_at"), q("guides?select=slug,updated_at"),
     q("pages?select=path,updated_at,noindex&status=eq.published&noindex=eq.false")]);
   const d = (x) => String(x || now).slice(0, 10);
-  const urls = [["/", now, "daily", "1.0"], ["/events", now, "daily", "0.9"], ["/news", now, "daily", "0.7"], ["/guides", now, "weekly", "0.5"],
+  const urls = [["/", now, "daily", "1.0"], ["/events", now, "daily", "0.9"], ["/news", now, "daily", "0.7"], ["/guides", now, "weekly", "0.5"], ["/galleries", now, "weekly", "0.4"], ["/cars", now, "monthly", "0.5"], ...gals.map((g) => [`/galleries/${g.slug}`, now, "monthly", "0.3"]),
     ...evs.map((e) => [`/events/${e.slug}`, e.created_at, "weekly", "0.8"]), ...arts.map((a) => [`/news/${a.slug}`, a.published_at, "monthly", "0.6"]),
     ...guides.map((g) => [`/guides/${g.slug}`, g.updated_at, "monthly", "0.6"]), ...pages.map((p) => [p.path, p.updated_at, "weekly", "0.7"])];
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map(([u, m, f, pr]) => `  <url><loc>${SITE}${E(u)}</loc><lastmod>${d(m)}</lastmod><changefreq>${f}</changefreq><priority>${pr}</priority></url>`).join("\n")}\n</urlset>\n`;
+}
+
+// ---------- news categories (/news/technical, /news/wec, /news/features) ----------
+const catSlug = (s) => String(s || "").toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const CAT_ALIASES = { wec: ["wec", "endurance", "le mans"], features: null };
+async function categoryPage(slug) {
+  const all = await q("articles?select=slug,title,category,excerpt,image_path,image_alt,published_at,featured&order=published_at.desc&limit=200");
+  let list, name;
+  if (slug === "features") { list = all.filter((a) => a.featured || /feature|people|restoration/i.test(a.category || "")); name = "Features"; }
+  else {
+    const al = CAT_ALIASES[slug];
+    list = all.filter((a) => catSlug(a.category) === slug || (al && al.some((x) => (a.category || "").toLowerCase().includes(x))));
+    name = list[0]?.category || (slug === "wec" ? "WEC and endurance" : null);
+  }
+  if (!name) return null;
+  const partners = await partnersQ();
+  const cats = [...new Set(all.map((a) => a.category).filter(Boolean))];
+  const crumbs = [["Home", "/"], ["News", "/news"], [name, `/news/${slug}`]];
+  const main = [crumbsHTML(crumbs), `<section class="lp-sec news-top"><div class="wrap"><span class="eyebrow red">News</span><h1 class="page-h1">${E(name)}</h1>
+    <div class="ev-filter" role="navigation" aria-label="News categories"><a class="${""}" href="/news">All</a>${cats.map((x) => `<a class="${catSlug(x) === slug ? "on" : ""}" href="/news/${catSlug(x)}">${E(x)}</a>`).join("")}</div>
+    ${list.length ? `<div class="news-grid">${list.map(newsCard).join("")}</div>` : `<p class="lp-empty">No ${E(name.toLowerCase())} stories yet. <a href="/news">See all news</a>.</p>`}</div></section>`, newsletterHTML()].join("\n");
+  return shell({ title: `${name}: car news and stories | Cars and Coffee UK`, description: `${name} stories from the Cars and Coffee community in Norfolk and Suffolk.`, path: `/news/${slug}`, ld: [ldLink(crumbs), { "@context": "https://schema.org", "@type": "CollectionPage", name, url: `${SITE}/news/${slug}` }], main, partners });
+}
+
+// ---------- galleries ----------
+async function galleriesList() {
+  const [items, partners] = await Promise.all([q("gallery_items?select=slug,title,image_path,image_alt,description,photos&order=sort"), partnersQ()]);
+  const crumbs = [["Home", "/"], ["Galleries", "/galleries"]];
+  const main = [crumbsHTML(crumbs), `<section class="lp-sec news-top"><div class="wrap"><span class="eyebrow red">Photos</span><h1 class="page-h1">Galleries</h1><p class="lp-lead">Photos from our meets, drives and members' garages.</p>
+    ${items.length ? `<div class="gl-grid">${items.map((g) => `<a class="gl-card" href="/galleries/${E(g.slug)}"><img src="${E(img(g.image_path))}" alt="${E(g.image_alt || "")}" loading="lazy"><span><strong>${E(g.title)}</strong><small>${(g.photos || []).length ? `${(g.photos || []).length + 1} photos` : "View"}</small></span></a>`).join("")}</div>` : `<p class="lp-empty">Galleries coming soon.</p>`}
+    <div class="ep-first" style="margin-top:28px"><div><strong>Got great shots from a meet?</strong> Share them with members in the Cars and Coffee club.</div><a class="btn ghost small" href="${CLUB}/apply">Join the club</a></div></div></section>`, newsletterHTML()].join("\n");
+  return shell({ title: "Car photo galleries | Cars and Coffee UK", description: "Photo galleries from Cars and Coffee meets, drives and members' cars across Norfolk and Suffolk.", path: "/galleries", ld: [ldLink(crumbs), { "@context": "https://schema.org", "@type": "CollectionPage", name: "Galleries", url: `${SITE}/galleries` }], main, partners });
+}
+async function galleryPage(slug) {
+  const [rows, partners] = await Promise.all([q(`gallery_items?select=*&slug=eq.${enc(slug)}&limit=1`), partnersQ()]);
+  const g = rows[0]; if (!g) return null;
+  const others = await q(`gallery_items?select=slug,title,image_path,image_alt&slug=neq.${enc(slug)}&order=sort&limit=4`).catch(() => []);
+  const photos = galleryOf([{ src: g.image_path, alt: g.image_alt, caption: "" }, ...(g.photos || [])]);
+  const crumbs = [["Home", "/"], ["Galleries", "/galleries"], [g.title, `/galleries/${g.slug}`]];
+  const url = `${SITE}/galleries/${g.slug}`;
+  const main = [crumbsHTML(crumbs), `<section class="phero"><img class="bg" src="${E(img(g.image_path))}" alt="${E(g.image_alt || "")}"><div class="wrap"><span class="eyebrow">Gallery · ${photos.length} photo${photos.length === 1 ? "" : "s"}</span><h1>${E(g.title)}</h1>${g.description ? `<p>${E(g.description)}</p>` : ""}${shareBar(url, g.title, { light: true })}</div></section>`,
+    `<section class="lp-sec"><div class="wrap">${galleryHTML(photos, g.title).replace('<h2 id="gal-h">Gallery', '<h2 id="gal-h">Photos')}${photos.length < 2 ? `<p class="lp-empty">More photos coming soon.</p>` : ""}</div></section>`,
+    others.length ? `<section class="lp-sec"><div class="wrap"><h2>More galleries</h2><div class="gl-grid">${others.map((o) => `<a class="gl-card" href="/galleries/${E(o.slug)}"><img src="${E(img(o.image_path))}" alt="${E(o.image_alt || "")}" loading="lazy"><span><strong>${E(o.title)}</strong></span></a>`).join("")}</div></div></section>` : "",
+    newsletterHTML()].join("\n");
+  return shell({ title: `${g.title}: photo gallery | Cars and Coffee UK`, description: g.description || `Photos: ${g.title}, from the Cars and Coffee community.`, path: `/galleries/${g.slug}`, image: g.image_path,
+    ld: [ldLink(crumbs), { "@context": "https://schema.org", "@type": "ImageGallery", name: g.title, url, image: photos.slice(0, 10).map((x) => (x.src.startsWith("http") ? x.src : SITE + x.src)) }], main, partners });
+}
+
+// ---------- search page (works without JavaScript; the header search uses /api/search) ----------
+async function searchPage(qs) {
+  const term = String(qs || "").slice(0, 120).trim();
+  const [results, partners] = await Promise.all([term ? findAll(term, 8).catch(() => []) : [], partnersQ()]);
+  const main = [crumbsHTML([["Home", "/"], ["Search", "/search"]]), `<section class="lp-sec news-top"><div class="wrap std-narrow"><h1 class="page-h1">Search</h1>
+    <form action="/search" method="get" role="search" class="sp-form"><input name="q" value="${E(term)}" placeholder="Search events, towns, guides, news…" aria-label="Search"><button class="btn red" type="submit">Search</button></form>
+    ${term ? (results.length ? `<p class="lp-lead">${results.length} result${results.length === 1 ? "" : "s"} for “${E(term)}”</p><ul class="sp-list">${results.map((r) => `<li><a href="${E(r.url)}">${r.img ? `<img src="${E(r.img)}" alt="" loading="lazy">` : ""}<span><small>${E(r.type)}</small><strong>${E(r.title)}</strong>${r.text ? `<span>${E(r.text)}</span>` : ""}</span></a></li>`).join("")}</ul>` : `<p class="lp-lead">Nothing matched “${E(term)}”. Try a different word, or ask our help chat.</p>`) : `<p class="lp-lead">Type what you're looking for: a town, an event, a guide or a type of business.</p>`}
+  </div></section>`].join("\n");
+  return shell({ title: term ? `Search: ${term} | Cars and Coffee UK` : "Search | Cars and Coffee UK", description: "Search Cars and Coffee UK.", path: "/search", noindex: true, ld: [], main, partners });
 }
