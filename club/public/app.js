@@ -5,9 +5,32 @@ const SUPABASE_URL = "https://mslidnchoopgsnbraaxe.supabase.co";
 const SUPABASE_KEY = "sb_publishable_O9p-X8To8z-GisYYSBKoxg_RxAe1-cU"; // publishable key: safe in the browser
 
 const MOCK = new URLSearchParams(location.search).get("mock");
-const sb = MOCK ? (await import("/mock.js")).createMock(MOCK)
-  : (await import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm"))
-      .createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { flowType: "pkce", persistSession: true, detectSessionInUrl: true } });
+// The Supabase library is loaded from a CDN; if one source fails, try the next before giving up.
+const SUPABASE_SOURCES = [
+  "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm",
+  "https://esm.sh/@supabase/supabase-js@2.45.4",
+  "https://unpkg.com/@supabase/supabase-js@2.45.4/dist/module/index.js?module",
+];
+async function loadSupabase() {
+  for (const src of SUPABASE_SOURCES) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try { return await import(src); } catch { await new Promise((r) => setTimeout(r, 400)); }
+    }
+  }
+  return null;
+}
+let sb;
+if (MOCK) sb = (await import("/mock.js")).createMock(MOCK);
+else {
+  const lib = await loadSupabase();
+  if (!lib) {
+    document.getElementById("app").innerHTML = `<div class="panel" style="max-width:520px;margin:0 auto"><h2>Couldn't connect</h2>
+      <p>We couldn't load the club just now. Please check your connection and try again.</p>
+      <button class="btn red" type="button" onclick="location.reload()">Try again</button></div>`;
+    throw new Error("Supabase library failed to load from all sources");
+  }
+  sb = lib.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { flowType: "pkce", persistSession: true, detectSessionInUrl: true } });
+}
 
 // ---------- reference data ----------
 const HUBS = {
@@ -363,7 +386,8 @@ route("/recommend", async () => {
       : `<p class="muted">Nobody yet. Share your link to get started.</p>`}`;
   $("#copy").onclick = async () => { try { await navigator.clipboard.writeText(link); toast("Link copied"); } catch { $("#link").select(); toast("Press Ctrl+C / Cmd+C to copy"); } };
   try {
-    const { default: qrcode } = await import("https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/+esm");
+    let mod; for (const src of ["https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/+esm", "https://esm.sh/qrcode-generator@1.4.4"]) { try { mod = await import(src); break; } catch {} }
+    const qrcode = mod.default;
     const qr = qrcode(0, "M"); qr.addData(link); qr.make();
     $("#qr").innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
   } catch { $("#qr").innerHTML = `<p style="color:#241712;font-size:13px;padding:8px">QR code unavailable. Share the link instead.</p>`; }
