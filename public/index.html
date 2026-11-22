@@ -385,6 +385,25 @@ a.lp-card:hover{border-color:var(--red)}
 .lp-approx{display:inline-block;font-size:12px;font-weight:700;background:rgba(242,169,59,.18);color:#8a5a00;border-radius:99px;padding:2px 8px;margin-left:4px}
 .lp-dir{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.btn.small{min-height:38px;padding:6px 14px;font-size:14px}
 .leaflet-popup-content a{color:#a00a0a;font-weight:700}
+.hiw{background:var(--esp);color:#f6ece0;padding:72px 0;position:relative;overflow:hidden}
+.hiw::before{content:"";position:absolute;right:-120px;top:-120px;width:420px;height:420px;border-radius:50%;background:radial-gradient(circle,rgba(192,13,13,.35),transparent 70%)}
+.hiw .wrap{position:relative}
+.hiw-head{max-width:640px;margin-bottom:44px}
+.hiw-head .eyebrow{color:var(--amber);font-weight:800;letter-spacing:.12em;text-transform:uppercase;font-size:13px;display:block;margin-bottom:10px}
+.hiw-head h2{font-family:Anton,Impact,sans-serif;font-weight:400;text-transform:uppercase;font-size:clamp(34px,4.4vw,56px);line-height:1;margin:0 0 14px;color:#fff}
+.hiw-head p{font-size:18px;color:#d9c9b8;margin:0}
+.hiw-steps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:28px;position:relative}
+.hiw-steps::before{content:"";position:absolute;top:44px;left:calc(16.66% + 20px);right:calc(16.66% + 20px);border-top:2px dashed rgba(242,169,59,.55)}
+.hiw-steps li{text-align:center;position:relative}
+.hiw-icon{width:88px;height:88px;margin:0 auto 22px;border-radius:50%;background:#2a1d17;border:2px solid rgba(242,169,59,.6);display:grid;place-items:center;color:var(--amber);position:relative;box-shadow:0 0 0 8px var(--esp)}
+.hiw-icon svg{width:44px;height:44px}
+.hiw-n{position:absolute;top:-6px;right:-6px;width:32px;height:32px;border-radius:50%;background:var(--red);color:#fff;font-weight:800;display:grid;place-items:center;font-size:15px;box-shadow:0 0 0 4px var(--esp)}
+.hiw-steps h3{font-family:Anton,Impact,sans-serif;font-weight:400;text-transform:uppercase;font-size:26px;letter-spacing:.01em;margin:0 0 10px;color:#fff}
+.hiw-steps p{color:#d9c9b8;margin:0 auto;max-width:30ch;font-size:16px;line-height:1.6}
+.hiw-foot{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:44px}
+.hiw-foot .btn.ghost{color:#fff;border-color:rgba(255,255,255,.7)}
+@media (max-width:760px){.hiw{padding:56px 0}.hiw-steps{grid-template-columns:1fr;gap:26px}.hiw-steps::before{top:44px;bottom:44px;left:44px;right:auto;border-top:0;border-left:2px dashed rgba(242,169,59,.55)}
+ .hiw-steps li{text-align:left;display:grid;grid-template-columns:88px 1fr;column-gap:20px;align-items:start}.hiw-icon{grid-row:span 2;margin:0}.hiw-steps h3{margin-top:14px}.hiw-steps p{margin:0;max-width:none}.hiw-foot{justify-content:flex-start}}
 @media (max-width:860px){.lp-stats{grid-template-columns:1fr 1fr}.lp-split,.lp-split.eq{grid-template-columns:1fr}.lp-drives,.lp-cards{grid-template-columns:1fr}.phero{min-height:380px}}
 </style>
 <style id="reveal-css">
@@ -744,7 +763,7 @@ $('#nl')&&$('#nl').addEventListener('submit',async ev=>{ev.preventDefault();cons
  $$('main .head, main .lp-sec > .wrap > h2, main .lp-split > *, main .galintro, .intro > div, .quick, .joinbox, .dirtop, .dirsearch, .dirhead, .dirlinks, .listcta, .strip h2, .adv-band .wrap, .news-band .wrap, .faq > div, .spon > div, .why > div').forEach(el=>mark(el));
  mark($('.spon > img'),'rv-r');mark($('.why > img'),'rv-l');
  // card grids: stagger children
- const grids=['.lp-stats','.lp-steps','.lp-tiles','.lp-drives','.lp-faq','.newsgrid','.posts','.prods','.svcgrid','.bizs','.wrap.gal','.benefits','.stats','.strip','.faq > div:last-child','.quick'];
+ const grids=['.hiw-steps','.lp-stats','.lp-steps','.lp-tiles','.lp-drives','.lp-faq','.newsgrid','.posts','.prods','.svcgrid','.bizs','.wrap.gal','.benefits','.stats','.strip','.faq > div:last-child','.quick'];
  const gset=new Set();grids.forEach(g=>$$(g).forEach(p=>{let i=0;gset.add(p);for(const c of p.children){if(c.matches('h2,.galintro,script'))continue;
   if(c.classList.contains('rv')&&!p.matches('.quick'))continue;c.classList.add('rv');c.classList.remove('rv-l','rv-r');
   if(p.matches('.wrap.gal'))c.classList.add('rv-z');c.style.setProperty('--rvd',Math.min(i++,7)*80+'ms')}}));

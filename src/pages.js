@@ -39,6 +39,26 @@ const newsletterHTML = () => `<section class="band news-band" aria-labelledby="n
 <label><input type="checkbox" id="nl-consent" required> <span>I’d like to receive emails from Cars and Coffee UK, including events, news and partner offers. I can unsubscribe at any time. See our <a href="/privacy" style="text-decoration:underline">privacy policy</a>.</span></label><p class="msg" id="nl-msg" role="status"></p></form></div></section>`;
 
 
+
+// "How our meets work": a designed three-step band
+const ICONS = {
+  find: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="10" width="34" height="31" rx="4"/><path d="M7 19h34M16 6v8M32 6v8"/><circle cx="24" cy="30" r="5"/><path d="m28 34 5 5"/></svg>',
+  rsvp: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 16a4 4 0 0 1 4-4h24a4 4 0 0 1 4 4v4a4 4 0 0 0 0 8v4a4 4 0 0 1-4 4H12a4 4 0 0 1-4-4v-4a4 4 0 0 0 0-8z"/><path d="m18 24 4 4 8-8"/></svg>',
+  enjoy: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 20h22v10a9 9 0 0 1-9 9h-4a9 9 0 0 1-9-9z"/><path d="M32 23h3a5 5 0 0 1 0 10h-3"/><path d="M16 8c0 3 3 3 3 6M22 8c0 3 3 3 3 6"/></svg>',
+};
+function howItWorks() {
+  const steps = [
+    ["find", "Find a meet", "Pick a date near you on this page or in the events calendar. Breakfast meets are the easiest place to start."],
+    ["rsvp", "RSVP or book", "Most morning meets are free; a quick RSVP helps us plan parking. Tours and race nights have tickets."],
+    ["enjoy", "Turn up and enjoy", "Coffee, cars and good conversation. Bring what you drive, or come along just to look."],
+  ];
+  return `<section class="hiw" aria-labelledby="hiw-h"><div class="wrap">
+    <div class="hiw-head"><span class="eyebrow">New to Cars and Coffee?</span><h2 id="hiw-h">How our meets work</h2><p>Three steps from sofa to Sunday morning line-up. No membership, no special car, no fuss.</p></div>
+    <ol class="hiw-steps">${steps.map(([ic, h, t], i) => `<li><div class="hiw-icon">${ICONS[ic]}<span class="hiw-n">${i + 1}</span></div><h3>${h}</h3><p>${t}</p></li>`).join("")}</ol>
+    <div class="hiw-foot"><a class="btn red" href="/events">Find your next meet ${ARROW}</a><a class="btn ghost" href="/guides/your-first-car-meet">Read the first-timer's guide</a></div>
+  </div></section>`;
+}
+
 // ---------- map and directions ----------
 const venuesOf = (events) => { const seen = new Map(); for (const e of events) { const v = e.venue_info; if (v && !seen.has(v.id)) seen.set(v.id, { ...v, events: [] }); if (v) seen.get(v.id).events.push(e); } return [...seen.values()]; };
 export function directions(v) {
@@ -155,7 +175,7 @@ export async function renderLocation(p) {
     if (c.getting_there?.car || c.getting_there?.no_car) parts.push(sec(`Getting to meets in ${E(place)}`, `<div class="lp-split eq"><div class="lp-panel"><h3>By car</h3><p>${E(c.getting_there.car || "")}</p></div><div class="lp-panel"><h3>Without a car</h3><p>${E(c.getting_there.no_car || "")}</p></div></div>`));
   } else {
     parts.push(mapSection("Norfolk and Suffolk", events, listings));
-    parts.push(sec("How our meets work", `<ol class="lp-steps"><li><h3>Find a meet</h3><p>Pick a date near you on this page or the events calendar.</p></li><li><h3>RSVP or book</h3><p>Most morning meets are free; we ask you to RSVP so we can plan parking.</p></li><li><h3>Turn up and enjoy</h3><p>Coffee, cars and conversation. Bring what you drive.</p></li></ol>`));
+    parts.push(howItWorks());
   }
   if (c.faqs?.length) parts.push(sec("Frequently asked questions", faqHTML(c.faqs)));
   if (p.body_md) parts.push(sec("", `<div class="lp-prose">${p.body_md.split(/\n\s*\n/).map((x) => `<p>${E(x.trim())}</p>`).join("")}</div>`));
