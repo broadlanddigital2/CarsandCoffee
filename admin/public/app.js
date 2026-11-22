@@ -249,6 +249,7 @@ route("/pages/:id", async ({ id }) => {
   crumbs([listLabel, [isNew ? "New page" : p.title]]);
   let pathTouched = !isNew;
   const a = p.ads;
+  const lc = p.content || {};
   const adRows = (arr, n, max, name, ph) => Array.from({ length: n }, (_, i) => `<div class="adline"><input class="form-control form-control-sm" data-ad="${name}" data-i="${i}" maxlength="${max + 20}" value="${esc(arr?.[i] || "")}" placeholder="${ph} ${i + 1}"><span class="count" data-for="${name}-${i}"></span></div>`).join("");
 
   view.innerHTML = `<form id="pf" novalidate>
@@ -281,6 +282,29 @@ route("/pages/:id", async ({ id }) => {
         <div class="col-md-6"><label class="form-label" for="cta_label">Button text</label><input class="form-control" id="cta_label" maxlength="40" value="${esc(p.cta_label || "")}" placeholder="e.g. See upcoming meets"></div>
         <div class="col-md-6"><label class="form-label" for="cta_url">Button link</label><input class="form-control" id="cta_url" value="${esc(p.cta_url || "")}" placeholder="/events or https://club.carsandcoffee.uk/apply"></div>
       </div></div></div>
+      <div class="card mb-4 locsec"><div class="card-header bg-white fw-semibold d-flex justify-content-between">Location page sections <span class="small text-body-secondary fw-normal">Events, businesses and nearby towns fill in automatically</span></div><div class="card-body">
+        <div class="mb-3"><label class="form-label" for="lc_label">Small label above the heading</label><input class="form-control" id="lc_label" value="${esc(lc.label || "")}" placeholder="Norfolk · Norwich"></div>
+        <div class="hub-only">
+          <div class="mb-3"><label class="form-label" for="lc_ntowns">Norfolk towns to list <span class="small text-body-secondary">(comma separated)</span></label><textarea class="form-control" id="lc_ntowns" rows="2">${esc((lc.norfolk_towns || []).join(", "))}</textarea></div>
+          <div class="mb-3"><label class="form-label" for="lc_stowns">Suffolk towns to list</label><textarea class="form-control" id="lc_stowns" rows="2">${esc((lc.suffolk_towns || []).join(", "))}</textarea></div>
+          <div class="mb-3"><label class="form-label" for="lc_soon">Coming soon note</label><textarea class="form-control" id="lc_soon" rows="2">${esc(lc.coming_soon || "")}</textarea></div>
+        </div>
+        <div class="place-only">
+          <label class="form-label">At a glance <span class="small text-body-secondary">(up to 4 facts: a short value and what it means)</span></label>
+          ${[0, 1, 2, 3].map((i) => `<div class="row g-2 mb-2"><div class="col-5"><input class="form-control" data-stat-n="${i}" value="${esc(lc.stats?.[i]?.[0] || "")}" placeholder="${["Monthly", "About 10 miles", "About 25 miles", "Free"][i]}"></div><div class="col-7"><input class="form-control" data-stat-l="${i}" value="${esc(lc.stats?.[i]?.[1] || "")}" placeholder="${["Breakfast meet", "To Lotus at Hethel", "To Snetterton Circuit", "Morning meets"][i]}"></div></div>`).join("")}
+          <div class="mb-3 mt-3"><label class="form-label" for="lc_scene">The local car scene <span class="small text-body-secondary">(leave a blank line between paragraphs)</span></label><textarea class="form-control" id="lc_scene" rows="9">${esc((lc.scene || []).join("\n\n"))}</textarea></div>
+          <div class="mb-3"><label class="form-label" for="lc_interests">Popular interests here <span class="small text-body-secondary">(comma separated, e.g. Classic cars, Track days)</span></label><input class="form-control" id="lc_interests" value="${esc((lc.interests || []).join(", "))}"></div>
+          <label class="form-label">Best drives <span class="small text-body-secondary">(up to 4)</span></label>
+          <div id="drives">${[0, 1, 2, 3].map((i) => { const d = lc.drives?.[i] || {}; return `<div class="border rounded p-3 mb-2" data-drive="${i}"><div class="row g-2"><div class="col-md-6"><input class="form-control" data-dk="title" value="${esc(d.title || "")}" placeholder="Route name, e.g. North Norfolk coast"></div><div class="col-md-6"><input class="form-control" data-dk="distance" value="${esc(d.distance || "")}" placeholder="About 25 miles"></div>
+            <div class="col-12"><input class="form-control" data-dk="text" value="${esc(d.text || "")}" placeholder="One line about the route"></div><div class="col-12">${imageInput("drive_img_" + i, d.image || "")}</div></div></div>`; }).join("")}</div>
+          <div class="mb-3 mt-3"><label class="form-label" for="lc_more">More places to link <span class="small text-body-secondary">(comma separated; town pages that exist are shown as cards automatically)</span></label><textarea class="form-control" id="lc_more" rows="2">${esc((lc.more_places || []).join(", "))}</textarea></div>
+          <div class="row g-3 mb-3"><div class="col-md-6"><label class="form-label" for="lc_car">Getting there by car</label><textarea class="form-control" id="lc_car" rows="4">${esc(lc.getting_there?.car || "")}</textarea></div>
+            <div class="col-md-6"><label class="form-label" for="lc_nocar">Getting there without a car</label><textarea class="form-control" id="lc_nocar" rows="4">${esc(lc.getting_there?.no_car || "")}</textarea></div></div>
+        </div>
+        <label class="form-label">Frequently asked questions</label>
+        <div id="faqs">${(lc.faqs?.length ? lc.faqs : [["", ""]]).map(([qq, a]) => faqRow(qq, a)).join("")}</div>
+        <button class="btn btn-sm btn-outline-secondary" type="button" id="addfaq">Add a question</button>
+      </div></div>
       <div class="card mb-4 ads-only"><div class="card-header bg-white fw-semibold">Google Ads</div><div class="card-body">
         <p class="small text-body-secondary">Write the ads for this page here so the page and ad copy match. Copy them into Google Ads when you set up the campaign.</p>
         <div class="row g-3 mb-3">
@@ -324,6 +348,8 @@ route("/pages/:id", async ({ id }) => {
 
   const f = $("#pf");
   wireImageInputs(f);
+  $("#addfaq").onclick = () => { $("#faqs").insertAdjacentHTML("beforeend", faqRow()); dirty = true; };
+  $("#faqs").addEventListener("click", (e) => { if (e.target.matches("[data-rmfaq]")) { e.target.closest("[data-faq]").remove(); dirty = true; refresh(); } });
   const val = (id) => $("#" + id)?.value ?? "";
   const collect = () => {
     const ad = (name) => $$(`[data-ad="${name}"]`).map((i) => i.value.trim()).filter(Boolean);
@@ -334,21 +360,38 @@ route("/pages/:id", async ({ id }) => {
       focus_keyword: val("focus_keyword").trim() || null, secondary_keywords: val("secondary_keywords").split(",").map((s) => s.trim()).filter(Boolean),
       meta_title: val("meta_title").trim() || null, meta_description: val("meta_description").trim() || null, status: val("status"),
       noindex: $("#noindex").checked, canonical_url: val("canonical_url").trim() || null, schema_type: val("schema_type"), og_image_path: val("og_image_path").trim() || null,
+      content: collectLocation(),
       ads: { campaign: val("ad_campaign").trim(), ad_group: val("ad_group").trim(), keywords: val("ad_keywords").split("\n").map((s) => s.trim()).filter(Boolean),
         headlines: ad("headlines"), descriptions: ad("descriptions"), path1: val("ad_path1").trim(), path2: val("ad_path2").trim(),
         utm_source: val("utm_source").trim(), utm_medium: val("utm_medium").trim(), utm_campaign: val("utm_campaign").trim() },
     };
   };
+  function collectLocation() {
+    if (val("page_type") !== "location") return p.content || {};
+    const list = (id) => val(id).split(",").map((x) => x.trim()).filter(Boolean);
+    const out = { ...(p.content || {}), label: val("lc_label").trim() };
+    out.faqs = $$("[data-faq]").map((r) => [$("[data-fq]", r).value.trim(), $("[data-fa]", r).value.trim()]).filter(([qq, an]) => qq && an);
+    if (!val("county")) { out.norfolk_towns = list("lc_ntowns"); out.suffolk_towns = list("lc_stowns"); out.coming_soon = val("lc_soon").trim(); return out; }
+    out.stats = [0, 1, 2, 3].map((i) => [$(`[data-stat-n="${i}"]`).value.trim(), $(`[data-stat-l="${i}"]`).value.trim()]).filter(([n]) => n);
+    out.scene = val("lc_scene").split(/\n\s*\n/).map((x) => x.trim()).filter(Boolean);
+    out.interests = list("lc_interests");
+    out.drives = $$("[data-drive]").map((r, i) => ({ title: $('[data-dk="title"]', r).value.trim(), distance: $('[data-dk="distance"]', r).value.trim(), text: $('[data-dk="text"]', r).value.trim(), image: $("#drive_img_" + i).value.trim() })).filter((d) => d.title);
+    out.more_places = list("lc_more");
+    out.getting_there = { car: val("lc_car").trim(), no_car: val("lc_nocar").trim() };
+    return out;
+  }
   const countEl = (el, n, [lo, hi]) => { el.textContent = `${n} / ${hi}`; el.className = "count " + (n === 0 ? "" : n > hi ? "bad" : n < lo ? "warn" : "good"); };
   function refresh() {
     const d = collect(); const t = d.page_type;
     $$(".loc-only").forEach((e) => (e.hidden = t !== "location")); $$(".ads-only").forEach((e) => (e.hidden = t !== "landing"));
+    $$(".locsec").forEach((e) => (e.hidden = t !== "location")); $$(".hub-only").forEach((e) => (e.hidden = !!d.county)); $$(".place-only").forEach((e) => (e.hidden = !d.county));
     $("#typehelp").textContent = TYPE_HELP[t];
     countEl($("#c_mt"), (d.meta_title || d.title).length, LIMITS.metaTitle); countEl($("#c_md"), (d.meta_description || "").length, LIMITS.metaDesc);
     const url = SITE + (d.path || "/");
     $("#serp").innerHTML = `<div class="site"><img src="/favicon.svg" alt=""><span>Cars and Coffee UK<small>${esc(url.replace("https://", "").replace(/\//g, " › ").replace(" › ", " › ").slice(0, 70))}</small></span></div>
       <div class="t">${esc(d.meta_title || d.title || "Your SEO title")}</div><div class="d">${esc((d.meta_description || "Write a meta description to control the text Google shows here.").slice(0, 160))}${(d.meta_description || "").length > 160 ? "…" : ""}</div>`;
-    const r = analyse(d);
+    const lcx = d.content || {};
+    const r = analyse(t === "location" ? { ...d, body_md: [d.body_md, ...(lcx.scene || []).map((x, i) => (i === 0 ? "## The local car scene\n\n" : "") + x), (lcx.drives || []).length ? "## Best drives\n\n" + lcx.drives.map((x) => x.title + ". " + x.text).join("\n\n") : "", (lcx.faqs || []).length ? "## Frequently asked questions\n\n" + lcx.faqs.map(([qq, an]) => qq + " " + an).join("\n\n") : "", "[events](/events) [club](/club)"].filter(Boolean).join("\n\n") } : d);
     const ring = $("#ring"); ring.textContent = r.score; ring.className = "score-ring " + r.grade;
     $("#grade").textContent = { good: "Good to go", ok: "Nearly there", bad: "Needs work" }[r.grade];
     $("#checks").innerHTML = r.checks.map((c) => `<li class="${c.status}"><span class="dot">${{ pass: "✓", warn: "!", fail: "✕", info: "i" }[c.status]}</span><span>${esc(c.label)}${c.tip ? `<span class="tip">${esc(c.tip)}</span>` : ""}</span></li>`).join("");
@@ -390,7 +433,7 @@ route("/pages/:id", async ({ id }) => {
     if (wanted === "draft" && !isNew && p.status === "published") d.status = $("#status").value;
     if (!d.title) { toast("Give the page a name", true); $("#title").focus(); return; }
     if (!/^\/[a-z0-9/-]*$/.test(d.path)) { toast("The page address can only use lower-case letters, numbers, hyphens and slashes, and must start with /", true); $("#path").focus(); return; }
-    d.seo_score = analyse(d).score;
+    d.seo_score = Number($("#ring").textContent) || analyse(d).score;
     const btns = $$("button[type=submit]", f); btns.forEach((b) => (b.disabled = true));
     const res = isNew ? await site().from("pages").insert(d).select("id").single() : await site().from("pages").update(d).eq("id", id).select("id").single();
     btns.forEach((b) => (b.disabled = false));
@@ -408,6 +451,8 @@ route("/pages/:id", async ({ id }) => {
     };
   }
 });
+
+const faqRow = (qq = "", a = "") => `<div class="border rounded p-2 mb-2" data-faq><input class="form-control mb-2" data-fq value="${esc(qq)}" placeholder="Question"><textarea class="form-control" data-fa rows="2" placeholder="Answer">${esc(a)}</textarea><button type="button" class="btn btn-sm btn-link text-danger p-0 mt-1" data-rmfaq>Remove</button></div>`;
 
 // ---------- generic content editors ----------
 const F = (name, label, type = "text", extra = {}) => ({ name, label, type, ...extra });

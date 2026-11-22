@@ -4,6 +4,7 @@
 //   If the database can't be reached it serves the last good copy, or the static public/index.html.
 // - Everything else is served from ./public.
 import { loadHome, renderHome } from "./home.js";
+import { loadPage, renderLocation } from "./pages.js";
 
 const FRESH_SECONDS = 60;       // how long a rendered homepage is reused
 const STALE_SECONDS = 86400;    // how long the last good copy is kept as a fallback
@@ -15,9 +16,35 @@ export default {
     if ((url.pathname === "/" || url.pathname === "/index.html") && (request.method === "GET" || request.method === "HEAD")) {
       return homepage(request, env, ctx, url);
     }
+    if (/^\/car-meets(\/[a-z0-9-]+){0,2}\/?$/.test(url.pathname) && (request.method === "GET" || request.method === "HEAD")) {
+      return contentPage(request, env, ctx, url);
+    }
     return env.ASSETS.fetch(request);
   },
 };
+
+// Location and other content pages from site.pages, cached like the homepage.
+async function contentPage(request, env, ctx, url) {
+  const path = url.pathname.replace(/\/+$/, "") || "/";
+  if (path !== url.pathname) return Response.redirect(url.origin + path + url.search, 301);
+  const cache = caches.default;
+  const freshKey = new Request(`https://${url.hostname}/__page/fresh${path}`);
+  const staleKey = new Request(`https://${url.hostname}/__page/stale${path}`);
+  const hit = await cache.match(freshKey);
+  if (hit) return withHeaders(hit, "HIT");
+  try {
+    const page = await loadPage(path);
+    if (!page) return env.ASSETS.fetch(new Request(new URL("/__missing__", url), request));
+    const res = new Response(await renderLocation(page), { headers: { "Content-Type": "text/html; charset=utf-8" } });
+    ctx.waitUntil(Promise.all([cache.put(freshKey, withCache(res.clone(), FRESH_SECONDS)), cache.put(staleKey, withCache(res.clone(), STALE_SECONDS))]));
+    return withHeaders(res, "MISS");
+  } catch (err) {
+    console.error("page render failed:", path, err && err.message);
+    const stale = await cache.match(staleKey);
+    if (stale) return withHeaders(stale, "STALE");
+    return env.ASSETS.fetch(new Request(new URL("/__missing__", url), request));
+  }
+}
 
 async function homepage(request, env, ctx, url) {
   const cache = caches.default;

@@ -10,7 +10,7 @@ const TZ = "Europe/London";
 
 const EVENT_TYPES = { meet: "Meet", race: "Race night", tour: "Tour", garage: "Garage night", watch: "Watch party", track: "Track day", show: "Show" };
 const TICKET = { free_rsvp: "Free · RSVP", selling_fast: "Selling fast", on_sale: "On sale", sold_out: "Sold out" };
-const ARROW = '<svg class="ar" viewBox="0 0 20 12" aria-hidden="true"><path d="M0 6h17M12 1l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
+export const ARROW = '<svg class="ar" viewBox="0 0 20 12" aria-hidden="true"><path d="M0 6h17M12 1l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
 const SVC_ICON = {
   restoration: '<path d="M14 6a4 4 0 0 0-5 5l-6 6 3 3 6-6a4 4 0 0 0 5-5l-2 2-2-1-1-2z"/>',
   servicing: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/>',
@@ -23,8 +23,8 @@ const SVC_ICON = {
 };
 const SVC_DEFAULT = '<circle cx="12" cy="12" r="8"/><path d="M8 12h8M12 8v8"/>';
 
-const E = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const img = (p) => !p ? "" : /^https?:\/\//.test(p) || p.startsWith("/") ? p : "/" + p;
+export const E = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+export const img = (p) => !p ? "" : /^https?:\/\//.test(p) || p.startsWith("/") ? p : "/" + p;
 const money = (p) => !p ? "Free" : ("£" + (p / 100).toFixed(2)).replace(".00", "");
 const fmt = (d, o) => new Intl.DateTimeFormat("en-GB", { timeZone: TZ, ...o }).format(new Date(d));
 const dow = (d) => fmt(d, { weekday: "short" });
@@ -32,15 +32,31 @@ const dm = (d) => fmt(d, { day: "numeric", month: "short" });
 const ukdate = (d) => `${dow(d)} ${fmt(d, { day: "numeric", month: "short", year: "numeric" })}`;
 const hhmm = (d) => fmt(d, { hour: "2-digit", minute: "2-digit", hour12: false });
 const sameDay = (a, b) => fmt(a, { year: "numeric", month: "2-digit", day: "2-digit" }) === fmt(b, { year: "numeric", month: "2-digit", day: "2-digit" });
-const utm = (u, medium, camp) => !u ? "#" : u.startsWith("/") ? u : `${u}${u.includes("?") ? "&amp;" : "?"}utm_source=carsandcoffee&amp;utm_medium=${medium}&amp;utm_campaign=${camp}`;
+export const utm = (u, medium, camp) => !u ? "#" : u.startsWith("/") ? u : `${u}${u.includes("?") ? "&amp;" : "?"}utm_source=carsandcoffee&amp;utm_medium=${medium}&amp;utm_campaign=${camp}`;
 const link = (text, href) => `<a class="more" href="${href}">${text} ${ARROW}</a>`;
 const slug = (x) => String(x).toLowerCase().replace(/ and /g, "-").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
-async function q(path) {
+export async function q(path) {
   const r = await fetch(`${SB_URL}/rest/v1/${path}`, { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, "Accept-Profile": "site" }, cf: { cacheTtl: 0 } });
   if (!r.ok) throw new Error(`${path.split("?")[0]} ${r.status}`);
   return r.json();
 }
+
+export const eventCard = (e) => {
+  const when = sameDay(e.starts_at, e.ends_at) ? ukdate(e.starts_at) : `${dm(e.starts_at)} – ${ukdate(e.ends_at)}`;
+  const tcls = { selling_fast: "hot", sold_out: "out" }[e.ticket_status] || "";
+  return `<article class="ev" data-type="${E(e.event_type)}"><a href="/events/${E(e.slug)}">
+<div class="ph"><img src="${E(img(e.image_path))}" alt="${E(e.image_alt)}" width="600" height="250" loading="lazy"><span class="tag">${E(EVENT_TYPES[e.event_type] || e.event_type)}</span></div>
+<div class="evb"><div class="date"><b>${dow(e.starts_at)}</b><span>${dm(e.starts_at)}</span></div>
+<div><h3>${E(e.title)}</h3><p class="meta">${E(e.venue)}</p><p class="meta">${when} · ${hhmm(e.starts_at)}–${hhmm(e.ends_at)}</p>
+<p class="price"><span>${money(e.price_pence)}</span><span class="ts ${tcls}">${E(TICKET[e.ticket_status] || e.ticket_status)}</span></p></div></div></a></article>`;
+};
+
+export const bizCard = (l) => `<article class="biz"><a href="/directory/${E(l.slug)}"><div class="ph"><img src="${E(img(l.image_path))}" alt="${E(l.image_alt)}" width="600" height="300" loading="lazy">${l.featured === false ? "" : `<span class="tag feat-tag">Featured</span>`}</div>
+<div class="bizb"><h3>${E(l.name)}</h3><p class="svc">${(l.services || []).map(E).join(" · ")}</p>
+<p class="meta"><span class="loc"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s7-7.5 7-13a7 7 0 0 0-14 0c0 5.5 7 13 7 13z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="9" r="2.5" fill="currentColor"/></svg>${E(l.town)}</span>
+<span class="ver"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5 9-10" fill="none" stroke="currentColor" stroke-width="2.6"/></svg>Checked by us</span></p>
+<span class="more">View business ${ARROW}</span></div></a></article>`;
 
 export async function loadHome() {
   const now = new Date().toISOString();
@@ -76,16 +92,6 @@ export function renderHome(d) {
   const evCount = Math.max(1, Math.min(12, parseInt(T("events", "count"), 10) || 6));
   const events = d.events.slice(0, evCount);
   const nxt = events[0];
-
-  const eventCard = (e) => {
-    const when = sameDay(e.starts_at, e.ends_at) ? ukdate(e.starts_at) : `${dm(e.starts_at)} – ${ukdate(e.ends_at)}`;
-    const tcls = { selling_fast: "hot", sold_out: "out" }[e.ticket_status] || "";
-    return `<article class="ev" data-type="${E(e.event_type)}"><a href="/events/${E(e.slug)}">
-<div class="ph"><img src="${E(img(e.image_path))}" alt="${E(e.image_alt)}" width="600" height="250" loading="lazy"><span class="tag">${E(EVENT_TYPES[e.event_type] || e.event_type)}</span></div>
-<div class="evb"><div class="date"><b>${dow(e.starts_at)}</b><span>${dm(e.starts_at)}</span></div>
-<div><h3>${E(e.title)}</h3><p class="meta">${E(e.venue)}</p><p class="meta">${when} · ${hhmm(e.starts_at)}–${hhmm(e.ends_at)}</p>
-<p class="price"><span>${money(e.price_pence)}</span><span class="ts ${tcls}">${E(TICKET[e.ticket_status] || e.ticket_status)}</span></p></div></div></a></article>`;
-  };
 
   const arts = d.articles;
   const feat = arts.find((a) => a.featured) || arts[0];
@@ -125,12 +131,7 @@ export function renderHome(d) {
 
   const gallery = d.gallery.map((g, i) => `<a class="g g${i}" href="/galleries/${E(g.slug)}"><img src="${E(img(g.image_path))}" alt="${E(g.image_alt)}" loading="lazy"><span>${E(g.title)}</span></a>`).join("");
 
-  const dir = d.listings.filter((l) => !l.featured_until || new Date(l.featured_until + "T23:59:59Z") >= new Date()).map((l) => `<article class="biz"><a href="/directory/${E(l.slug)}"><div class="ph"><img src="${E(img(l.image_path))}" alt="${E(l.image_alt)}" width="600" height="300" loading="lazy"><span class="tag feat-tag">Featured</span></div>
-<div class="bizb"><h3>${E(l.name)}</h3><p class="svc">${(l.services || []).map(E).join(" · ")}</p>
-<p class="meta"><span class="loc"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s7-7.5 7-13a7 7 0 0 0-14 0c0 5.5 7 13 7 13z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="9" r="2.5" fill="currentColor"/></svg>${E(l.town)}</span>
-<span class="ver"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5 9-10" fill="none" stroke="currentColor" stroke-width="2.6"/></svg>Checked by us</span></p>
-<span class="more">View business ${ARROW}</span></div></a></article>`).join("");
-
+  const dir = d.listings.filter((l) => !l.featured_until || new Date(l.featured_until + "T23:59:59Z") >= new Date()).map(bizCard).join("");
   const svcTiles = d.services.map((s) => `<a class="svct" href="/directory/service/${E(s.slug)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">${SVC_ICON[s.slug] || SVC_DEFAULT}</svg><span>${E(s.name)}</span></a>`).join("");
   const svcOptions = d.services.map((s) => `<option value="${E(s.slug)}">${E(s.name)}</option>`).join("");
   const regions = d.regions.map((r) => `<a href="/directory/region/${E(r.slug)}">${E(r.name)}</a>`).join("");
