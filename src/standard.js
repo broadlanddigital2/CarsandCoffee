@@ -58,7 +58,7 @@ function contactSection(body) {
         <div class="ct-row"><label>Your name<input name="name" autocomplete="name" required maxlength="120"></label><label>Email<input name="email" type="email" autocomplete="email" required maxlength="200"></label></div>
         <label>What's it about?<select name="topic"><option value="general">General question</option><option value="events">Events and tickets</option><option value="club">The members' club</option><option value="directory">Business directory and listings</option><option value="advertising">Advertising and partnerships</option><option value="other">Something else</option></select></label>
         <label>Message<textarea name="message" rows="6" required maxlength="4000" placeholder="How can we help?"></textarea></label>
-        <label class="hb-hp" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off"></label>
+        <label class="hb-hp" aria-hidden="true">Leave this blank<input name="cc_hp" tabindex="-1" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"></label>
         <p class="ct-small">We'll only use your details to reply to you. See our <a href="/privacy">privacy policy</a>.</p>
         <button class="btn red" type="submit">Send message ${ARROW}</button>
         <p class="ct-msg" role="status"></p>
@@ -67,7 +67,7 @@ function contactSection(body) {
         f.addEventListener('submit',async function(e){e.preventDefault();var m=f.querySelector('.ct-msg'),b=f.querySelector('[type=submit]');
           if(!f.name.value.trim()||!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(f.email.value.trim())||f.message.value.trim().length<5){m.textContent='Please add your name, a valid email address and a message.';m.className='ct-msg bad';return;}
           b.disabled=true;m.className='ct-msg';m.textContent='Sending…';
-          try{var r=await fetch('/api/enquiry',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:f.name.value,email:f.email.value,topic:f.topic.value,message:f.message.value,website:f.website.value,page:'/contact'})});var j=await r.json().catch(function(){return{};});
+          try{var r=await fetch('/api/enquiry',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:f.name.value,email:f.email.value,topic:f.topic.value,message:f.message.value,cc_hp:f.cc_hp.value,page:'/contact'})});var j=await r.json().catch(function(){return{};});
             if(!r.ok)throw new Error(j.error||'Sorry, that didn\\'t send. Please try again.');
             f.outerHTML='<div class="ct-sent"><h3>Thanks, your message is on its way.</h3><p>We\\'ll reply by email, usually within a day or two.</p></div>';}
           catch(err){m.textContent=err.message;m.className='ct-msg bad';b.disabled=false;}});})();</script>

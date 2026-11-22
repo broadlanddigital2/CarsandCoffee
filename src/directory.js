@@ -137,7 +137,7 @@ export async function businessPage(slug) {
           <ul class="rv-list">${reviews.map((r) => `<li>${stars(r.rating)}<p>${E(r.body)}</p><small>${E(r.name)} · ${new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric" }).format(new Date(r.created_at))}${r.source !== "website" ? ` · via ${E(r.source)}` : ""}</small></li>`).join("")}</ul>` : `<p class="lp-empty">No reviews yet. Used ${E(l.name)}? Be the first to review them.</p>`}
         <details class="rv-write"><summary class="btn ghost small">Write a review</summary>
           <form class="ct-form" id="rvf" novalidate><div class="rv-stars" role="radiogroup" aria-label="Your rating">${[1, 2, 3, 4, 5].map((i) => `<label><input type="radio" name="rating" value="${i}"><span>★</span><b class="sr">${i} star${i > 1 ? "s" : ""}</b></label>`).join("")}</div>
-            <div class="ct-row"><label>Your name (shown)<input name="name" maxlength="80" required></label><label>Email (not shown)<input name="email" type="email" maxlength="200" required></label></div>
+            <div class="ct-row"><label>Your name (shown)<input name="name" autocomplete="name" maxlength="80" required></label><label>Email (not shown)<input name="email" type="email" autocomplete="email" maxlength="200" required></label></div>
             <label>Your review<textarea name="body" rows="4" maxlength="2000" required placeholder="What did they do for you, and how did it go?"></textarea></label>
             <p class="ct-small">Reviews are checked by our team before they appear. Please only review businesses you've used.</p>
             <button class="btn red" type="submit">Send review</button><p class="ct-msg" role="status"></p></form></details></div>` : ""}
@@ -145,7 +145,7 @@ export async function businessPage(slug) {
         <form class="ct-form" id="lead" novalidate><div class="ct-row"><label>Your name<input name="name" autocomplete="name" required maxlength="120"></label><label>Email<input name="email" type="email" autocomplete="email" required maxlength="200"></label></div>
           <label>Phone (optional)<input name="phone" type="tel" autocomplete="tel" maxlength="40"></label>
           <label>Message<textarea name="message" rows="5" required maxlength="4000" placeholder="Tell them about your car and what you need."></textarea></label>
-          <label class="hb-hp" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off"></label>
+          <label class="hb-hp" aria-hidden="true">Leave this blank<input name="cc_hp" tabindex="-1" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"></label>
           <p class="ct-small">Your message and contact details go to ${E(l.name)} so they can reply. See our <a href="/privacy">privacy policy</a>.</p>
           <button class="btn red" type="submit">Send enquiry ${ARROW}</button><p class="ct-msg" role="status"></p></form></div>` : ""}
       ${hub ? `<div class="ep-first"><div><strong>More in ${E(hub.town || hub.county)}:</strong> meets, drives and other trusted businesses on the local car hub.</div><a class="btn ghost small" href="${E(hub.path)}">${E(hub.town || hub.county)} car hub</a></div>` : ""}
@@ -208,7 +208,7 @@ function bizScript(slug) {
       .catch(function(err){m.textContent=err.message;m.className='ct-msg bad';btn.disabled=false;});}
   var L=document.getElementById('lead');if(L)L.addEventListener('submit',function(e){e.preventDefault();var m=L.querySelector('.ct-msg');
     if(!L.name.value.trim()||!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(L.email.value.trim())||L.message.value.trim().length<5){m.textContent='Please add your name, a valid email and a message.';m.className='ct-msg bad';return;}
-    send(L,'/api/lead',{slug:S,name:L.name.value,email:L.email.value,phone:L.phone.value,message:L.message.value,website:L.website.value},'<div class="ct-sent"><h3>Enquiry sent.</h3><p>The business will reply to you directly by email or phone.</p></div>');});
+    send(L,'/api/lead',{slug:S,name:L.name.value,email:L.email.value,phone:L.phone.value,message:L.message.value,cc_hp:L.cc_hp.value},'<div class="ct-sent"><h3>Enquiry sent.</h3><p>The business will reply to you directly by email or phone.</p></div>');});
   var R=document.getElementById('rvf');if(R)R.addEventListener('submit',function(e){e.preventDefault();var m=R.querySelector('.ct-msg'),rt=R.querySelector('[name=rating]:checked');
     if(!rt||!R.name.value.trim()||!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(R.email.value.trim())||R.body.value.trim().length<10){m.textContent='Please choose a rating and add your name, email and a few words.';m.className='ct-msg bad';return;}
     send(R,'/api/review',{slug:S,name:R.name.value,email:R.email.value,rating:+rt.value,body:R.body.value},'<div class="ct-sent"><h3>Thanks for your review.</h3><p>Our team will check it and it will appear here soon.</p></div>');});
@@ -267,17 +267,17 @@ export async function listYourBusiness() {
     `<section class="lp-sec std-head"><div class="wrap"><span class="eyebrow red">Free listing</span><h1 class="page-h1">List your business</h1><p class="lp-lead">Get in front of car enthusiasts across Norfolk and Suffolk. Listing is free. We check every business before it goes live, usually within a few days.</p></div></section>`,
     `<section class="lp-sec"><div class="wrap ct-grid"><form class="ct-form" id="lyb" novalidate>
       <h2 style="margin:0">Your business</h2>
-      <label>Business name<input name="name" required maxlength="120"></label>
-      <fieldset class="lyb-svcs"><legend>Services you offer</legend>${services.map((s) => `<label class="lyb-chk"><input type="checkbox" name="services" value="${E(s.name)}"> ${E(s.name)}</label>`).join("")}<label class="lyb-chk lyb-other">Other<input name="other" maxlength="60" placeholder="e.g. MOT, paint protection film"></label></fieldset>
-      <div class="ct-row"><label>Town<input name="town" required maxlength="80" placeholder="e.g. Norwich"></label><label>County<select name="county"><option>Norfolk</option><option>Suffolk</option><option>Cambridgeshire</option><option>Essex</option></select></label></div>
-      <div class="ct-row"><label>Street address (optional)<input name="address" maxlength="200"></label><label>Postcode<input name="postcode" maxlength="10" autocapitalize="characters"></label></div>
-      <div class="ct-row"><label>Website<input name="website" maxlength="200" placeholder="www.example.co.uk"></label><label>Public phone (optional)<input name="phone" type="tel" maxlength="40"></label></div>
-      <label>Public email (optional)<input name="public_email" type="email" maxlength="200"></label>
+      <label>Business name<input name="name" autocomplete="organization" required maxlength="120"></label>
+      <fieldset class="lyb-svcs"><legend>Services you offer</legend>${services.map((s) => `<label class="lyb-chk"><input type="checkbox" name="services" value="${E(s.name)}"> ${E(s.name)}</label>`).join("")}<label class="lyb-chk lyb-other">Other<input name="other" autocomplete="off" maxlength="60" placeholder="e.g. MOT, paint protection film"></label></fieldset>
+      <div class="ct-row"><label>Town<input name="town" autocomplete="address-level2" required maxlength="80" placeholder="e.g. Norwich"></label><label>County<select name="county" autocomplete="address-level1"><option>Norfolk</option><option>Suffolk</option><option>Cambridgeshire</option><option>Essex</option></select></label></div>
+      <div class="ct-row"><label>Street address (optional)<input name="address" autocomplete="street-address" maxlength="200"></label><label>Postcode<input name="postcode" autocomplete="postal-code" maxlength="10" autocapitalize="characters"></label></div>
+      <div class="ct-row"><label>Website<input name="website" type="text" inputmode="url" autocomplete="url" maxlength="200" placeholder="www.example.co.uk"></label><label>Public phone (optional)<input name="phone" type="tel" autocomplete="tel" maxlength="40"></label></div>
+      <label>Public email (optional)<input name="public_email" type="email" autocomplete="email" maxlength="200"></label>
       <label>About your business<textarea name="summary" rows="4" maxlength="600" placeholder="What you do, what you specialise in, and what makes you good at it."></textarea></label>
       <h2 style="margin:10px 0 0">About you</h2><p class="ct-small">Only our team sees these details. We use them to check your listing and contact you.</p>
       <div class="ct-row"><label>Your name<input name="contact_name" required maxlength="120" autocomplete="name"></label><label>Your email<input name="contact_email" type="email" required maxlength="200" autocomplete="email"></label></div>
       <label>Anything else we should know? (optional)<textarea name="notes" rows="2" maxlength="1000"></textarea></label>
-      <label class="hb-hp" aria-hidden="true">Company<input name="company" tabindex="-1" autocomplete="off"></label>
+      <label class="hb-hp" aria-hidden="true">Leave this blank<input name="cc_hp" tabindex="-1" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"></label>
       <label class="lyb-chk"><input type="checkbox" name="agree" required> I run or represent this business, and I agree to the <a href="/terms">terms</a> and <a href="/privacy">privacy policy</a>.</label>
       <button class="btn red" type="submit">Submit my listing ${ARROW}</button><p class="ct-msg" role="status"></p>
     </form>
@@ -286,7 +286,7 @@ export async function listYourBusiness() {
       var bad=!f.name.value.trim()?'Please add your business name.':!svcs.length?'Please choose at least one service.':!f.town.value.trim()?'Please add your town.':!f.contact_name.value.trim()?'Please add your name.':!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(f.contact_email.value.trim())?'Please check your email address.':!f.agree.checked?'Please confirm you represent the business.':'';
       if(bad){m.textContent=bad;m.className='ct-msg bad';return;}
       b.disabled=true;m.className='ct-msg';m.textContent='Sending…';
-      var data={name:f.name.value,services:svcs,town:f.town.value,county:f.county.value,address:f.address.value,postcode:f.postcode.value,website:f.website.value,phone:f.phone.value,public_email:f.public_email.value,summary:f.summary.value,contact_name:f.contact_name.value,contact_email:f.contact_email.value,notes:f.notes.value,company:f.company.value};
+      var data={name:f.name.value,services:svcs,town:f.town.value,county:f.county.value,address:f.address.value,postcode:f.postcode.value,website:f.website.value,phone:f.phone.value,public_email:f.public_email.value,summary:f.summary.value,contact_name:f.contact_name.value,contact_email:f.contact_email.value,notes:f.notes.value,cc_hp:f.cc_hp.value};
       try{var r=await fetch('/api/listing',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});var j=await r.json().catch(function(){return{};});if(!r.ok)throw new Error(j.error||'Sorry, that didn\\'t send. Please try again.');
         f.outerHTML='<div class="ct-sent"><h3>Thanks, we\\'ve got your listing.</h3><p>Our team will check it and email you when it\\'s live, usually within a few days.</p><p><a class="btn ghost small" href="/directory">Back to the directory</a></p></div>';window.scrollTo(0,0);}
       catch(err){m.textContent=err.message;m.className='ct-msg bad';b.disabled=false;}});})();</script>

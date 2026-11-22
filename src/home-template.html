@@ -1076,7 +1076,7 @@ const mbar=$('#mbar'),heroEl=$('#hero')||$('.phero');if(mbar&&heroEl){const hero
 <label>Email<input name="email" type="email" autocomplete="email" required maxlength="200"></label>
 <label>About<select name="topic"><option value="general">General question</option><option value="events">Events and tickets</option><option value="club">The members' club</option><option value="directory">Business directory</option><option value="advertising">Advertising and partners</option><option value="other">Something else</option></select></label>
 <label>Message<textarea name="message" rows="4" required maxlength="4000"></textarea></label>
-<label class="hb-hp" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off"></label>
+<label class="hb-hp" aria-hidden="true">Leave this blank<input name="cc_hp" tabindex="-1" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"></label>
 <p class="hb-small">We'll only use your details to reply. See our <a href="/privacy">privacy policy</a>.</p>
 <div class="hb-row"><button type="button" class="btn ghost small" id="hb-back">Back</button><button class="btn red" type="submit">Send message</button></div>
 <p class="hb-msg" role="status"></p>
@@ -1147,7 +1147,7 @@ const mbar=$('#mbar'),heroEl=$('#hero')||$('.phero');if(mbar&&heroEl){const hero
   enq.addEventListener('submit',async function(e){e.preventDefault();var m=enq.querySelector('.hb-msg'),btn=enq.querySelector('[type=submit]');
     if(!enq.name.value.trim()||!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(enq.email.value.trim())||enq.message.value.trim().length<5){m.textContent='Please add your name, a valid email and a message.';return;}
     btn.disabled=true;m.textContent='Sending…';
-    try{var r=await fetch('/api/enquiry',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:enq.name.value,email:enq.email.value,topic:enq.topic.value,message:enq.message.value,website:enq.website.value,page:location.pathname})});var j=await r.json().catch(function(){return{};});
+    try{var r=await fetch('/api/enquiry',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:enq.name.value,email:enq.email.value,topic:enq.topic.value,message:enq.message.value,cc_hp:enq.cc_hp.value,page:location.pathname})});var j=await r.json().catch(function(){return{};});
       if(!r.ok)throw new Error(j.error||'Sorry, that didn\'t send. Please try again.');
       enq.innerHTML='<div class="hb-sent"><strong>Thanks, message sent.</strong><p>We\'ll reply to you by email, usually within a day or two.</p><button type="button" class="btn ghost small" id="hb-done">Back to questions</button></div>';
       document.getElementById('hb-done').onclick=function(){location.reload();};}

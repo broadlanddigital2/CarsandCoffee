@@ -347,7 +347,7 @@ route("/home", async () => {
           <p class="muted small" id="avmsg" style="margin:6px 0 0">A clear photo of you or your car.</p></div></div>
         ${p.handle ? `<p class="small"><a href="/u/${esc(p.handle)}" data-link>View your public profile</a></p>` : `<p class="small muted">Choose a username to get your own profile page.</p>`}
         <form id="profform" novalidate>
-          <label class="f">Display name<input type="text" id="display_name" maxlength="60" value="${esc(p.display_name || "")}"></label>
+          <label class="f">Display name<input type="text" id="display_name" autocomplete="nickname" maxlength="60" value="${esc(p.display_name || "")}"></label>
           <label class="f">Username <small>3–24 lowercase letters, numbers or underscores</small><input type="text" id="handle" maxlength="24" value="${esc(p.handle || "")}" autocapitalize="none" placeholder="e.g. norfolk_gti"></label>
           <label class="f">Town<select id="ptown">${townOptions(p.location || "")}</select></label>
           <label class="f">Bio <small>(up to 500 characters)</small><textarea id="bio" maxlength="500">${esc(p.bio || "")}</textarea></label>
@@ -1016,7 +1016,7 @@ async function renderInvites() {
   body.innerHTML = `<div class="switch"><div><strong>Public applications</strong><br><span class="muted small">${open ? "Open: anyone can create an account and apply." : "Invite-only: only emails on this list can create an account."}</span></div>
       <button class="btn ${open ? "ghost" : "red"} small" id="toggle" type="button">${open ? "Switch to invite-only" : "Open to everyone"}</button></div>
     <h3>Invite list</h3><p class="muted small">Add the email address someone will sign in with (for Google sign-in, their Google account email).</p>
-    <form id="addform" class="row" novalidate><input type="email" id="newemail" placeholder="name@example.com" required aria-label="Email address">
+    <form id="addform" class="row" novalidate><input type="email" id="newemail" autocomplete="email" placeholder="name@example.com" required aria-label="Email address">
       <input type="text" id="newnote" placeholder="Note (optional)" aria-label="Note"><button class="btn red small" type="submit">Add</button></form>
     <ul class="list">${(list || []).map((r) => `<li><span><strong>${esc(r.email)}</strong>${r.note ? ` <span class="muted small">· ${esc(r.note)}</span>` : ""}</span>
       <button class="btn ghost small" data-remove="${esc(r.email)}" type="button">Remove</button></li>`).join("") || `<li class="muted">No emails yet.</li>`}</ul>`;

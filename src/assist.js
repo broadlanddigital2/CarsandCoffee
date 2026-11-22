@@ -1,7 +1,7 @@
 // Site search, AI answers ("Ask Cars and Coffee") and the enquiry form.
 //   GET  /api/search?q=...   instant results across events, news, guides, town pages, directory and FAQs
 //   POST /api/ask            { q, history }  AI answer built only from the site's own content (Cloudflare Workers AI)
-//   POST /api/enquiry        { name, email, topic, message, page, website }  saved and emailed to the team
+//   POST /api/enquiry        { name, email, topic, message, page, cc_hp }  saved and emailed to the team
 import { q } from "./home.js";
 
 const SB_URL = "https://mslidnchoopgsnbraaxe.supabase.co";
@@ -124,7 +124,7 @@ ${context}`;
 // ---------- enquiries ----------
 async function enquiry(request) {
   let b; try { b = await request.json(); } catch { return json({ error: "Bad request" }, 400); }
-  if (b.website) return json({ ok: true }); // honeypot: bots fill the hidden field
+  if (b.cc_hp) return json({ ok: true }); // honeypot: bots fill the hidden field
   if (await limited(request, "enq", 4)) return json({ error: "Please wait a minute before sending another message." }, 429);
   const r = await fetch(`${SB_URL}/rest/v1/rpc/submit_enquiry`, {
     method: "POST",
@@ -140,7 +140,7 @@ async function enquiry(request) {
 // ---------- directory submissions ----------
 async function listing(request) {
   let b; try { b = await request.json(); } catch { return json({ error: "Bad request" }, 400); }
-  if (b.company) return json({ ok: true }); // honeypot
+  if (b.cc_hp) return json({ ok: true }); // honeypot
   if (await limited(request, "lst", 3)) return json({ error: "Please wait a minute before sending another listing." }, 429);
   const clip = (v, n) => String(v ?? "").slice(0, n);
   const p = { name: clip(b.name, 120), services: (Array.isArray(b.services) ? b.services : []).slice(0, 12).map((s) => clip(s, 40)), town: clip(b.town, 80), county: clip(b.county, 40), address: clip(b.address, 200), postcode: clip(b.postcode, 10),
@@ -164,7 +164,7 @@ async function track(request) {
 }
 async function directoryRpc(request, fn, key, max, shape) {
   let b; try { b = await request.json(); } catch { return json({ error: "Bad request" }, 400); }
-  if (b.website) return json({ ok: true }); // honeypot
+  if (b.cc_hp) return json({ ok: true }); // honeypot
   if (await limited(request, key, max)) return json({ error: "Please wait a minute before sending again." }, 429);
   const r = await rpc(fn, shape(b));
   if (r.ok) return json({ ok: true });
