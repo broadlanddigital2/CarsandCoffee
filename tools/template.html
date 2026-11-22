@@ -404,6 +404,34 @@ a.lp-card:hover{border-color:var(--red)}
 .hiw-foot .btn.ghost{color:#fff;border-color:rgba(255,255,255,.7)}
 @media (max-width:760px){.hiw{padding:56px 0}.hiw-steps{grid-template-columns:1fr;gap:26px}.hiw-steps::before{top:44px;bottom:44px;left:44px;right:auto;border-top:0;border-left:2px dashed rgba(242,169,59,.55)}
  .hiw-steps li{text-align:left;display:grid;grid-template-columns:88px 1fr;column-gap:20px;align-items:start}.hiw-icon{grid-row:span 2;margin:0}.hiw-steps h3{margin-top:14px}.hiw-steps p{margin:0;max-width:none}.hiw-foot{justify-content:flex-start}}
+.tf{padding:64px 0;background:var(--bg);border-top:1px solid var(--line)}
+.tf-head{display:grid;grid-template-columns:1.2fr 1fr;gap:32px;align-items:end;margin-bottom:30px}
+.tf-head .eyebrow{color:var(--red2);font-weight:800;letter-spacing:.12em;text-transform:uppercase;font-size:13px;display:block;margin-bottom:10px}
+.tf-head h2{font-family:Anton,Impact,sans-serif;font-weight:400;text-transform:uppercase;font-size:clamp(34px,4.4vw,56px);line-height:1;margin:0 0 12px}
+.tf-head p{font-size:17px;color:var(--soft);margin:0;max-width:52ch}
+.tf-search{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:18px}
+.tf-search label{font-weight:700;font-size:14px;display:block;margin-bottom:8px}
+.tf-row{display:flex;gap:8px}.tf-row input{flex:1;min-height:48px;border:1px solid var(--line);border-radius:6px;padding:10px 14px;font:inherit;background:var(--bg);color:var(--ink)}
+.tf-row input:focus{outline:3px solid var(--amber);outline-offset:1px}
+.tf-msg{margin:8px 0 0;font-size:14px;color:var(--red2);min-height:1em}
+.tf-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.tf-county{background:var(--paper);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.tf-top{position:relative;min-height:190px;display:flex;align-items:flex-end;color:#fff}
+.tf-top img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.tf-top::after{content:"";position:absolute;inset:0;background:linear-gradient(0deg,rgba(29,19,15,.92) 0%,rgba(29,19,15,.35) 70%,rgba(29,19,15,.1) 100%)}
+.tf-top-in{position:relative;z-index:1;padding:20px 22px;width:100%;display:flex;flex-wrap:wrap;align-items:flex-end;gap:6px 16px}
+.tf-top h3{font-family:Anton,Impact,sans-serif;font-weight:400;text-transform:uppercase;font-size:40px;line-height:1;margin:0;width:100%}
+.tf-top p{margin:0;color:#f0e2d2;font-size:15px;flex:1}
+.tf-soon{font-size:13px;font-weight:700;background:rgba(255,255,255,.15);border-radius:99px;padding:5px 10px}
+.tf-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;padding:16px}
+.tt{position:relative;display:grid;gap:2px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;text-decoration:none;color:var(--ink);background:var(--bg);transition:border-color .15s,transform .15s}
+.tt strong{font-size:16px}.tt span{font-size:13px;color:var(--soft)}
+.tt.live{background:var(--paper);border-color:rgba(192,13,13,.35)}.tt.live span{color:var(--red2);font-weight:700}
+.tt i{position:absolute;right:10px;top:12px;color:var(--red2);font-style:normal}
+.tt:hover{border-color:var(--red);transform:translateY(-2px)}
+.tf-next{margin-top:22px;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;color:var(--soft);font-size:15px}
+.tf-pills{display:inline-flex;gap:6px}.tf-pills span{border:1px dashed var(--line);border-radius:99px;padding:4px 10px;font-weight:700;font-size:13px;color:var(--ink)}
+@media (max-width:860px){.tf-head,.tf-grid{grid-template-columns:1fr}.tf{padding:48px 0}.tf-tiles{grid-template-columns:1fr 1fr}}
 @media (max-width:860px){.lp-stats{grid-template-columns:1fr 1fr}.lp-split,.lp-split.eq{grid-template-columns:1fr}.lp-drives,.lp-cards{grid-template-columns:1fr}.phero{min-height:380px}}
 </style>
 <style id="reveal-css">
@@ -687,7 +715,7 @@ $('#nl')&&$('#nl').addEventListener('submit',async ev=>{ev.preventDefault();cons
  $$('main .head, main .lp-sec > .wrap > h2, main .lp-split > *, main .galintro, .intro > div, .quick, .joinbox, .dirtop, .dirsearch, .dirhead, .dirlinks, .listcta, .strip h2, .adv-band .wrap, .news-band .wrap, .faq > div, .spon > div, .why > div').forEach(el=>mark(el));
  mark($('.spon > img'),'rv-r');mark($('.why > img'),'rv-l');
  // card grids: stagger children
- const grids=['.hiw-steps','.lp-stats','.lp-steps','.lp-tiles','.lp-drives','.lp-faq','.newsgrid','.posts','.prods','.svcgrid','.bizs','.wrap.gal','.benefits','.stats','.strip','.faq > div:last-child','.quick'];
+ const grids=['.tf-grid','.hiw-steps','.lp-stats','.lp-steps','.lp-tiles','.lp-drives','.lp-faq','.newsgrid','.posts','.prods','.svcgrid','.bizs','.wrap.gal','.benefits','.stats','.strip','.faq > div:last-child','.quick'];
  const gset=new Set();grids.forEach(g=>$$(g).forEach(p=>{let i=0;gset.add(p);for(const c of p.children){if(c.matches('h2,.galintro,script'))continue;
   if(c.classList.contains('rv')&&!p.matches('.quick'))continue;c.classList.add('rv');c.classList.remove('rv-l','rv-r');
   if(p.matches('.wrap.gal'))c.classList.add('rv-z');c.style.setProperty('--rvd',Math.min(i++,7)*80+'ms')}}));

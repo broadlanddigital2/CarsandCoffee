@@ -40,6 +40,42 @@ const newsletterHTML = () => `<section class="band news-band" aria-labelledby="n
 
 
 
+
+// Hub: "Find meets by town" feature with search, county panels and town tiles
+const COUNTY_PHOTO = { Norfolk: "homepage/ev-breakfast.webp", Suffolk: "homepage/ev-tour.webp" };
+function townsFeature(c, events, placePages) {
+  const pageFor = (county, town) => placePages.find((x) => x.county === county && (town ? x.town === town : !x.town));
+  const short = (d) => new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", weekday: "short", day: "numeric", month: "short" }).format(new Date(d));
+  const counties = [["Norfolk", c.norfolk_towns || []], ["Suffolk", c.suffolk_towns || []]].filter(([, t]) => t.length);
+  const all = [];
+  const panel = ([county, towns]) => {
+    const cp = pageFor(county, null);
+    const countyEvents = events.filter((e) => e.county === county);
+    const tiles = towns.map((t) => {
+      const tp = pageFor(county, t), next = events.find((e) => e.county === county && e.town === t);
+      const href = tp ? tp.path : cp ? `${cp.path}#events` : "#events";
+      all.push({ t, county, href, live: !!tp });
+      return `<a class="tt${tp ? " live" : ""}" href="${E(href)}"><strong>${E(t)}</strong><span>${next ? `Next: ${short(next.starts_at)}` : tp ? "Meets nearby" : "Coming soon"}</span>${tp ? `<i aria-hidden="true">${ARROW}</i>` : ""}</a>`;
+    }).join("");
+    return `<div class="tf-county" id="${slug(county)}">
+      <div class="tf-top"><img src="${E(img(cp?.hero_image_path || COUNTY_PHOTO[county]))}" alt="" loading="lazy"><div class="tf-top-in">
+        <h3>${E(county)}</h3><p>${countyEvents.length ? `${countyEvents.length} upcoming meet${countyEvents.length === 1 ? "" : "s"}` : "Meets coming soon"} · ${towns.length} towns</p>
+        ${cp ? `<a class="btn red small" href="${E(cp.path)}">Car meets in ${E(county)} ${ARROW}</a>` : `<span class="tf-soon">County page coming soon</span>`}</div></div>
+      <div class="tf-tiles">${tiles}</div></div>`;
+  };
+  const panels = counties.map(panel).join("");
+  const options = all.map((x) => `<option value="${E(x.t)}"></option>`).join("");
+  const map = JSON.stringify(Object.fromEntries(all.map((x) => [x.t.toLowerCase(), x.href])));
+  return `<section class="tf" aria-labelledby="tf-h"><div class="wrap">
+    <div class="tf-head"><div><span class="eyebrow">Car meets near you</span><h2 id="tf-h">Find meets by town</h2><p>Pick your town to see upcoming meets, regular venues, drives and local businesses.</p></div>
+      <form class="tf-search" role="search" onsubmit="event.preventDefault();var m=${E(map)},v=this.town.value.trim().toLowerCase(),h=m[v];var msg=this.querySelector('.tf-msg');if(h){location.href=h;}else{msg.textContent=v?'We don\\'t have a page for that town yet. Try the nearest town or county.':'Type a town name.';}">
+        <label for="tf-town">Your town</label><div class="tf-row"><input id="tf-town" name="town" list="tf-towns" placeholder="e.g. Norwich" autocomplete="off"><button class="btn red" type="submit">Go</button></div>
+        <datalist id="tf-towns">${options}</datalist><p class="tf-msg" role="status"></p></form></div>
+    <div class="tf-grid">${panels}</div>
+    ${c.coming_soon ? `<div class="tf-next"><strong>Coming next:</strong> ${E(c.coming_soon)} <span class="tf-pills"><span>Cambridgeshire</span><span>Essex</span></span></div>` : ""}
+  </div></section>`;
+}
+
 // "How our meets work": a designed three-step band
 const ICONS = {
   find: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="10" width="34" height="31" rx="4"/><path d="M7 19h34M16 6v8M32 6v8"/><circle cx="24" cy="30" r="5"/><path d="m28 34 5 5"/></svg>',
@@ -109,13 +145,14 @@ export async function renderLocation(p) {
   const now = new Date().toISOString();
   const isHub = !p.county, isTown = !!p.town;
   const place = p.town || p.county || "East Anglia";
-  const [eventsAll, listings, children, parentRows, siblings, partners] = await Promise.all([
+  const [eventsAll, listings, children, parentRows, siblings, partners, placePages] = await Promise.all([
     q(`events?select=*,venue_info:venues(*)&ends_at=gte.${now}&order=starts_at&limit=12`),
     q(`directory_listings?select=slug,name,services,town,county,image_path,image_alt,featured,featured_until,address_line,postcode,lat,lng,approximate${isHub ? "" : `&county=eq.${enc(p.county)}`}&order=featured.desc,name&limit=${isHub ? 30 : 6}`),
     q(`pages?select=path,title,town,county,hero_image_path,intro,content&parent_id=eq.${p.id}&status=eq.published&order=title`),
     p.parent_id ? q(`pages?select=path,title,county,town&id=eq.${p.parent_id}`) : Promise.resolve([]),
     p.parent_id && isTown ? q(`pages?select=path,title,town,hero_image_path,intro&parent_id=eq.${p.parent_id}&status=eq.published&id=neq.${p.id}&order=title&limit=6`) : Promise.resolve([]),
     q("partners?select=slug,name,page_path,logo_path,logo_dark_path&order=sort"),
+    isHub ? q("pages?select=path,town,county,hero_image_path&page_type=eq.location&status=eq.published&county=not.is.null") : Promise.resolve([]),
   ]);
   const parent = parentRows[0];
   // events: this town first, then the rest of the county, then everything (hub)
@@ -136,14 +173,7 @@ export async function renderLocation(p) {
   const parts = [crumbsHTML(crumbs), hero];
   if (c.stats?.length) parts.push(sec("At a glance", `<div class="lp-stats">${c.stats.map(([n, l]) => `<div class="lp-stat"><strong>${E(n)}</strong><span>${E(l)}</span></div>`).join("")}</div>`));
 
-  if (isHub) {
-    const counties = children.filter((x) => x.county && !x.town);
-    parts.push(sec("Choose a county", counties.length ? `<div class="lp-cards">${counties.map((x) => card({ href: x.path, image: x.hero_image_path || "homepage/ev-breakfast.webp", title: x.title, text: x.intro ? x.intro.split(". ")[0] + "." : "" })).join("")}</div>` : `<p class="lp-empty">County pages are coming soon.</p>`));
-    const linkFor = (county, town) => `/car-meets/${slug(county)}/${slug(town)}`;
-    if (c.norfolk_towns?.length) parts.push(sec("Norfolk towns", chips(c.norfolk_towns.map((t) => [t, linkFor("Norfolk", t)]))));
-    if (c.suffolk_towns?.length) parts.push(sec("Suffolk towns", chips(c.suffolk_towns.map((t) => [t, linkFor("Suffolk", t)]))));
-    if (c.coming_soon) parts.push(sec("Coming soon", `<p>${E(c.coming_soon)}</p>`));
-  }
+  if (isHub) parts.push(townsFeature(c, eventsAll, placePages || []));
 
   parts.push(sec(isHub ? "Next meets" : `Upcoming events in and near ${E(place)}`, events.length ? `${nearbyNote ? `<p class="lp-lead">Nothing in ${E(place)} just yet. Here are the nearest upcoming meets.</p>` : ""}<div class="evs">${events.map(eventCard).join("")}</div><div class="btns" style="margin-top:18px"><a class="btn red" href="/events">See all events ${ARROW}</a></div>` : `<p class="lp-empty">No meets scheduled yet. Join the newsletter to hear first.</p>`, { id: "events" }));
 
