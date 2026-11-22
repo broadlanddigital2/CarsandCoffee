@@ -129,6 +129,7 @@ a:hover .ar{transform:translateX(3px)}
 .pin>*{max-width:520px}
 .pin h2{font-size:clamp(40px,5.4vw,72px);line-height:.95;color:#fff}
 .plabel{display:flex;gap:10px;align-items:center;font-weight:700;letter-spacing:.04em;text-transform:uppercase;font-size:13px}
+.plogo{height:44px;width:auto;max-width:200px;display:block}
 .badge{background:var(--red);color:#fff;padding:3px 8px;border-radius:3px;font-size:12px}
 .extra{color:var(--amber);font-weight:600}
 .btns{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px}
@@ -227,10 +228,12 @@ a:hover .ar{transform:translateX(3px)}
 /* partners strip */
 .strip{display:grid;grid-template-columns:minmax(0,1.2fr) repeat(3,minmax(0,1fr));align-items:center;gap:20px}
 .strip h2{font-size:clamp(26px,3vw,36px);margin:0}
-.pl{display:grid;text-align:center;padding:10px 18px;border-left:1px solid var(--line)}
-.pl b{font-size:20px;letter-spacing:.18em;text-transform:uppercase;font-weight:600}
+.pl{display:grid;justify-items:center;gap:10px;text-align:center;padding:16px 18px;border-left:1px solid var(--line)}
+.pl img{height:64px;width:auto;max-width:100%;object-fit:contain;transition:transform .2s}
 .pl small{color:var(--soft);font-weight:500}
-.pl:hover b{color:var(--red2)}
+.pl:hover img{transform:scale(1.04)}
+:root[data-theme=dark] .pl img[src$="auto-opulence.svg"]{content:url(/partners/auto-opulence-white.svg)}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]) .pl img[src$="auto-opulence.svg"]{content:url(/partners/auto-opulence-white.svg)}}
 
 /* advertise + newsletter */
 .adv-band{background:var(--esp);color:var(--cream)}
@@ -238,6 +241,8 @@ a:hover .ar{transform:translateX(3px)}
 .adv-band h2,.news-band h2{margin:0;color:inherit}
 .adv-band p,.news-band>div>p{flex:1 1 280px;margin:0}
 .adv-band .btn.ghost{color:#fff}
+.news-band{background:var(--paper);border-top:4px solid var(--red);border-bottom:1px solid var(--line);margin:clamp(20px,3vw,40px) 0 0}
+.news-band h2:before{content:"";display:inline-block;width:34px;height:26px;margin-right:12px;vertical-align:-2px;background:no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 26' fill='none' stroke='%23c00d0d' stroke-width='2.4'%3E%3Crect x='1.5' y='1.5' width='31' height='23' rx='3'/%3E%3Cpath d='M2 3l15 12L32 3'/%3E%3C/svg%3E")}
 .news-band form{flex:2 1 420px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px}
 .news-band input[type=email]{min-height:48px;font:16px Inter,sans-serif;padding:10px 14px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink)}
 .news-band label{grid-column:1/-1;display:flex;gap:10px;font-size:13px;color:var(--soft);align-items:flex-start}
@@ -245,6 +250,7 @@ a:hover .ar{transform:translateX(3px)}
 .msg{grid-column:1/-1;font-size:14px;font-weight:600;margin:0;min-height:1em}
 
 /* faq */
+.faqband{padding-top:clamp(48px,6vw,80px)}
 .faq{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2.4fr);gap:36px}
 details{border-bottom:1px solid var(--line)}
 summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:16px;padding:16px 4px;font-weight:700;text-transform:uppercase;font-size:15px;letter-spacing:.02em}
@@ -262,6 +268,7 @@ footer{background:var(--esp);color:var(--cream);padding:48px 0 24px}
 .fgrid a:hover{color:#fff;text-decoration:underline}
 .fbot{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;border-top:1px solid rgba(255,255,255,.2);margin-top:32px;padding-top:16px;font-size:13px;opacity:.85}
 .fpart{display:flex;gap:18px;flex-wrap:wrap}
+.flogos{align-items:center}.flogos img{height:30px;width:auto;opacity:.9}.flogos a:hover img{opacity:1}
 .sample{font-size:12px;opacity:.7;margin:12px 0 0}
 
 /* mobile bits */
@@ -307,7 +314,9 @@ footer{background:var(--esp);color:var(--cream);padding:48px 0 24px}
  .minis a{grid-template-columns:96px minmax(0,1fr)}.minis img{width:96px;height:64px}
  .strip{grid-template-columns:minmax(0,1fr)}.pl{border-left:0;border-top:1px solid var(--line)}
  .quick a{font-size:16px;gap:8px;padding:14px 8px}.quick a .ar{display:none}
- .news-band form{grid-template-columns:minmax(0,1fr)}
+ .news-band{background:var(--paper);border-top:4px solid var(--red);border-bottom:1px solid var(--line);margin:clamp(20px,3vw,40px) 0 0}
+.news-band h2:before{content:"";display:inline-block;width:34px;height:26px;margin-right:12px;vertical-align:-2px;background:no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 26' fill='none' stroke='%23c00d0d' stroke-width='2.4'%3E%3Crect x='1.5' y='1.5' width='31' height='23' rx='3'/%3E%3Cpath d='M2 3l15 12L32 3'/%3E%3C/svg%3E")}
+.news-band form{grid-template-columns:minmax(0,1fr)}
  .fgrid{grid-template-columns:repeat(2,minmax(0,1fr))}
  .mbar{display:block}
  .cd b{font-size:24px}
@@ -467,7 +476,7 @@ footer{background:var(--esp);color:var(--cream);padding:48px 0 24px}
 </form></div>
 </section>
 
-<section class="band" style="padding-top:0" aria-labelledby="faq-h" id="faqs">
+<section class="band faqband" aria-labelledby="faq-h" id="faqs">
 <div class="wrap faq"><div><small>FAQ</small><h2 id="faq-h">Frequently asked questions</h2></div><div>{{FAQ}}</div></div>
 </section>
 </main>
@@ -477,14 +486,14 @@ footer{background:var(--esp);color:var(--cream);padding:48px 0 24px}
 <div class="fgrid">
 {{LOGO}}
 <div><h3>Events</h3><ul><li><a href="/events">Upcoming events</a></li><li><a href="/events/calendar">Event calendar</a></li><li><a href="/events/region/east-anglia">Meets in East Anglia</a></li><li><a href="/events/host">Host an event</a></li></ul></div>
-<div><h3>News</h3><ul><li><a href="/news">Latest stories</a></li><li><a href="/news/features">Features</a></li><li><a href="/news/wec">WEC and Le Mans</a></li><li><a href="/news/technical">Technical</a></li></ul></div>
+<div><h3>News</h3><ul><li><a href="/news">Latest stories</a></li><li><a href="/news/features">Features</a></li><li><a href="/news/wec">WEC and endurance</a></li><li><a href="/news/technical">Technical</a></li></ul></div>
 <div><h3>Community</h3><ul><li><a href="https://community.carsandcoffeeuk.co.uk/apply">Join the community</a></li><li><a href="https://community.carsandcoffeeuk.co.uk/recommend">Recommend a mate</a></li><li><a href="https://community.carsandcoffeeuk.co.uk/hubs">Series hubs</a></li><li><a href="/community-guidelines">Community guidelines</a></li></ul></div>
 <div><h3>Shop</h3><ul><li><a href="/shop/apparel">Apparel</a></li><li><a href="/shop/accessories">Accessories</a></li><li><a href="/shop/tickets">Event tickets</a></li><li><a href="/shop/gift-cards">Gift cards</a></li></ul></div>
 <div><h3>Directory</h3><ul><li><a href="/directory">Find a business</a></li><li><a href="/directory/region/east-anglia">By region</a></li><li><a href="/directory/services">By service</a></li><li><a href="/directory/list-your-business">List your business</a></li></ul></div>
 <div><h3>About</h3><ul><li><a href="/about">About us</a></li><li><a href="/advertise">Advertise</a></li><li><a href="/contact">Contact</a></li><li><a href="/accessibility">Accessibility</a></li></ul></div>
 </div>
 <div class="fbot">
-<div class="fpart"><span>Partners:</span><a href="/partners/auto-opulence">Auto Opulence</a><a href="/partners/race-car-graphics">Race Car Graphics</a><a href="/partners/le-mans-cave">Le Mans Cave</a></div>
+<div class="fpart flogos"><span>Partners</span>{{FOOTER_PARTNERS}}</div>
 <div class="fpart"><a href="https://www.instagram.com/" rel="noopener">Instagram</a><a href="https://www.facebook.com/" rel="noopener">Facebook</a><a href="https://www.youtube.com/" rel="noopener">YouTube</a></div>
 <div class="fpart"><a href="/privacy">Privacy</a><a href="/cookies">Cookies</a><a href="/terms">Terms</a><span>© 2026 Cars and Coffee UK</span></div>
 </div>

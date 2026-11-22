@@ -5,18 +5,18 @@ EVENTS = [
     # slug, title, type, start (UTC ISO), end, venue, region, price_pence (0=free), ticket_status, image, alt
     ("norfolk-breakfast-meet-dec-2026", "Norfolk Breakfast Meet", "meet", "2026-12-06T07:30:00Z", "2026-12-06T11:30:00Z",
      "The Workshop, Norfolk", "East Anglia", 0, "free_rsvp", "ev-breakfast", "Classic cars lined up outside a brick workshop at a breakfast meet"),
+    ("members-race-night-dec-2026", "Members’ Race Night", "race", "2026-12-10T19:00:00Z", "2026-12-10T22:00:00Z",
+     "Le Man Cave, Norwich", "East Anglia", 1500, "selling_fast", "lmc-sim", "Driver laughing in a racing simulator rig at Le Man Cave"),
     ("festive-cars-and-coffee-2026", "Festive Cars and Coffee", "meet", "2026-12-20T08:00:00Z", "2026-12-20T12:00:00Z",
      "The Workshop, Norfolk", "East Anglia", 500, "selling_fast", "ev-porsche", "Red classic sports car parked among visitors at a meet"),
     ("new-years-day-classic-run-2027", "New Year's Day Classic Run", "tour", "2027-01-01T09:00:00Z", "2027-01-01T14:00:00Z",
      "North Norfolk coast route", "East Anglia", 1500, "on_sale", "ev-tour", "Classic sports cars touring a country road"),
-    ("norfolk-breakfast-meet-jan-2027", "Norfolk Breakfast Meet", "meet", "2027-01-03T07:30:00Z", "2027-01-03T11:30:00Z",
-     "The Workshop, Norfolk", "East Anglia", 0, "free_rsvp", "whyjoin", "Friends chatting with coffee at a car meet"),
     ("garage-night-restoration-special-2027", "Garage Night: Restoration Special", "garage", "2027-01-16T18:00:00Z", "2027-01-16T21:00:00Z",
      "Riverside Performance, Suffolk", "East Anglia", 1000, "on_sale", "dir-1", "Mechanic working under the bonnet in a workshop"),
     ("le-mans-24-hours-watch-party-2027", "Le Mans 24 Hours Watch Party", "watch", "2027-06-12T13:00:00Z", "2027-06-13T15:00:00Z",
-     "The Workshop, Norfolk", "East Anglia", 1200, "on_sale", "lemans", "Endurance prototype racing at night"),
+     "Le Man Cave, Norwich", "East Anglia", 1200, "on_sale", "lemans", "Endurance prototype racing at night"),
 ]
-EVENT_TYPES = {"meet": "Meet", "tour": "Tour", "garage": "Garage night", "watch": "Watch party"}
+EVENT_TYPES = {"meet": "Meet", "race": "Race night", "tour": "Tour", "garage": "Garage night", "watch": "Watch party"}
 TICKET = {"free_rsvp": "Free · RSVP", "selling_fast": "Selling fast", "on_sale": "On sale", "sold_out": "Sold out"}
 
 ARTICLES = [
@@ -70,25 +70,29 @@ REGIONS = ["East Anglia", "South East", "London", "Midlands", "North", "Wales", 
 SERVICES = ["Restoration", "Servicing", "Tuning", "Bodywork", "Wraps and graphics", "Detailing", "Tyres", "Storage"]
 
 PARTNERS = [
-    # slug, name, tagline, url
-    ("auto-opulence", "Auto Opulence", "Luxury and performance cars", "/partners/auto-opulence"),
-    ("race-car-graphics", "Race Car Graphics", "Motorsport liveries and wraps", "/partners/race-car-graphics"),
-    ("le-mans-cave", "Le Mans Cave", "Endurance racing and Le Mans", "/partners/le-mans-cave"),
+    # slug, name, tagline, url, logo on light, logo on dark
+    ("auto-opulence", "Auto Opulence", "Car valeting and detailing, Norwich", "https://autoopulence.co.uk/",
+     "auto-opulence.svg", "auto-opulence-white.svg"),
+    ("race-car-graphics", "Race Car Graphics", "Liveries, wraps and vehicle graphics", "https://racecargraphics.uk/",
+     "race-car-graphics.webp", "race-car-graphics.webp"),
+    ("le-man-cave", "Le Man Cave", "Racing simulators and Scalextric, Norwich", "https://lemancave.co.uk/",
+     "le-man-cave.svg", "le-man-cave.svg"),
 ]
 PARTNER_FEATURES = [
     # partner, block_key, title, body, image, alt, cta, cta_url, cta2, cta2_url, countdown_to, extra
-    ("auto-opulence", "dream_garage", "Dream Garage",
-     "Inside an extraordinary private collection, curated by Auto Opulence. This month: a 1960s grand tourer, restored to concours standard.",
-     "dream", "Polished classic dashboard with wood-rimmed wheel", "Explore the collection", "/partners/auto-opulence/dream-garage",
-     "Discuss in the community", "/community/hubs/dream-garage", None, None),
+    ("auto-opulence", "detail_of_month", "Detail of the Month",
+     "A 1970s BMW 3 Series brought back to its best by Auto Opulence in Norwich: deep interior clean, paint correction, engine bay detail and a Gyeon ceramic coating on the original paint.",
+     "ao-e21", "Red classic BMW 3 Series gleaming after a ceramic coating in the Auto Opulence studio",
+     "Read the case study", "https://autoopulence.co.uk/case-studies/bmw-e21-3-series-restoration-detail",
+     "Explore detailing services", "https://autoopulence.co.uk/services", None, "Cars and Coffee member offers coming soon."),
     ("race-car-graphics", "livery_of_week", "Livery of the Week",
-     "This week’s standout is a blue and orange track-car livery for grassroots racing, designed by Race Car Graphics.",
+     "This week’s standout is a blue and orange track-car livery for grassroots racing. Race Car Graphics design and fit liveries, number kits and sponsor graphics for club racers and race teams.",
      "rcg", "Blue and orange touring car with race number 66", "Enter the challenge", "/community/livery-challenge",
-     "Get a livery quote", "/partners/race-car-graphics/quote", "2026-12-13T23:59:00Z", "December challenge: retro endurance. Winner featured on the homepage."),
-    ("le-mans-cave", "road_to_le_mans", "Road to Le Mans",
-     "Endurance stories, watch-party tickets and trip tips in the build-up to the 95th 24 Hours of Le Mans, 12–13 June 2027.",
-     "lemans", "Endurance prototype racing at night", "Explore Road to Le Mans", "/partners/le-mans-cave/road-to-le-mans",
-     "Join the Le Mans hub", "/community/hubs/wec-le-mans", "2027-06-12T14:00:00Z", "Le Mans Cave member offers announced soon."),
+     "Get a livery quote", "https://racecargraphics.uk/race-car-graphics-home", "2026-12-13T23:59:00Z", "December challenge: retro endurance. Winner featured on the homepage."),
+    ("le-man-cave", "race_night", "Race Night at Le Man Cave",
+     "Full-motion racing simulators, a 160ft digital Scalextric and a motorbike simulator in Norwich. Join our members’ race night, or book Le Man Cave for your own car club meet.",
+     "lmc-sim", "Driver laughing in a racing simulator rig at Le Man Cave", "Book race night", "/events/members-race-night-dec-2026",
+     "Car club meets at Le Man Cave", "https://lemancave.co.uk/car-club-meet-venue-norfolk", "2026-12-10T19:00:00Z", "Members’ race night: Thursday 10 December, 7pm."),
 ]
 
 SPONSORED = ("Sample advertiser", "Performance parts for road and track", "Quality components, trusted by enthusiasts.",
@@ -113,9 +117,9 @@ FAQS = [
 
 BLOCKS = [  # key, title, position
     ("header", "Header and navigation"), ("hero", "Hero: next meet"), ("intro", "Intro and quick actions"),
-    ("events", "Upcoming events"), ("news", "Latest news"), ("dream_garage", "Auto Opulence: Dream Garage"),
+    ("events", "Upcoming events"), ("news", "Latest news"), ("detail_of_month", "Auto Opulence: Detail of the Month"),
     ("community", "From the community"), ("livery_of_week", "Race Car Graphics: Livery of the Week"),
-    ("shop", "Shop best sellers"), ("road_to_le_mans", "Le Mans Cave: Road to Le Mans"),
+    ("shop", "Shop best sellers"), ("race_night", "Le Man Cave: Race Night"),
     ("gallery", "Featured cars and galleries"), ("directory", "Business directory"), ("sponsored", "Sponsored slot"),
     ("why_join", "Why join"), ("partners", "Partners strip"), ("advertise", "Advertise with us"),
     ("newsletter", "Newsletter"), ("faqs", "FAQs"), ("footer", "Footer"),

@@ -43,21 +43,24 @@ def mini(a):
     return f'''<li><a href="/news/{s}"><img src="{img(im)}" alt="{E(alt)}" width="120" height="76" loading="lazy">
 <span><small>{c}</small><b>{E(t)}</b><em>{m} min read · <time datetime="{p}">{dt.date.fromisoformat(p).strftime('%-d %b')}</time></em></span></a></li>'''
 
+def utm(u, medium, camp):
+    return u if u.startswith('/') else f"{u}?utm_source=carsandcoffee&amp;utm_medium={medium}&amp;utm_campaign={camp}"
+
 def partner_band(key, cls):
     f = next(x for x in PARTNER_FEATURES if x[1] == key)
     pslug, k, title, body, im, alt, c1, u1, c2, u2, cd, extra = f
-    pname = next(p[1] for p in PARTNERS if p[0] == pslug)
+    pn = next(p for p in PARTNERS if p[0] == pslug); pname = pn[1]
     count = ""
     if cd:
-        lbl = "Challenge closes in" if key == "livery_of_week" else "Countdown to Le Mans 2027"
+        lbl = "Challenge closes in" if key == "livery_of_week" else "Race night starts in"
         count = f'<div class="cd" data-to="{cd}" aria-label="{lbl}"><small>{lbl}</small><div><span><b data-u="d">–</b>days</span><span><b data-u="h">–</b>hrs</span><span><b data-u="m">–</b>mins</span></div></div>'
     ex = f'<p class="extra">{E(extra)}</p>' if extra else ""
     return f'''<section class="pband {cls}" id="{key.replace('_','-')}" aria-labelledby="{key}-h">
 <img class="pbg" src="{img(im)}" alt="{E(alt)}" loading="lazy">
-<div class="pin"><p class="plabel"><span class="badge">Partner</span> {E(pname)}</p>
+<div class="pin"><p class="plabel"><span class="badge">Partner</span><img class="plogo" src="/partners/{pn[5]}" alt="{E(pname)}" height="44"></p>
 <h2 id="{key}-h">{E(title)}</h2><p>{E(body)}</p>{ex}
-<div class="btns"><a class="btn red" href="{u1}?utm_source=cac_home&amp;utm_medium=partner_block&amp;utm_campaign={pslug}">{E(c1)} {ARROW}</a>
-<a class="btn ghost" href="{u2}">{E(c2)} {ARROW}</a></div></div>{count}</section>'''
+<div class="btns"><a class="btn red" href="{utm(u1, 'partner_block', pslug)}">{E(c1)} {ARROW}</a>
+<a class="btn ghost" href="{utm(u2, 'partner_block', pslug)}">{E(c2)} {ARROW}</a></div></div>{count}</section>'''
 
 events_html = "".join(event_card(e) for e in EVENTS)
 news_html = f'''<article class="feat"><a href="/news/{feat[0]}"><div class="ph"><img src="{img(feat[4])}" alt="{E(feat[5])}" width="740" height="372" loading="lazy"><span class="tag">Feature</span></div>
@@ -90,10 +93,11 @@ svc_tiles = "".join(f'<a class="svct" href="/directory/service/{slug(x)}"><svg v
 svc_options = "".join(f'<option value="{slug(x)}">{x}</option>' for x in SERVICES)
 regions = "".join(f'<a href="/directory/region/{slug(r)}">{r}</a>' for r in REGIONS)
 faq_html = "".join(f'<details><summary>{E(q)}</summary><p>{E(a)}</p></details>' for q, a in FAQS)
-partners_strip = "".join(f'<a class="pl" href="{u}?utm_source=cac_home&amp;utm_medium=partner_strip&amp;utm_campaign={s}"><b>{E(n)}</b><small>{E(t)}</small></a>' for s, n, t, u in PARTNERS)
+partners_strip = "".join(f'<a class="pl" href="{utm(u, "partner_strip", s)}" rel="noopener"><img src="/partners/{lg}" alt="{E(n)}" loading="lazy"><small>{E(t)}</small></a>' for s, n, t, u, lg, lgd in PARTNERS)
+footer_partners = "".join(f'<a href="{utm(u, "footer", s)}" rel="noopener"><img src="/partners/{lgd}" alt="{E(n)}" loading="lazy"></a>' for s, n, t, u, lg, lgd in PARTNERS)
 stats_html = "".join(f'<li><b>{n}</b>{l}</li>' for n, l in STATS)
 chips = '<button type="button" class="chip on" data-f="all" aria-pressed="true">All events</button>' + "".join(
-    f'<button type="button" class="chip" data-f="{k}" aria-pressed="false">{v}</button>' for k, v in {"meet":"Meets","tour":"Tours","garage":"Garage nights","watch":"Watch parties"}.items())
+    f'<button type="button" class="chip" data-f="{k}" aria-pressed="false">{v}</button>' for k, v in {"meet":"Meets","race":"Race nights","tour":"Tours","garage":"Garage nights","watch":"Watch parties"}.items())
 sp = SPONSORED
 
 ld = [
@@ -117,11 +121,11 @@ for k, v in {
     "NEXT_TITLE": E(nxt[1]), "NEXT_SLUG": nxt[0], "NEXT_VENUE": E(nxt[5]), "NEXT_DATE": ukdate(nd),
     "NEXT_DOW": nd.strftime("%a"), "NEXT_DM": nd.strftime("%-d %b"), "NEXT_TIME": f"{hhmm(nd)}–{hhmm(ne)}", "NEXT_ISO": nxt[3],
     "BRANDLINE": img("brandline"), "EVENTS_LINK": link("View all events", "/events"), "CHIPS": chips, "EVENTS": events_html, "NEWS": news_html,
-    "DREAM": partner_band("dream_garage", "ao"), "COMMUNITY": community_html, "LIVERY": partner_band("livery_of_week", "rcg"),
-    "SHOP": shop_html, "LEMANS": partner_band("road_to_le_mans", "lmc"), "GALLERY": gallery_html, "DIRECTORY": dir_html,
+    "DREAM": partner_band("detail_of_month", "ao"), "COMMUNITY": community_html, "LIVERY": partner_band("livery_of_week", "rcg"),
+    "SHOP": shop_html, "LEMANS": partner_band("race_night", "lmc"), "GALLERY": gallery_html, "DIRECTORY": dir_html,
     "REGIONS": regions, "SVC_TILES": svc_tiles, "SVC_OPTIONS": svc_options, "SP_ADV": E(sp[0]), "SP_TITLE": E(sp[1]), "SP_BODY": E(sp[2]), "SP_IMG": img(sp[3]),
     "SP_ALT": E(sp[4]), "SP_CTA": E(sp[5]), "SP_URL": sp[6], "WHY": img("whyjoin"), "STATS": stats_html,
-    "PARTNERS": partners_strip, "FAQ": faq_html, "LD": json.dumps(ld, ensure_ascii=False).replace("</", "<\\/"),
+    "PARTNERS": partners_strip, "FOOTER_PARTNERS": footer_partners, "FAQ": faq_html, "LD": json.dumps(ld, ensure_ascii=False).replace("</", "<\\/"),
 }.items():
     page = page.replace("{{" + k + "}}", v)
 page = page.replace("{{SB}}", json.dumps({"url": "https://dipjypzrfigkzuarlsov.supabase.co", "key": "sb_publishable_KLK1Ucd9ilVSwzSGL1vkug_3SGGh4NF"}) if MODE == "prod" else "null")
@@ -129,7 +133,7 @@ if MODE == "prod":
     import re
     page = re.sub(r"/\*PREVIEW\*/.*?/\*END\*/\n", "", page, flags=re.S)
     page = page.replace('<link rel="preconnect" href="https://fonts.googleapis.com">', '<link rel="preload" as="image" href="/homepage/hero.webp" media="(min-width:601px)"><link rel="preload" as="image" href="/homepage/hero-m.webp" media="(max-width:600px)"><link rel="preconnect" href="https://fonts.googleapis.com">')
-    page = page.replace('<p class="sample">Preview build: ', '<p class="sample">')
+    page = page.replace('<p class="sample">Preview build: events', '<p class="sample">Events')
 assert "{{" not in page, page[page.index("{{"):page.index("{{") + 40]
 open(OUT, "w", encoding="utf-8").write(page)
 print(OUT, len(page) // 1024, "KB")
@@ -158,7 +162,7 @@ seed.append("insert into cac.directory_regions (name,slug,sort) values " + ",".j
 seed.append("insert into cac.directory_services (name,slug,sort) values " + ",".join(f"({q(s)},{q(slug(s))},{i})" for i, s in enumerate(SERVICES)) + ";")
 seed.append("insert into cac.directory_listings (slug,name,services,town,region,image_path,image_alt,featured) values " +
             ",".join(f"({q(b[0])},{q(b[1])},{q(b[2])},{q(b[3])},{q('East Anglia')},{q(r2(b[4]))},{q(b[5])},true)" for b in DIRECTORY) + ";")
-seed.append("insert into cac.partners (slug,name,tagline,page_path,sort) values " + ",".join(f"({q(p[0])},{q(p[1])},{q(p[2])},{q(p[3])},{i})" for i, p in enumerate(PARTNERS)) + ";")
+seed.append("insert into cac.partners (slug,name,tagline,page_path,logo_path,sort) values " + ",".join(f"({q(p[0])},{q(p[1])},{q(p[2])},{q(p[3])},{q('partners/'+p[4])},{i})" for i, p in enumerate(PARTNERS)) + ";")
 for f in PARTNER_FEATURES:
     seed.append("insert into cac.partner_features (partner_id,block_key,title,body,extra,image_path,image_alt,cta_label,cta_url,cta2_label,cta2_url,countdown_to) "
                 f"select id,{q(f[1])},{q(f[2])},{q(f[3])},{q(f[11])},{q(r2(f[4]))},{q(f[5])},{q(f[6])},{q(f[7])},{q(f[8])},{q(f[9])},{q(f[10])} from cac.partners where slug={q(f[0])};")
