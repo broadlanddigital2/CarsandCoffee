@@ -84,13 +84,19 @@ function navHTML() {
     <li class="nav-title">Website</li>
     ${item("/pages", "page", "SEO pages")}
     ${item("/pages?type=landing", "ad", "Ad landing pages")}
-    ${item("/content/homepage_blocks", "home", "Homepage blocks")}
+    ${item("/homepage", "home", "Homepage blocks")}
     ${item("/content/events", "cal", "Events")}
     ${item("/content/articles", "news", "News")}
     ${item("/content/faqs", "faq", "FAQs")}
     ${item("/content/partners", "star", "Partners")}
     ${item("/content/partner_features", "star", "Partner features")}
+    ${item("/content/community_highlights", "users", "Community posts")}
+    ${item("/content/products", "star", "Shop")}
+    ${item("/content/gallery_items", "page", "Gallery")}
+    ${item("/content/site_stats", "dash", "Stats")}
     ${item("/content/directory_listings", "dir", "Directory")}
+    ${item("/content/directory_services", "dir", "Directory services")}
+    ${item("/content/directory_regions", "pin", "Directory areas")}
     ${item("/content/sponsored_slots", "mega", "Sponsored slots")}
     ${item("/content/newsletter_subscribers", "mail", "Newsletter")}
     <li class="nav-title">Club</li>
@@ -267,7 +273,7 @@ route("/pages/:id", async ({ id }) => {
             <div class="form-text">Formatting: <code>## Heading</code> · <code>- list item</code> · <code>**bold**</code> · <code>[link](/path)</code> · <code>![alt text](/image.webp)</code></div></div>
         </div></div></div>
       <div class="card mb-4"><div class="card-header bg-white fw-semibold">Image and call to action</div><div class="card-body"><div class="row g-3">
-        <div class="col-md-6"><label class="form-label" for="hero_image_path">Main image</label><input class="form-control" id="hero_image_path" value="${esc(p.hero_image_path || "")}" placeholder="/homepage/hero.webp"></div>
+        <div class="col-12"><label class="form-label" for="hero_image_path">Main image</label>${imageInput("hero_image_path", p.hero_image_path || "")}</div>
         <div class="col-md-6"><label class="form-label" for="hero_image_alt">Image description (alt text)</label><input class="form-control" id="hero_image_alt" value="${esc(p.hero_image_alt || "")}" placeholder="What the photo shows"></div>
         <div class="col-md-6"><label class="form-label" for="cta_label">Button text</label><input class="form-control" id="cta_label" maxlength="40" value="${esc(p.cta_label || "")}" placeholder="e.g. See upcoming meets"></div>
         <div class="col-md-6"><label class="form-label" for="cta_url">Button link</label><input class="form-control" id="cta_url" value="${esc(p.cta_url || "")}" placeholder="/events or https://club.carsandcoffee.uk/apply"></div>
@@ -314,6 +320,7 @@ route("/pages/:id", async ({ id }) => {
   <div class="modal-lite" id="pv" hidden></div>`;
 
   const f = $("#pf");
+  wireImageInputs(f);
   const val = (id) => $("#" + id)?.value ?? "";
   const collect = () => {
     const ad = (name) => $$(`[data-ad="${name}"]`).map((i) => i.value.trim()).filter(Boolean);
@@ -409,28 +416,48 @@ const CONTENT = {
     fields: [F("title", "Title", "text", { required: true }), F("slug", "Address (slug)", "slug", { from: "title" }), F("event_type", "Type", "select", { options: ["meet", "tour", "garage", "watch", "race", "track", "show"] }),
       F("starts_at", "Starts", "datetime", { required: true }), F("ends_at", "Ends", "datetime", { required: true }), F("venue", "Venue", "text", { required: true }), F("region", "Region"),
       F("price_pence", "Price (pence, 0 for free)", "number"), F("ticket_status", "Tickets", "select", { options: ["free_rsvp", "on_sale", "selling_fast", "sold_out"] }),
-      F("members_only", "Members only", "bool"), F("image_path", "Image", "text", { ph: "homepage/ev-breakfast.webp" }), F("image_alt", "Image description"), F("published", "Published", "bool", { def: true })] },
+      F("members_only", "Members only", "bool"), F("image_path", "Image", "image"), F("image_alt", "Image description"), F("published", "Published", "bool", { def: true })] },
   articles: { title: "News", order: ["published_at", false], list: ["title", "category", "published_at", "status", "featured"],
     fields: [F("title", "Headline", "text", { required: true }), F("slug", "Address (slug)", "slug", { from: "title" }), F("category", "Category", "text", { required: true, ph: "Restoration, WEC, Technical…" }),
-      F("excerpt", "Summary", "textarea"), F("body", "Article (Markdown)", "markdown"), F("image_path", "Image"), F("image_alt", "Image description"), F("read_minutes", "Reading time (minutes)", "number"),
+      F("excerpt", "Summary", "textarea"), F("body", "Article (Markdown)", "markdown"), F("image_path", "Image", "image"), F("image_alt", "Image description"), F("read_minutes", "Reading time (minutes)", "number"),
       F("featured", "Featured on the homepage", "bool"), F("status", "Status", "select", { options: ["draft", "published"] }), F("published_at", "Publish date", "date")] },
   faqs: { title: "FAQs", idType: "int", order: ["sort", true], list: ["question", "sort", "published"],
     fields: [F("question", "Question", "text", { required: true }), F("answer", "Answer", "textarea", { required: true }), F("sort", "Order", "number"), F("published", "Published", "bool", { def: true })] },
   partners: { title: "Partners", order: ["sort", true], list: ["name", "tagline", "sort", "active"],
-    fields: [F("name", "Name", "text", { required: true }), F("slug", "Slug", "slug", { from: "name" }), F("tagline", "Tagline"), F("page_path", "Website"), F("logo_path", "Logo file", "text", { ph: "partners/le-man-cave.svg" }), F("sort", "Order", "number"), F("active", "Active", "bool", { def: true })] },
+    fields: [F("name", "Name", "text", { required: true }), F("slug", "Slug", "slug", { from: "name" }), F("tagline", "Tagline"), F("page_path", "Website"), F("logo_path", "Logo (for light backgrounds)", "image"), F("logo_dark_path", "Logo (for dark backgrounds)", "image"), F("sort", "Order", "number"), F("active", "Active", "bool", { def: true })] },
   partner_features: { title: "Partner features", order: ["starts_at", false], list: ["title", "block_key", "starts_at", "active"],
     help: "The Detail of the Month, Livery of the Week and Race Night blocks on the homepage.",
     fields: [F("partner_id", "Partner", "ref", { table: "partners", label: "name", required: true }), F("block_key", "Homepage block", "select", { options: ["detail_of_month", "livery_of_week", "race_night"] }), F("title", "Title", "text", { required: true }),
-      F("body", "Text", "textarea"), F("extra", "Extra line"), F("image_path", "Image"), F("image_alt", "Image description"), F("cta_label", "Button 1 text"), F("cta_url", "Button 1 link"),
+      F("body", "Text", "textarea"), F("extra", "Extra line"), F("image_path", "Image", "image"), F("image_alt", "Image description"), F("cta_label", "Button 1 text"), F("cta_url", "Button 1 link"),
       F("cta2_label", "Button 2 text"), F("cta2_url", "Button 2 link"), F("countdown_to", "Countdown to", "datetime"), F("starts_at", "Show from", "datetime"), F("ends_at", "Show until", "datetime"), F("active", "Active", "bool", { def: true })] },
   directory_listings: { title: "Directory", order: ["created_at", false], list: ["name", "town", "status", "featured"],
     fields: [F("name", "Business name", "text", { required: true }), F("slug", "Slug", "slug", { from: "name" }), F("services", "Services (comma separated)", "array"), F("town", "Town"), F("region", "Region"),
-      F("website", "Website"), F("image_path", "Image"), F("image_alt", "Image description"), F("featured", "Featured on the homepage", "bool"), F("featured_until", "Featured until", "date"),
+      F("website", "Website"), F("image_path", "Image", "image"), F("image_alt", "Image description"), F("featured", "Featured on the homepage", "bool"), F("featured_until", "Featured until", "date"),
       F("status", "Status", "select", { options: ["pending", "published", "rejected"] })] },
   sponsored_slots: { title: "Sponsored slots", order: ["starts_at", false], list: ["advertiser", "title", "starts_at", "ends_at", "status"],
-    fields: [F("advertiser", "Advertiser", "text", { required: true }), F("title", "Headline", "text", { required: true }), F("body", "Text", "textarea"), F("image_path", "Image"), F("image_alt", "Image description"),
+    fields: [F("advertiser", "Advertiser", "text", { required: true }), F("title", "Headline", "text", { required: true }), F("body", "Text", "textarea"), F("image_path", "Image", "image"), F("image_alt", "Image description"),
       F("cta_label", "Button text"), F("cta_url", "Button link"), F("starts_at", "Starts", "datetime", { required: true }), F("ends_at", "Ends", "datetime", { required: true }),
       F("status", "Status", "select", { options: ["pending", "approved", "rejected", "paused"] }), F("impressions", "Impressions", "readonly"), F("clicks", "Clicks", "readonly")] },
+  community_highlights: { title: "Community posts", order: ["sort", true], list: ["title", "handle", "sort", "active"],
+    help: "The three posts shown in “From the community” on the homepage (lowest order numbers first).",
+    fields: [F("title", "Title", "text", { required: true }), F("handle", "Member handle", "text", { required: true, ph: "@norfolkseries" }), F("posted_label", "When (shown next to the handle)", "text", { ph: "3 days ago" }),
+      F("excerpt", "Summary", "textarea"), F("image_path", "Image", "image"), F("image_alt", "Image description"), F("post_url", "Link to the post", "text", { ph: "https://club.carsandcoffee.uk/…" }), F("sort", "Order", "number"), F("active", "Shown", "bool", { def: true })] },
+  products: { title: "Shop", order: ["units_sold_30d", false], list: ["name", "price_pence", "units_sold_30d", "active"],
+    help: "The homepage shows the four best sellers (most sold in the last 30 days).",
+    fields: [F("name", "Product name", "text", { required: true }), F("slug", "Slug", "slug", { from: "name" }), F("price_pence", "Price (pence)", "number", { required: true }), F("member_price_pence", "Member price (pence)", "number"),
+      F("badge", "Badge", "text", { ph: "Best seller, New…" }), F("image_path", "Image", "image"), F("image_alt", "Image description"), F("units_sold_30d", "Sold in the last 30 days", "number"), F("partner_id", "Partner product", "ref", { table: "partners", label: "name" }), F("active", "On sale", "bool", { def: true })] },
+  gallery_items: { title: "Gallery", order: ["sort", true], list: ["title", "sort", "featured"],
+    help: "The homepage shows the first five featured galleries.",
+    fields: [F("title", "Title", "text", { required: true }), F("slug", "Slug", "slug", { from: "title" }), F("image_path", "Image", "image", { required: true }), F("image_alt", "Image description", "text", { required: true }), F("sort", "Order", "number"), F("featured", "Show on the homepage", "bool", { def: true })] },
+  site_stats: { title: "Stats", pk: "key", order: ["key", true], list: ["label", "value", "is_sample"],
+    help: "The numbers in the “Why join” block.",
+    fields: [F("key", "Key", "slug", { from: "label" }), F("label", "Label", "text", { required: true, ph: "members" }), F("value", "Number", "text", { required: true, ph: "1,240" }), F("is_sample", "Sample figure (not real yet)", "bool")] },
+  directory_services: { title: "Directory services", idType: "int", order: ["sort", true], list: ["name", "slug", "sort"],
+    help: "The service tiles and search options in the directory block.",
+    fields: [F("name", "Service", "text", { required: true }), F("slug", "Slug", "slug", { from: "name" }), F("sort", "Order", "number")] },
+  directory_regions: { title: "Directory areas", idType: "int", order: ["sort", true], list: ["name", "slug", "sort"],
+    help: "The “Browse by region” links in the directory block.",
+    fields: [F("name", "Area", "text", { required: true }), F("slug", "Slug", "slug", { from: "name" }), F("sort", "Order", "number")] },
   newsletter_subscribers: { title: "Newsletter", order: ["created_at", false], list: ["email", "source", "created_at", "unsubscribed_at"], noCreate: true, csv: true,
     fields: [F("email", "Email", "readonly"), F("source", "Signed up from", "readonly"), F("created_at", "Signed up", "readonly"), F("consent_text", "Agreed to", "readonly"), F("unsubscribed_at", "Unsubscribed", "datetime")] },
 };
@@ -439,6 +466,7 @@ function cell(v, f) {
   if (v == null || v === "") return '<span class="text-body-secondary">–</span>';
   if (typeof v === "boolean") return v ? '<span class="badge text-bg-success">Yes</span>' : '<span class="badge text-bg-light border">No</span>';
   if (f?.type === "datetime" || /_at$/.test(f?.name || "")) return fmtDate(v, true);
+  if (/_pence$/.test(f?.name || "")) return "£" + (v / 100).toFixed(2);
   if (f?.type === "date") return fmtDate(v);
   return esc(LABELS[v] || v);
 }
@@ -485,6 +513,7 @@ route("/content/:table/:id", async ({ table, id }) => {
       case "date": return `<input class="form-control" type="date" id="${id}" value="${esc(v ? String(v).slice(0, 10) : "")}" ${req}>`;
       case "datetime": return `<input class="form-control" type="datetime-local" id="${id}" value="${toLocal(v)}" ${req}>`;
       case "array": return `<input class="form-control" id="${id}" value="${esc((v || []).join(", "))}">`;
+      case "image": return imageInput(id, v, req);
       default: return `<input class="form-control" id="${id}" value="${esc(v ?? "")}" placeholder="${esc(f.ph || "")}" ${req}>`;
     }
   };
@@ -498,6 +527,7 @@ route("/content/:table/:id", async ({ table, id }) => {
   if (slugF && isNew) $("#f_" + slugF.from).addEventListener("input", (e) => { if (!$("#f_" + slugF.name).dataset.touched) $("#f_" + slugF.name).value = slugify(e.target.value); });
   if (slugF) $("#f_" + slugF.name).addEventListener("input", (e) => (e.target.dataset.touched = "1"));
   $("#cf").addEventListener("input", () => (dirty = true));
+  wireImageInputs($("#cf"));
   $("#cf").onsubmit = async (e) => {
     e.preventDefault();
     const out = {};
@@ -508,6 +538,7 @@ route("/content/:table/:id", async ({ table, id }) => {
       else if (f.type === "number") v = el.value === "" ? null : Number(el.value);
       else if (f.type === "datetime") v = el.value ? new Date(el.value).toISOString() : null;
       else if (f.type === "array") v = el.value.split(",").map((s) => s.trim()).filter(Boolean);
+      else if (f.type === "image") v = el.value.trim() || null;
       else v = el.value.trim() === "" ? null : el.value.trim();
       if (f.required && (v == null || v === "")) { toast(`${f.label} is required`, true); el.focus(); return; }
       out[f.name] = v;
@@ -515,13 +546,111 @@ route("/content/:table/:id", async ({ table, id }) => {
     if (slugF && out[slugF.name]) out[slugF.name] = slugify(out[slugF.name]);
     const res = isNew ? await site().from(table).insert(out).select(pk).single() : await site().from(table).update(out).eq(pk, row[pk]).select(pk).single();
     if (res.error) return toast(/duplicate|unique/i.test(res.error.message) ? "That slug is already used" : res.error.message, true);
-    dirty = false; toast("Saved"); go(`/content/${table}`, true);
+    dirty = false; toast("Saved. Live on the website within a minute."); go(`/content/${table}`, true);
   };
   if ($("#del")) { let armed = false; $("#del").onclick = async () => {
     if (!armed) { armed = true; $("#del").textContent = "Click again to delete for good"; $("#del").classList.replace("btn-outline-danger", "btn-danger"); return; }
     const { error } = await site().from(table).delete().eq(pk, row[pk]); if (error) return oops(error);
     dirty = false; toast("Deleted"); go(`/content/${table}`, true);
   }; }
+});
+
+// ---------- images ----------
+const imgSrc = (p) => !p ? "" : /^https?:\/\//.test(p) ? p : SITE + "/" + String(p).replace(/^\//, "");
+function imageInput(id, v, req = "") {
+  return `<div class="imgfield"><div class="imgprev">${v ? `<img src="${esc(imgSrc(v))}" alt="">` : '<span class="small text-body-secondary">No image</span>'}</div>
+    <div class="flex-grow-1"><input class="form-control mb-2" id="${id}" value="${esc(v ?? "")}" placeholder="Upload a photo or paste an image address" ${req}>
+    <label class="btn btn-sm btn-outline-secondary mb-0">Upload photo<input type="file" accept="image/webp,image/jpeg,image/png,image/avif,image/svg+xml" data-upload="${id}" hidden></label>
+    <span class="small text-body-secondary ms-2" data-upmsg="${id}">WebP, JPG or PNG, up to 5 MB</span></div></div>`;
+}
+function wireImageInputs(root) {
+  for (const fi of $$("[data-upload]", root)) fi.onchange = async () => {
+    const file = fi.files[0]; if (!file) return;
+    const id = fi.dataset.upload, msg = $(`[data-upmsg="${id}"]`, root);
+    if (file.size > 5 * 1024 * 1024) { msg.textContent = "That file is over 5 MB. Please use a smaller photo."; return; }
+    msg.textContent = "Uploading…";
+    const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const path = `uploads/${new Date().toISOString().slice(0, 10)}/${Date.now()}-${slugify(file.name.replace(/\.[^.]+$/, "")) || "image"}.${ext}`;
+    const { error } = await sb.storage.from("site-images").upload(path, file, { cacheControl: "31536000", upsert: false, contentType: file.type });
+    if (error) { msg.textContent = "Upload failed: " + error.message; return; }
+    const url = sb.storage.from("site-images").getPublicUrl(path).data.publicUrl;
+    const input = $("#" + id, root); input.value = url; input.dispatchEvent(new Event("input", { bubbles: true }));
+    fi.closest(".imgfield").querySelector(".imgprev").innerHTML = `<img src="${esc(url)}" alt="">`;
+    msg.textContent = "Uploaded. Remember to save.";
+  };
+  for (const inp of $$(".imgfield input.form-control", root)) inp.addEventListener("change", () => { inp.closest(".imgfield").querySelector(".imgprev").innerHTML = inp.value ? `<img src="${esc(imgSrc(inp.value))}" alt="">` : '<span class="small text-body-secondary">No image</span>'; });
+}
+
+// ---------- homepage blocks ----------
+let BLOCKS = null;
+async function blockDefs() { if (!BLOCKS) BLOCKS = await (await fetch("/blocks.json", { cache: "no-cache" })).json(); return BLOCKS; }
+const BLOCK_LINKS = { detail_of_month: "/content/partner_features", livery_of_week: "/content/partner_features", race_night: "/content/partner_features", sponsored: "/content/sponsored_slots",
+  events: "/content/events", news: "/content/articles", community: "/content/community_highlights", shop: "/content/products", gallery: "/content/gallery_items", directory: "/content/directory_listings", faqs: "/content/faqs", partners: "/content/partners", why_join: "/content/site_stats" };
+const BLOCK_LINK_LABEL = { events: "Edit events", news: "Edit news", community: "Edit community posts", shop: "Edit shop", gallery: "Edit galleries", directory: "Edit listings", faqs: "Edit FAQs", partners: "Edit partners", why_join: "Edit stats", sponsored: "Edit the advert", detail_of_month: "Edit partner feature", livery_of_week: "Edit partner feature", race_night: "Edit partner feature" };
+route("/homepage", async () => {
+  crumbs([["Homepage blocks"]]);
+  const defs = await blockDefs();
+  const { data, error } = await site().from("homepage_blocks").select("*").order("position"); if (error) throw error;
+  const rows = data.filter((b) => defs[b.key]);
+  view.innerHTML = `<div class="page-head"><h1>Homepage blocks</h1><a class="btn btn-outline-secondary" href="${SITE}" target="_blank" rel="noopener">View homepage ↗</a></div>
+    <p class="text-body-secondary">Change the order with the arrows, switch blocks on or off, and edit each block's text and photos. Changes are live on the website within a minute.</p>
+    <div class="card"><ul class="list-group list-group-flush" id="blist">${rows.map((b, i) => `<li class="list-group-item d-flex flex-wrap align-items-center gap-3" data-key="${esc(b.key)}">
+      <div class="btn-group-vertical btn-group-sm"><button class="btn btn-outline-secondary" data-mv="-1" ${i === 0 ? "disabled" : ""} aria-label="Move up">▲</button><button class="btn btn-outline-secondary" data-mv="1" ${i === rows.length - 1 ? "disabled" : ""} aria-label="Move down">▼</button></div>
+      <div class="flex-grow-1"><a class="rowlink" href="/homepage/${esc(b.key)}" data-link>${esc(defs[b.key].label || b.title)}</a>
+        <div class="small text-body-secondary">${b.starts_at || b.ends_at ? `Scheduled ${b.starts_at ? "from " + fmtDate(b.starts_at, true) : ""} ${b.ends_at ? "until " + fmtDate(b.ends_at, true) : ""}` : defs[b.key].note ? esc(defs[b.key].note) : `${(defs[b.key].fields || []).length} editable fields`}</div></div>
+      ${BLOCK_LINKS[b.key] ? `<a class="btn btn-sm btn-outline-secondary" href="${BLOCK_LINKS[b.key]}" data-link>${BLOCK_LINK_LABEL[b.key]}</a>` : ""}
+      <a class="btn btn-sm btn-outline-primary" href="/homepage/${esc(b.key)}" data-link>Edit block</a>
+      <div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" data-on ${b.enabled ? "checked" : ""} id="on-${esc(b.key)}"><label class="form-check-label small" for="on-${esc(b.key)}">${b.enabled ? "Shown" : "Hidden"}</label></div>
+    </li>`).join("")}</ul></div>`;
+  view.onclick = async (e) => {
+    const mv = e.target.closest("[data-mv]"); if (!mv) return;
+    const li = mv.closest("li"); const i = rows.findIndex((r) => r.key === li.dataset.key); const j = i + Number(mv.dataset.mv);
+    if (j < 0 || j >= rows.length) return;
+    [rows[i], rows[j]] = [rows[j], rows[i]];
+    const updates = rows.map((r, k) => ({ key: r.key, position: (k + 2) * 10 })).filter((u, k) => u.position !== rows[k].position);
+    for (const u of updates) { const { error } = await site().from("homepage_blocks").update({ position: u.position }).eq("key", u.key); if (error) return oops(error); }
+    toast("Order saved"); render();
+  };
+  view.onchange = async (e) => {
+    const sw = e.target.closest("[data-on]"); if (!sw) return;
+    const key = sw.closest("li").dataset.key;
+    const { error } = await site().from("homepage_blocks").update({ enabled: sw.checked }).eq("key", key); if (error) { sw.checked = !sw.checked; return oops(error); }
+    sw.nextElementSibling.textContent = sw.checked ? "Shown" : "Hidden"; toast(sw.checked ? "Block shown" : "Block hidden");
+  };
+});
+route("/homepage/:key", async ({ key }) => {
+  const defs = await blockDefs(); const def = defs[key]; if (!def) throw new Error("Unknown block");
+  const { data: b, error } = await site().from("homepage_blocks").select("*").eq("key", key).maybeSingle(); if (error) throw error; if (!b) throw new Error("Block not found");
+  crumbs([["Homepage blocks", "/homepage"], [def.label]]);
+  const st = b.settings || {};
+  const field = (f) => {
+    const id = "s_" + f.name, v = st[f.name] ?? f.default ?? "";
+    const label = `<label class="form-label" for="${id}">${esc(f.label)}</label>`;
+    if (f.type === "image") return `<div class="col-12">${label}${imageInput(id, v)}</div>`;
+    if (f.type === "textarea") return `<div class="col-12">${label}<textarea class="form-control" id="${id}" rows="${String(v).length > 300 ? 7 : 3}">${esc(v)}</textarea></div>`;
+    return `<div class="col-md-6">${label}<input class="form-control" id="${id}" type="${f.type === "number" ? "number" : "text"}" value="${esc(v)}"></div>`;
+  };
+  view.innerHTML = `<form id="bf" novalidate><div class="page-head"><h1>${esc(def.label)}</h1>
+      <div class="d-flex gap-2"><a class="btn btn-outline-secondary" href="/homepage" data-link>Back</a><a class="btn btn-outline-secondary" href="${SITE}/#${esc(key.replace(/_/g, "-"))}" target="_blank" rel="noopener">View ↗</a><button class="btn btn-primary" type="submit">Save</button></div></div>
+    ${def.note ? `<div class="alert alert-info">${esc(def.note)} ${BLOCK_LINKS[key] ? `<a href="${BLOCK_LINKS[key]}" data-link>${BLOCK_LINK_LABEL[key]}</a>` : ""}</div>` : ""}
+    ${def.fields ? `<div class="card mb-4"><div class="card-header bg-white fw-semibold">Text and photos</div><div class="card-body"><div class="row g-3">${def.fields.map(field).join("")}</div>
+      <p class="small text-body-secondary mt-3 mb-0">Clear a field to go back to the standard wording.</p></div></div>` : ""}
+    ${BLOCK_LINKS[key] && !def.note ? `<p><a class="btn btn-sm btn-outline-secondary" href="${BLOCK_LINKS[key]}" data-link>${BLOCK_LINK_LABEL[key]}</a></p>` : ""}
+    <div class="card"><div class="card-header bg-white fw-semibold">Visibility</div><div class="card-body"><div class="row g-3">
+      <div class="col-12"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="b_enabled" ${b.enabled ? "checked" : ""}><label class="form-check-label" for="b_enabled">Show this block on the homepage</label></div></div>
+      <div class="col-md-6"><label class="form-label" for="b_starts">Show from <span class="small text-body-secondary">(optional)</span></label><input class="form-control" type="datetime-local" id="b_starts" value="${toLocal(b.starts_at)}"></div>
+      <div class="col-md-6"><label class="form-label" for="b_ends">Show until <span class="small text-body-secondary">(optional)</span></label><input class="form-control" type="datetime-local" id="b_ends" value="${toLocal(b.ends_at)}"></div>
+    </div></div></div></form>`;
+  wireImageInputs($("#bf"));
+  $("#bf").addEventListener("input", () => (dirty = true));
+  $("#bf").onsubmit = async (e) => {
+    e.preventDefault();
+    const settings = {};
+    for (const f of def.fields || []) { const v = $("#s_" + f.name).value.trim(); if (v && v !== String(f.default ?? "")) settings[f.name] = v; }
+    const out = { settings, enabled: $("#b_enabled").checked, starts_at: $("#b_starts").value ? new Date($("#b_starts").value).toISOString() : null, ends_at: $("#b_ends").value ? new Date($("#b_ends").value).toISOString() : null };
+    const { error } = await site().from("homepage_blocks").update(out).eq("key", key); if (error) return oops(error);
+    dirty = false; toast("Saved. Live on the website within a minute."); go("/homepage", true);
+  };
 });
 
 // ---------- club ----------

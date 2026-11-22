@@ -1,12 +1,59 @@
-// Serves the static site from ./public and sends the bare domain to www,
-// so search engines only see one version of every page.
+// Cars and Coffee UK website Worker.
+// - Redirects the bare domain to www.
+// - Builds the homepage from the database (see home.js), cached for 60 seconds, so changes in admin.carsandcoffee.uk go live within a minute.
+//   If the database can't be reached it serves the last good copy, or the static public/index.html.
+// - Everything else is served from ./public.
+import { loadHome, renderHome } from "./home.js";
+
+const FRESH_SECONDS = 60;       // how long a rendered homepage is reused
+const STALE_SECONDS = 86400;    // how long the last good copy is kept as a fallback
+
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
-    if (url.hostname === "carsandcoffee.uk") {
-      url.hostname = "www.carsandcoffee.uk";
-      return Response.redirect(url.toString(), 301);
+    if (url.hostname === "carsandcoffee.uk") { url.hostname = "www.carsandcoffee.uk"; return Response.redirect(url.toString(), 301); }
+    if ((url.pathname === "/" || url.pathname === "/index.html") && (request.method === "GET" || request.method === "HEAD")) {
+      return homepage(request, env, ctx, url);
     }
     return env.ASSETS.fetch(request);
   },
 };
+
+async function homepage(request, env, ctx, url) {
+  const cache = caches.default;
+  const freshKey = new Request(`https://${url.hostname}/__home/fresh`);
+  const staleKey = new Request(`https://${url.hostname}/__home/stale`);
+  const hit = await cache.match(freshKey);
+  if (hit) return withHeaders(hit, "HIT");
+  try {
+    const html = renderHome(await loadHome());
+    const res = new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
+    ctx.waitUntil(Promise.all([
+      cache.put(freshKey, withCache(res.clone(), FRESH_SECONDS)),
+      cache.put(staleKey, withCache(res.clone(), STALE_SECONDS)),
+    ]));
+    return withHeaders(res, "MISS");
+  } catch (err) {
+    console.error("homepage render failed:", err && err.message);
+    const stale = await cache.match(staleKey);
+    if (stale) return withHeaders(stale, "STALE");
+    const fallback = await env.ASSETS.fetch(new Request(new URL("/index.html", url), request));
+    return withHeaders(fallback, "STATIC");
+  }
+}
+
+function withCache(res, seconds) {
+  const r = new Response(res.body, res);
+  r.headers.set("Cache-Control", `public, max-age=${seconds}`);
+  return r;
+}
+function withHeaders(res, state) {
+  const r = new Response(res.body, res);
+  r.headers.set("Cache-Control", "public, max-age=0, must-revalidate");
+  r.headers.set("X-Home-Render", state);
+  r.headers.set("X-Content-Type-Options", "nosniff");
+  r.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  r.headers.set("X-Frame-Options", "SAMEORIGIN");
+  r.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  return r;
+}

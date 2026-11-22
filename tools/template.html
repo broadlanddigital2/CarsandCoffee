@@ -363,28 +363,30 @@ footer{background:var(--esp);color:var(--cream);padding:48px 0 24px}
 </header>
 
 <main>
+<!--B:hero-->
 <section class="hero" id="hero">
-<picture><source media="(max-width:600px)" srcset="{{HERO_M}}"><img src="{{HERO}}" alt="Enthusiasts with coffee gathered around a green classic GT car outside The Workshop, Norfolk" fetchpriority="high"></picture>
+<picture><source media="(max-width:600px)" srcset="{{t.hero.image_mobile}}"><img src="{{t.hero.image}}" alt="{{t.hero.image_alt}}" fetchpriority="high"></picture>
 <div class="wrap">
-<h1>Cars and Coffee UK</h1>
-<p class="sub">Car meets, motorsport news and community.</p>
+<h1>{{t.hero.title}}</h1>
+<p class="sub">{{t.hero.subtitle}}</p>
 <div class="next" aria-labelledby="next-h">
-<small>Next meet</small>
+<small>{{t.hero.next_label}}</small>
 <div class="nrow"><div class="nday">{{NEXT_DOW}}<br>{{NEXT_DM}}</div>
 <div><h3 id="next-h">{{NEXT_TITLE}}</h3><p>{{NEXT_VENUE}}</p><p><time datetime="{{NEXT_ISO}}">{{NEXT_DATE}}</time> · {{NEXT_TIME}}</p></div></div>
 <div class="clock" data-to="{{NEXT_ISO}}" aria-label="Time until the next meet"><span><b data-u="d">–</b>days</span><span><b data-u="h">–</b>hrs</span><span><b data-u="m">–</b>mins</span><span><b data-u="s">–</b>secs</span></div>
-<div class="nbtns"><a class="btn red" href="/events/{{NEXT_SLUG}}#tickets">Get tickets {{ARROW}}</a><button class="btn ghost going" type="button" aria-pressed="false" style="color:#fff">I’m going</button></div>
+<div class="nbtns"><a class="btn red" href="/events/{{NEXT_SLUG}}#tickets">{{t.hero.tickets_label}} {{ARROW}}</a><button class="btn ghost going" type="button" aria-pressed="false" style="color:#fff">I’m going</button></div>
 </div>
-<a class="joinline" href="https://club.carsandcoffee.uk/apply">Join the community {{ARROW}}</a>
+<a class="joinline" href="{{t.hero.join_url}}">{{t.hero.join_label}} {{ARROW}}</a>
 </div>
 </section>
-
+<!--/B:hero-->
+<!--B:intro-->
 <section class="band" aria-labelledby="intro-h">
 <div class="wrap">
 <div class="intro">
 <div><img class="bl" src="{{BRANDLINE}}" alt="There’s a story under every bonnet" width="420" height="140"></div>
-<div><h2 id="intro-h">Car meets and motorsport across the UK</h2>
-<p>Cars and Coffee UK brings car enthusiasts together through relaxed Sunday-morning meets, scenic tours and garage nights, starting in Norfolk and growing across East Anglia and the UK. Find your next car meet, catch up on motorsport news from F1, WEC and touring cars to club racing, and join a friendly members’ community where owners share builds, restorations and road trips. You’ll also find our club shop, featured cars and galleries, and a directory of trusted garages, detailers, wrap specialists and restorers near you. Classic, modern, track car or daily driver: if you love cars, coffee and good company, you’re welcome here.</p></div>
+<div><h2 id="intro-h">{{t.intro.heading}}</h2>
+{{t.intro.body}}</div>
 </div>
 <nav class="quick" aria-label="Quick actions">
 <a href="/events"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Find a meet {{ARROW}}</a>
@@ -394,58 +396,67 @@ footer{background:var(--esp);color:var(--cream);padding:48px 0 24px}
 </nav>
 </div>
 </section>
-
+<!--/B:intro-->
+<!--B:events-->
 <section class="band" style="padding-top:0" aria-labelledby="events-h" id="events">
 <div class="wrap">
-<div class="head"><h2 id="events-h">Upcoming events</h2><div class="chips" role="group" aria-label="Filter events">{{CHIPS}}</div>{{EVENTS_LINK}}</div>
+<div class="head"><h2 id="events-h">{{t.events.heading}}</h2><div class="chips" role="group" aria-label="Filter events">{{CHIPS}}</div>{{EVENTS_LINK}}</div>
 <div class="evs">{{EVENTS}}</div>
 <p class="empty" id="noev">No events of this type coming up yet. <a class="more" href="/events">See all events {{ARROW}}</a></p>
 </div>
 </section>
-
+<!--/B:events-->
+<!--B:news-->
 <section class="band" style="padding-top:0" aria-labelledby="news-h" id="news">
 <div class="wrap">
-<div class="head"><h2 id="news-h">Latest news</h2><a class="more" href="/news">View all news {{ARROW}}</a></div>
+<div class="head"><h2 id="news-h">{{t.news.heading}}</h2><a class="more" href="/news">View all news {{ARROW}}</a></div>
 <div class="newsgrid">{{NEWS}}</div>
 </div>
 </section>
-
+<!--/B:news-->
+<!--B:detail_of_month-->
 {{DREAM}}
-
+<!--/B:detail_of_month-->
+<!--B:community-->
 <section class="band" aria-labelledby="com-h" id="community">
 <div class="wrap">
-<div class="head"><div><small id="com-h-l">From the community</small><h2 id="com-h" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">From the community: there’s a story under every bonnet</h2><img class="bl" src="{{BRANDLINE}}" alt="" aria-hidden="true" width="620" height="207" loading="lazy"></div>
+<div class="head"><div><small id="com-h-l">{{t.community.label}}</small><h2 id="com-h" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">From the community: there’s a story under every bonnet</h2><img class="bl" src="{{BRANDLINE}}" alt="" aria-hidden="true" width="620" height="207" loading="lazy"></div>
 <a class="more" href="https://club.carsandcoffee.uk/">Visit the community {{ARROW}}</a></div>
 <div class="posts">{{COMMUNITY}}</div>
 <div class="joinbox"><a class="btn red" href="https://club.carsandcoffee.uk/apply">Apply to join {{ARROW}}</a><a class="btn ghost" href="https://club.carsandcoffee.uk/recommend">Recommend a mate {{ARROW}}</a>
-<p>Every member is approved by our team, usually within 24 hours. Recommended by a member? You’re fast-tracked.</p></div>
+<p>{{t.community.join_note}}</p></div>
 </div>
 </section>
-
+<!--/B:community-->
+<!--B:livery_of_week-->
 {{LIVERY}}
-
+<!--/B:livery_of_week-->
+<!--B:shop-->
 <section class="band" aria-labelledby="shop-h" id="shop">
 <div class="wrap">
-<div class="head"><h2 id="shop-h">Shop best sellers</h2><a class="more" href="/shop">Explore the shop {{ARROW}}</a></div>
+<div class="head"><h2 id="shop-h">{{t.shop.heading}}</h2><a class="more" href="/shop">Explore the shop {{ARROW}}</a></div>
 <div class="prods">{{SHOP}}</div>
 </div>
 </section>
-
+<!--/B:shop-->
+<!--B:race_night-->
 {{LEMANS}}
-
+<!--/B:race_night-->
+<!--B:gallery-->
 <section class="band" aria-labelledby="gal-h" id="galleries">
 <div class="wrap gal">
-<div class="galintro"><h2 id="gal-h">Featured cars and galleries</h2><p>Photo features, build stories and event galleries from across the UK scene.</p><a class="btn red" href="/galleries">View all galleries {{ARROW}}</a></div>
+<div class="galintro"><h2 id="gal-h">{{t.gallery.heading}}</h2><p>{{t.gallery.body}}</p><a class="btn red" href="/galleries">View all galleries {{ARROW}}</a></div>
 {{GALLERY}}
 </div>
 </section>
-
+<!--/B:gallery-->
+<!--B:directory-->
 <section class="dirband" aria-labelledby="dir-h" id="directory">
 <div class="wrap">
 <div class="dirtop">
-<div><p class="plabel"><span class="badge">Directory</span> Garages, specialists and suppliers</p>
-<h2 id="dir-h">Find trusted car businesses near you</h2>
-<p class="dirsub">Restorers, tuners, detailers, wrap shops and garages recommended by the Cars and Coffee community. Every listing is checked by our team.</p></div>
+<div><p class="plabel"><span class="badge">Directory</span> {{t.directory.label}}</p>
+<h2 id="dir-h">{{t.directory.heading}}</h2>
+<p class="dirsub">{{t.directory.body}}</p></div>
 <form class="dirsearch" action="/directory" method="get" role="search" aria-label="Search the business directory">
 <label><span>What do you need?</span><select name="service"><option value="">All services</option>{{SVC_OPTIONS}}</select></label>
 <label><span>Where?</span><input type="text" name="near" placeholder="Town or postcode" autocomplete="postal-code"></label>
@@ -456,42 +467,47 @@ footer{background:var(--esp);color:var(--cream);padding:48px 0 24px}
 <div class="head dirhead"><h3>Featured businesses</h3><a class="more" href="/directory">Browse the full directory {{ARROW}}</a></div>
 <div class="bizs">{{DIRECTORY}}</div>
 <div class="dirlinks"><b>Browse by region</b>{{REGIONS}}</div>
-<div class="listcta"><div><h3>Run a car business?</h3><p>Get in front of thousands of local enthusiasts. Basic listings are free; featured spots put you on this homepage.</p></div>
+<div class="listcta"><div><h3>{{t.directory.cta_heading}}</h3><p>{{t.directory.cta_body}}</p></div>
 <div class="btns"><a class="btn red" href="/directory/list-your-business">List your business free {{ARROW}}</a><a class="btn ghost" href="/advertise#directory">Get featured</a></div></div>
 </div>
 </section>
-
+<!--/B:directory-->
+<!--B:sponsored-->
 <aside class="spon" aria-label="Sponsored">
 <div><span class="slabel">Sponsored</span><h2>{{SP_TITLE}}</h2><p>{{SP_BODY}}</p><p class="adv">From {{SP_ADV}}</p>
 <a class="btn red" href="{{SP_URL}}" rel="sponsored noopener">{{SP_CTA}} {{ARROW}}</a></div>
 <img src="{{SP_IMG}}" alt="{{SP_ALT}}" loading="lazy">
 </aside>
-
+<!--/B:sponsored-->
+<!--B:why_join-->
 <section class="why" aria-labelledby="why-h">
-<img src="{{WHY}}" alt="Friends laughing with coffee at a car meet" loading="lazy">
-<div><h2 id="why-h">Why join Cars and Coffee UK?</h2><p>Be part of a friendly community of car enthusiasts who meet, share and keep car culture alive.</p>
+<img src="{{t.why_join.image}}" alt="{{t.why_join.image_alt}}" loading="lazy">
+<div><h2 id="why-h">{{t.why_join.heading}}</h2><p>{{t.why_join.body}}</p>
 <ul class="benefits">
-<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Access to member events</li>
-<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 5c4-1 7 0 10 2 3-2 6-3 10-2v14c-4-1-7 0-10 2-3-2-6-3-10-2z"/><path d="M12 7v14"/></svg>Build stories and features</li>
-<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="8" cy="9" r="3"/><circle cx="16" cy="9" r="3"/><path d="M2 20c0-3 3-5 6-5s6 2 6 5M14 15c3 0 8 1 8 5"/></svg>A friendly, like-minded community</li>
-<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.5"/></svg>Member offers and partner perks</li>
+<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>{{t.why_join.benefit_1}}</li>
+<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 5c4-1 7 0 10 2 3-2 6-3 10-2v14c-4-1-7 0-10 2-3-2-6-3-10-2z"/><path d="M12 7v14"/></svg>{{t.why_join.benefit_2}}</li>
+<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="8" cy="9" r="3"/><circle cx="16" cy="9" r="3"/><path d="M2 20c0-3 3-5 6-5s6 2 6 5M14 15c3 0 8 1 8 5"/></svg>{{t.why_join.benefit_3}}</li>
+<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.5"/></svg>{{t.why_join.benefit_4}}</li>
 </ul>
 <ul class="stats" aria-label="Community in numbers">{{STATS}}</ul>
 <div class="btns"><a class="btn red" href="https://club.carsandcoffee.uk/apply">Apply to join {{ARROW}}</a><a class="btn ghost" href="https://club.carsandcoffee.uk/recommend">Recommend a mate</a></div>
 </div>
 </section>
-
+<!--/B:why_join-->
+<!--B:partners-->
 <section class="band" aria-labelledby="partners-h" id="partners">
-<div class="wrap strip"><h2 id="partners-h">Proudly supported by</h2>{{PARTNERS}}</div>
+<div class="wrap strip"><h2 id="partners-h">{{t.partners.heading}}</h2>{{PARTNERS}}</div>
 </section>
-
+<!--/B:partners-->
+<!--B:advertise-->
 <section class="band adv-band" aria-labelledby="adv-h" id="advertise">
-<div class="wrap"><h2 id="adv-h">Advertise with us</h2><p>Put your brand in front of a highly engaged UK car community, online and at our events. Sponsored posts, banners, hub sponsorships, event promotions and directory listings.</p>
+<div class="wrap"><h2 id="adv-h">{{t.advertise.heading}}</h2><p>{{t.advertise.body}}</p>
 <div class="btns"><a class="btn red" href="/advertise#rates">See rates {{ARROW}}</a><a class="btn ghost" href="/advertise/start">Start a campaign</a></div></div>
 </section>
-
+<!--/B:advertise-->
+<!--B:newsletter-->
 <section class="band news-band" aria-labelledby="nl-h" id="newsletter">
-<div class="wrap"><h2 id="nl-h">Newsletter</h2><p>Get the latest events, stories and partner offers, straight to your inbox every week.</p>
+<div class="wrap"><h2 id="nl-h">{{t.newsletter.heading}}</h2><p>{{t.newsletter.body}}</p>
 <form id="nl" novalidate>
 <input type="email" id="nl-email" name="email" autocomplete="email" placeholder="Your email address" aria-label="Email address" required>
 <button class="btn red" type="submit">Subscribe</button>
@@ -499,10 +515,12 @@ footer{background:var(--esp);color:var(--cream);padding:48px 0 24px}
 <p class="msg" id="nl-msg" role="status"></p>
 </form></div>
 </section>
-
+<!--/B:newsletter-->
+<!--B:faqs-->
 <section class="band faqband" aria-labelledby="faq-h" id="faqs">
-<div class="wrap faq"><div><small>FAQ</small><h2 id="faq-h">Frequently asked questions</h2></div><div>{{FAQ}}</div></div>
+<div class="wrap faq"><div><small>FAQ</small><h2 id="faq-h">{{t.faqs.heading}}</h2></div><div>{{FAQ}}</div></div>
 </section>
+<!--/B:faqs-->
 </main>
 
 <footer>

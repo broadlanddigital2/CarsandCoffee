@@ -26,7 +26,13 @@ export function createMock(scenario) {
       faqs: [{ id: 1, question: "How do I join Cars and Coffee UK?", answer: "Tap Join…", sort: 0, published: true }],
       partners: [{ id: "pa1", slug: "le-man-cave", name: "Le Man Cave", tagline: "Racing simulators and Scalextric, Norwich", sort: 2, active: true }],
       partner_features: [{ id: "pf1", partner_id: "pa1", block_key: "race_night", title: "Race Night at Le Man Cave", starts_at: iso(now - day), active: true }],
-      homepage_blocks: [{ key: "hero", title: "Hero: next meet", position: 20, enabled: true }, { key: "events", title: "Upcoming events", position: 40, enabled: true }],
+      homepage_blocks: [{ key: "hero", title: "Hero: next meet", position: 20, enabled: true, settings: {} }, { key: "intro", title: "Intro", position: 30, enabled: true, settings: {} }, { key: "events", title: "Upcoming events", position: 40, enabled: true, settings: {} }, { key: "detail_of_month", title: "Detail of the Month", position: 60, enabled: true, settings: {} }, { key: "why_join", title: "Why join", position: 140, enabled: false, settings: {} }],
+      community_highlights: [{ id: "c1", handle: "@norfolkseries", title: "Bringing a Series IIA back to life", posted_label: "3 days ago", image_path: "homepage/com-1.webp", sort: 0, active: true }],
+      products: [{ id: "pr1", slug: "club-cap", name: "Cars and Coffee UK cap", price_pence: 2200, units_sold_30d: 40, image_path: "homepage/shop-cap.webp", active: true }],
+      gallery_items: [{ id: "g1", slug: "dawn-run", title: "Dawn run", image_path: "homepage/com-3.webp", image_alt: "Classic cars", sort: 0, featured: true }],
+      site_stats: [{ key: "members", label: "members", value: "1,240", is_sample: true }],
+      directory_services: [{ id: 1, name: "Restoration", slug: "restoration", sort: 0 }],
+      directory_regions: [{ id: 1, name: "Norwich", slug: "norwich", sort: 0 }],
       directory_listings: [{ id: "d1", slug: "coastline-detailing", name: "Coastline Detailing", services: ["Detailing"], town: "Norfolk", status: "published", featured: true, created_at: iso(now - day) }],
       sponsored_slots: [{ id: "s1", advertiser: "Sample advertiser", title: "Performance parts", starts_at: iso(now), ends_at: iso(now + 30 * day), status: "approved", impressions: 0, clicks: 0 }],
       newsletter_subscribers: [{ id: "n1", email: "fan@example.com", source: "homepage", created_at: iso(now - day), consent_text: "I'd like to receive emails…", unsubscribed_at: null }],
@@ -63,6 +69,7 @@ export function createMock(scenario) {
       signInWithOAuth: () => ok({}), signInWithOtp: () => ok({}), signOut: () => { location.search = "?mock=signedout"; return ok({}); },
     },
     from: (t) => table("public", t),
+    storage: { from: () => ({ upload: () => ok({ path: "x" }), getPublicUrl: (p) => ({ data: { publicUrl: "https://auth.carsandcoffee.uk/storage/v1/object/public/site-images/" + p } }) }) },
     schema: (s) => ({ from: (t) => table(s, t) }),
     rpc: (name, args) => {
       const r = {

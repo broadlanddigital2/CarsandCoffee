@@ -116,24 +116,42 @@ ld = [
 ]
 
 page = open("template.html", encoding="utf-8").read()
+BLOCK_TEXT = json.load(open("blocks.json", encoding="utf-8"))
+# 1) parts that never change: logo, newsletter config, production-only tweaks
+page = page.replace("{{LOGO}}", LOGO)
+page = page.replace("{{SB}}", json.dumps({"url": "https://auth.carsandcoffee.uk", "key": "sb_publishable_O9p-X8To8z-GisYYSBKoxg_RxAe1-cU"}) if MODE == "prod" else "null")
+if MODE == "prod":
+    import re, shutil
+    page = re.sub(r"/\*PREVIEW\*/.*?/\*END\*/\n", "", page, flags=re.S)
+    page = page.replace('<link rel="preconnect" href="https://fonts.googleapis.com">', '<link rel="preload" as="image" href="/homepage/hero.webp" media="(min-width:601px)"><link rel="preload" as="image" href="/homepage/hero-m.webp" media="(max-width:600px)"><link rel="preconnect" href="https://fonts.googleapis.com">')
+    page = page.replace('<p class="sample">Preview build: events', '<p class="sample">Events')
+    # the website Worker fills the rest from the database (src/home.js)
+    open("../src/home-template.html", "w", encoding="utf-8").write(page)
+    shutil.copy("blocks.json", "../src/blocks.json")
+    shutil.copy("blocks.json", "../admin/public/blocks.json")
+# 2) static fallback copy: block text defaults + content from data.py
+def block_text(m):
+    k, n = m.group(1), m.group(2)
+    f = next(x for x in BLOCK_TEXT[k]["fields"] if x["name"] == n)
+    v = f["default"]
+    if f.get("type") == "image": return img(v.split("/")[-1].rsplit(".", 1)[0]) if MODE != "prod" else "/" + v
+    if k == "intro" and n == "body": return "\n".join(f"<p>{E(x.strip())}</p>" for x in v.split("\n\n"))
+    return E(v)
+import re as _re
+page = page.replace("<!--B:", "<!--B:")  # markers stay as HTML comments
+page = _re.sub(r"\{\{t\.(\w+)\.(\w+)\}\}", block_text, page)
 for k, v in {
-    "LOGO": LOGO, "HERO": img("hero"), "HERO_M": img("hero-m"), "ARROW": ARROW,
+    "ARROW": ARROW,
     "NEXT_TITLE": E(nxt[1]), "NEXT_SLUG": nxt[0], "NEXT_VENUE": E(nxt[5]), "NEXT_DATE": ukdate(nd),
     "NEXT_DOW": nd.strftime("%a"), "NEXT_DM": nd.strftime("%-d %b"), "NEXT_TIME": f"{hhmm(nd)}–{hhmm(ne)}", "NEXT_ISO": nxt[3],
     "BRANDLINE": img("brandline"), "EVENTS_LINK": link("View all events", "/events"), "CHIPS": chips, "EVENTS": events_html, "NEWS": news_html,
     "DREAM": partner_band("detail_of_month", "ao"), "COMMUNITY": community_html, "LIVERY": partner_band("livery_of_week", "rcg"),
     "SHOP": shop_html, "LEMANS": partner_band("race_night", "lmc"), "GALLERY": gallery_html, "DIRECTORY": dir_html,
     "REGIONS": regions, "SVC_TILES": svc_tiles, "SVC_OPTIONS": svc_options, "SP_ADV": E(sp[0]), "SP_TITLE": E(sp[1]), "SP_BODY": E(sp[2]), "SP_IMG": img(sp[3]),
-    "SP_ALT": E(sp[4]), "SP_CTA": E(sp[5]), "SP_URL": sp[6], "WHY": img("whyjoin"), "STATS": stats_html,
+    "SP_ALT": E(sp[4]), "SP_CTA": E(sp[5]), "SP_URL": sp[6], "STATS": stats_html,
     "PARTNERS": partners_strip, "FOOTER_PARTNERS": footer_partners, "FAQ": faq_html, "LD": json.dumps(ld, ensure_ascii=False).replace("</", "<\\/"),
 }.items():
     page = page.replace("{{" + k + "}}", v)
-page = page.replace("{{SB}}", json.dumps({"url": "https://auth.carsandcoffee.uk", "key": "sb_publishable_O9p-X8To8z-GisYYSBKoxg_RxAe1-cU"}) if MODE == "prod" else "null")
-if MODE == "prod":
-    import re
-    page = re.sub(r"/\*PREVIEW\*/.*?/\*END\*/\n", "", page, flags=re.S)
-    page = page.replace('<link rel="preconnect" href="https://fonts.googleapis.com">', '<link rel="preload" as="image" href="/homepage/hero.webp" media="(min-width:601px)"><link rel="preload" as="image" href="/homepage/hero-m.webp" media="(max-width:600px)"><link rel="preconnect" href="https://fonts.googleapis.com">')
-    page = page.replace('<p class="sample">Preview build: events', '<p class="sample">Events')
 assert "{{" not in page, page[page.index("{{"):page.index("{{") + 40]
 open(OUT, "w", encoding="utf-8").write(page)
 print(OUT, len(page) // 1024, "KB")
