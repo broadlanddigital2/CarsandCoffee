@@ -6,7 +6,7 @@ The team back office at **https://admin.carsandcoffee.uk**. Only approved club m
 - **Club:** application queue, members (roles, invite rights, ban/unban), sign-up list and open/invite-only switch, member invites, and the email log with retry.
 
 ## How it works
-- Static single-page app in `public/` (no build step). Styling: CoreUI 5 from cdnjs (falls back to jsDelivr, then unpkg).
+- Static single-page app in `public/` (no build step). Styling: CoreUI 5 from jsDelivr (falls back to unpkg).
 - Data: Supabase project **Cars and Coffee Community** at `auth.carsandcoffee.uk`. Website content lives in the `site` schema; club data in `public`.
 - Security is in the database (row level security): anyone can read published content; only admins and moderators can change it. Some club screens are admin-only.
 - Every save of an SEO page keeps the previous version in `site.page_revisions`.
