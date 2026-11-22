@@ -31,8 +31,10 @@ function layout(preheader: string, body: string, footerNote = "") {
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#efe6da"><tr><td align="center" style="padding:24px 12px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:10px;overflow:hidden">
 <tr><td style="background:#1d130f;padding:20px 28px">
-  <span style="display:inline-block;background:#c00d0d;color:#fff;font:900 15px/1.05 Arial Black,Arial,sans-serif;padding:6px 8px;border-radius:3px;letter-spacing:.5px">CARS<br>COFFEE</span>
-  <span style="font:900 20px Arial Black,Arial,sans-serif;color:#f6ece0;vertical-align:middle;margin-left:10px;letter-spacing:1px">CLUB</span>
+  <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+  <td style="vertical-align:middle"><a href="${CLUB}"><img src="${CLUB}/email/logo.png" width="64" height="62" alt="Cars and Coffee UK" style="display:block;border:0;width:64px;height:62px"></a></td>
+  <td style="vertical-align:middle;padding-left:14px;font:900 22px Arial Black,Arial,sans-serif;color:#f6ece0;letter-spacing:1px">CLUB</td>
+  </tr></table>
 </td></tr>
 <tr><td style="padding:28px 28px 8px;font:16px/1.6 Arial,sans-serif;color:#241712">${body}</td></tr>
 <tr><td style="padding:8px 28px 28px;font:13px/1.5 Arial,sans-serif;color:#7a6a60">${footerNote}
