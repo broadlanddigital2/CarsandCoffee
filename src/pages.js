@@ -72,7 +72,7 @@ function townsFeature(c, events, placePages) {
       <form class="tf-search" role="search" onsubmit="event.preventDefault();var m=${E(map)},v=this.town.value.trim().toLowerCase().replace(/[’']/g,''),h=m[v]||m[Object.keys(m).find(function(k){return v&&k.indexOf(v)===0})];var msg=this.querySelector('.tf-msg');if(h){location.href=h;}else{msg.textContent=v?'We don\\'t have a page for that town yet. Try the nearest town or county.':'Type a town name.';}">
         <label for="tf-town">Your town</label><div class="tf-row"><input id="tf-town" name="town" list="tf-towns" placeholder="e.g. Norwich" autocomplete="off"><button class="btn red" type="submit">Go</button></div>
         <datalist id="tf-towns">${options}</datalist><p class="tf-msg" role="status"></p></form>
-        <script>(function(){var t=new URLSearchParams(location.search).get('town');if(!t)return;var f=document.querySelector('.tf-search');f.town.value=t;f.onsubmit({preventDefault:function(){}});if(!/car-meets\/./.test(location.pathname)){document.querySelector('.tf').scrollIntoView();}})();</script></div>
+        <script>(function(){var t=new URLSearchParams(location.search).get('town');if(!t)return;var f=document.querySelector('.tf-search');f.town.value=t;f.onsubmit({preventDefault:function(){}});document.querySelector('.tf').scrollIntoView();})();</script></div>
     <div class="tf-grid">${panels}</div>
     ${c.coming_soon ? `<div class="tf-next"><strong>Coming next:</strong> ${E(c.coming_soon)} <span class="tf-pills"><span>Cambridgeshire</span><span>Essex</span></span></div>` : ""}
   </div></section>`;
