@@ -44,7 +44,7 @@ export async function renderStandard(p) {
   const ld = [
     { "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: crumbs.map(([name, href], i) => ({ "@type": "ListItem", position: i + 1, name, item: SITE + href })) },
     { "@context": "https://schema.org", "@type": type, name: p.meta_title || p.title, description: p.meta_description || p.intro || "", url: SITE + p.path, dateModified: p.updated_at,
-      ...(type === "AboutPage" || type === "ContactPage" ? { mainEntity: { "@type": "Organization", name: "Cars and Coffee UK", url: SITE, logo: `${SITE}/favicon.svg`, areaServed: ["Norfolk", "Suffolk"] } } : {}) },
+      ...(type === "AboutPage" || type === "ContactPage" ? { mainEntity: { "@type": "Organization", "@id": "https://carsandcoffee.uk/#org", name: "Cars and Coffee UK", url: "https://carsandcoffee.uk/", logo: { "@type": "ImageObject", url: "https://carsandcoffee.uk/logo.png" }, areaServed: ["Norfolk", "Suffolk"] } } : {}) },
   ];
   if (c.faqs?.length) ld.push({ "@context": "https://schema.org", "@type": "FAQPage", mainEntity: c.faqs.map(([qq, a]) => ({ "@type": "Question", name: qq, acceptedAnswer: { "@type": "Answer", text: a } })) });
   return shell({ title: p.meta_title || `${p.title} | Cars and Coffee UK`, description: p.meta_description || p.intro || "", path: p.path, image: p.og_image_path || p.hero_image_path, noindex: p.noindex, ld, main: parts.join("\n"), partners });

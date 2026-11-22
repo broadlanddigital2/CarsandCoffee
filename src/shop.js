@@ -103,7 +103,7 @@ export async function shopHome(params = {}) {
     club.length ? `<section class="lp-sec"><div class="wrap"><div class="head"><h2>Club merch</h2><a class="more" href="/shop/category/clothing">See all ${ARROW}</a></div>${grid(club, byId)}</div></section>` : "",
     `<section class="lp-sec"><div class="wrap"><h2>New in</h2>${grid(latest, byId)}</div></section>`,
     sellCta, newsletterHTML()].join("\n");
-  return shell({ title: "Shop: car parts, car care and clothing | Cars and Coffee UK", description: "Shop car parts, detailing products, tools, clothing and gifts from Cars and Coffee UK and trusted UK specialists.", path: "/shop", ld: ld(crumbs), partners, main });
+  return shell({ title: "Shop: car parts, car care and clothing | Cars and Coffee UK", description: "Shop car parts, detailing products, tools, clothing and gifts from Cars and Coffee UK and trusted UK specialists.", path: "/shop", ld: [ld(crumbs), { "@context": "https://schema.org", "@type": "ItemList", itemListElement: [...featured, ...latest].filter((x, i, a) => a.findIndex((y) => y.slug === x.slug) === i).slice(0, 20).map((x, i) => ({ "@type": "ListItem", position: i + 1, url: SITE + "/shop/" + x.slug })) }], partners, main });
 }
 const shopTile = (s) => `<a class="shp-tile" href="/shops/${E(s.slug)}">${logoHTML(s)}<span><strong>${E(s.name)}</strong>${s.tagline ? `<small>${E(s.tagline)}</small>` : ""}</span></a>`;
 
@@ -186,7 +186,7 @@ export async function shopsIndex() {
   const crumbs = [["Home", "/"], ["Shop", "/shop"], ["Partner shops", "/shops"]];
   const main = [crumbsHTML(crumbs), `<section class="lp-sec" style="border:0;padding-top:24px"><div class="wrap"><h1 class="shp-h1">Partner shops</h1><p class="lp-lead">Specialists selling through Cars and Coffee UK. Every shop has its own page, and its products appear across the main shop too.</p>
     ${shops.length ? `<div class="shp-shops big">${shops.map(shopTile).join("")}</div>` : `<p class="lp-empty">Partner shops are coming soon.</p>`}</div></section>`, sellCta].join("\n");
-  return shell({ title: "Partner shops | Cars and Coffee UK", description: "Car parts, detailing and specialist shops selling through Cars and Coffee UK.", path: "/shops", ld: ld(crumbs), partners, main });
+  return shell({ title: "Partner shops | Cars and Coffee UK", description: "Car parts, detailing and specialist shops selling through Cars and Coffee UK.", path: "/shops", ld: [ld(crumbs), { "@context": "https://schema.org", "@type": "ItemList", itemListElement: shops.map((x, i) => ({ "@type": "ListItem", position: i + 1, url: SITE + "/shops/" + x.slug })) }], partners, main });
 }
 
 // ---------- /shops/<shop>(/<category>) ----------

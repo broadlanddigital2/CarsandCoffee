@@ -11,9 +11,22 @@ const slug = (x) => String(x).toLowerCase().replace(/[’']/g, "").replace(/ and
 const enc = (s) => encodeURIComponent(s);
 
 // The page shell: the homepage template with its <main>, title and meta swapped for this page's.
+// Every page gets a page-level schema.org entity (unless it already has a main one such as an Event or Product),
+// and page entities are tied to the WebSite so Google sees one site.
+const MAIN_TYPES = /^(WebPage|CollectionPage|AboutPage|ContactPage|ItemPage|SearchResultsPage|Product|Event|NewsArticle|Article|AutoRepair|AutomotiveBusiness|LocalBusiness|Store|ImageGallery)$/;
+const PAGE_TYPES = /^(WebPage|CollectionPage|AboutPage|ContactPage|ItemPage|SearchResultsPage|ImageGallery)$/;
+function withPageEntity(ld, { title, description, url, image, path }) {
+  const list = (Array.isArray(ld) ? ld : ld ? [ld] : []).map((x) => (x && PAGE_TYPES.test(x["@type"]) && !x.isPartOf ? { ...x, isPartOf: { "@id": SITE + "/#website" } } : x));
+  if (!list.some((x) => x && MAIN_TYPES.test(x["@type"]))) {
+    const type = path === "/search" ? "SearchResultsPage" : list.some((x) => x && x["@type"] === "ItemList") ? "CollectionPage" : "WebPage";
+    list.push({ "@context": "https://schema.org", "@type": type, name: title, description, url, isPartOf: { "@id": SITE + "/#website" }, ...(image ? { primaryImageOfPage: image.startsWith("http") ? image : SITE + img(image) } : {}) });
+  }
+  return list;
+}
 export function shell({ title, description, path, image, noindex, ld, main, partners, ogType, published }) {
   let html = TEMPLATE;
   const url = SITE + path;
+  ld = withPageEntity(ld, { title, description, url, image, path });
   html = html.replace(/<title>[\s\S]*?<\/title>/, `<title>${E(title)}</title>`)
     .replace(/<meta name="description" content="[^"]*">/, `<meta name="description" content="${E(description)}">${noindex ? '<meta name="robots" content="noindex, follow">' : ""}`)
     .replace(/<link rel="canonical" href="[^"]*">/, `<link rel="canonical" href="${E(url)}">`)

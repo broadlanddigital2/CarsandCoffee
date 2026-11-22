@@ -1,5 +1,5 @@
 // Event, news and guide pages (and their listing pages), rendered from the database inside the homepage's header and footer.
-import { E, img, ARROW, q, eventCard, EVENT_TYPES, TICKET, money, fmt, nearYou, placesQ } from "./home.js";
+import { ORG, E, img, ARROW, q, eventCard, EVENT_TYPES, TICKET, money, fmt, nearYou, placesQ } from "./home.js";
 import { shell, directions, newsletterHTML, crumbsHTML } from "./pages.js";
 import { sanitize, safeUrl } from "./sanitize.js";
 import { carsIndex } from "./standard.js";
@@ -135,8 +135,8 @@ async function eventPage(slug) {
   const loc = v ? { "@type": "Place", name: v.name, address: { "@type": "PostalAddress", streetAddress: v.address_line || undefined, addressLocality: v.town || undefined, postalCode: v.postcode || undefined, addressRegion: v.county || undefined, addressCountry: "GB" },
     ...(v.lat != null && !v.approximate ? { geo: { "@type": "GeoCoordinates", latitude: v.lat, longitude: v.lng } } : {}) } : { "@type": "Place", name: e.venue, address: { "@type": "PostalAddress", addressRegion: e.county || "Norfolk", addressCountry: "GB" } };
   const ld = [ldLink(crumbs), { "@context": "https://schema.org", "@type": "Event", name: e.title, description: e.summary || clip(plain(rich)), startDate: e.starts_at, endDate: e.ends_at,
-    eventStatus: "https://schema.org/EventScheduled", eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode", location: loc, image: e.image_path ? [SITE + img(e.image_path)] : undefined,
-    organizer: { "@type": "Organization", name: "Cars and Coffee UK", url: SITE },
+    eventStatus: "https://schema.org/EventScheduled", eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode", location: loc, image: [e.image_path ? SITE + img(e.image_path) : SITE + "/og-home.jpg"],
+    organizer: ORG,
     offers: { "@type": "Offer", price: ((e.price_pence || 0) / 100).toFixed(2), priceCurrency: "GBP", url: e.ticket_url || `${SITE}/events/${e.slug}`, availability: e.ticket_status === "sold_out" ? "https://schema.org/SoldOut" : "https://schema.org/InStock" } }];
   return shell({ title: e.meta_title || `${e.title}, ${fmt(e.starts_at, { day: "numeric", month: "short", year: "numeric" })} | Cars and Coffee UK`, description: e.meta_description || e.summary || clip(plain(rich)) || `${type} at ${e.venue}`,
     path: `/events/${e.slug}`, image: e.image_path, noindex: false, ld, main: html, partners });
@@ -201,7 +201,7 @@ async function articlePage(slug) {
     newsletterHTML()].join("\n");
   const ld = [ldLink(crumbs), { "@context": "https://schema.org", "@type": "NewsArticle", headline: a.title, description: a.excerpt || clip(plain(rich)), datePublished: a.published_at, mainEntityOfPage: url,
     image: [a.image_path, ...gallery.map((x) => x.src)].filter(Boolean).slice(0, 6).map((x) => (x.startsWith("http") ? x : SITE + img(x))), author: { "@type": a.author && a.author !== "Cars and Coffee team" ? "Person" : "Organization", name: a.author || "Cars and Coffee UK" },
-    publisher: { "@type": "Organization", name: "Cars and Coffee UK", logo: { "@type": "ImageObject", url: `${SITE}/favicon.svg` } } }];
+    publisher: ORG }];
   return shell({ title: a.meta_title || `${a.title} | Cars and Coffee UK`, description: a.meta_description || a.excerpt || clip(plain(rich)), path: `/news/${a.slug}`, image: a.image_path || gallery[0]?.src, ld, main: html, partners, ogType: "article", published: a.published_at });
 }
 const newsCard = (a) => `<a class="news-card" href="/news/${E(a.slug)}">${a.image_path ? `<img src="${E(img(a.image_path))}" alt="${E(a.image_alt || "")}" loading="lazy" width="600" height="340">` : ""}<div class="pad"><small>${E(a.category || "News")}${a.published_at ? ` · ${E(fmt(a.published_at, { day: "numeric", month: "short", year: "numeric" }))}` : ""}</small><h3>${E(a.title)}</h3>${a.excerpt ? `<p>${E(a.excerpt)}</p>` : ""}<span class="more">Read more ${ARROW}</span></div></a>`;
@@ -241,7 +241,7 @@ async function guidePage(slug) {
     others.length ? `<section class="lp-sec"><div class="wrap"><h2>More guides</h2><div class="news-grid">${others.map(guideCard).join("")}</div></div></section>` : "",
     newsletterHTML()].join("\n");
   const ld = [ldLink(crumbs), { "@context": "https://schema.org", "@type": "Article", headline: g.title, description: g.intro || clip(plain(rich)), dateModified: g.updated_at, datePublished: g.created_at, mainEntityOfPage: `${SITE}/guides/${g.slug}`,
-    image: g.image_path ? [SITE + img(g.image_path)] : undefined, author: { "@type": "Organization", name: "Cars and Coffee UK" }, publisher: { "@type": "Organization", name: "Cars and Coffee UK" } }];
+    image: g.image_path ? [SITE + img(g.image_path)] : undefined, author: ORG, publisher: ORG }];
   return shell({ title: g.meta_title || `${g.title} | Cars and Coffee UK`, description: g.meta_description || g.intro || clip(plain(rich)), path: `/guides/${g.slug}`, image: g.image_path, ld, main: html, partners });
 }
 const guideCard = (g) => `<a class="news-card" href="/guides/${E(g.slug)}">${g.image_path ? `<img src="${E(img(g.image_path))}" alt="${E(g.image_alt || "")}" loading="lazy" width="600" height="340">` : ""}<div class="pad"><small>Guide</small><h3>${E(g.title)}</h3>${g.intro ? `<p>${E(g.intro)}</p>` : ""}<span class="more">Read the guide ${ARROW}</span></div></a>`;
@@ -252,7 +252,7 @@ async function guidesList() {
     `<section class="lp-sec news-top"><div class="wrap"><span class="eyebrow red">Know-how</span><h1 class="page-h1">Guides</h1><p class="lp-lead">Practical help for car meets, ownership and getting involved.</p>
       ${guides.length ? `<div class="news-grid">${guides.map(guideCard).join("")}</div>` : `<p class="lp-empty">Guides coming soon.</p>`}</div></section>`,
     newsletterHTML()].join("\n");
-  return shell({ title: "Guides | Cars and Coffee UK", description: "Practical guides from Cars and Coffee UK: your first car meet, meet etiquette, ownership tips and more.", path: "/guides", ld: [ldLink(crumbs)], main: html, partners });
+  return shell({ title: "Guides | Cars and Coffee UK", description: "Practical guides from Cars and Coffee UK: your first car meet, meet etiquette, ownership tips and more.", path: "/guides", ld: [ldLink(crumbs), { "@context": "https://schema.org", "@type": "ItemList", itemListElement: guides.map((x, i) => ({ "@type": "ListItem", position: i + 1, url: SITE + "/guides/" + x.slug })) }], main: html, partners });
 }
 
 // ---------- shared ----------

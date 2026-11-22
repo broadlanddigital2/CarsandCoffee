@@ -237,7 +237,7 @@ export async function servicesIndex() {
   const [services, listings, partners] = await Promise.all([q("directory_services?select=name,slug&order=sort"), q(`directory_listings?select=${LIST}&limit=300`), partnersQ()]);
   const crumbs = [["Home", "/"], ["Directory", "/directory"], ["Services", "/directory/services"]];
   const main = [crumbsHTML(crumbs), `<section class="lp-sec std-head"><div class="wrap"><span class="eyebrow red">Directory</span><h1 class="page-h1">Car services</h1><p class="lp-lead">Pick a service to find trusted local specialists.</p>${svcTiles(services, listings)}</div></section>`, listCta].join("\n");
-  return shell({ title: "Car services in Norfolk and Suffolk | Cars and Coffee UK", description: "Browse trusted local car services in Norfolk and Suffolk by type: restoration, servicing, tuning, bodywork, wraps, detailing, tyres and storage.", path: "/directory/services", ld: [ld(crumbs)], main, partners });
+  return shell({ title: "Car services in Norfolk and Suffolk | Cars and Coffee UK", description: "Browse trusted local car services in Norfolk and Suffolk by type: restoration, servicing, tuning, bodywork, wraps, detailing, tyres and storage.", path: "/directory/services", ld: [ld(crumbs), { "@context": "https://schema.org", "@type": "ItemList", itemListElement: services.map((x, i) => ({ "@type": "ListItem", position: i + 1, url: SITE + "/directory/service/" + x.slug })) }], main, partners });
 }
 
 // ---------- /directory/region/<area> ----------
@@ -256,7 +256,7 @@ export async function regionPage(slug) {
   const main = [crumbsHTML(crumbs), `<section class="lp-sec std-head"><div class="wrap"><span class="eyebrow red">Directory</span><h1 class="page-h1">Car businesses in ${E(name.replace(/^All of /, ""))}</h1><p class="lp-lead">Trusted garages, detailers and specialists in and around ${E(name.replace(/^All of /, ""))}.</p></div></section>`,
     list.length ? `<section class="lp-sec"><div class="wrap"><div class="bizs">${list.map(bizCard).join("")}</div></div></section>` : `<section class="lp-sec"><div class="wrap"><p class="lp-empty">We're still checking businesses here. <a href="/directory">Browse the whole directory</a> or <a href="/directory/list-your-business">list yours</a>.</p></div></section>`,
     `<section class="lp-sec"><div class="wrap"><h2>Browse by service</h2>${svcTiles(services, list)}</div></section>`, listCta].join("\n");
-  return shell({ title: `Car Garages and Specialists in ${name.replace(/^All of /, "")} | Cars and Coffee`, description: `Trusted car businesses in ${name.replace(/^All of /, "")}: garages, detailers, restorers and specialists checked by the Cars and Coffee team.`, path: `/directory/region/${slug}`, ld: [ld(crumbs)], main, partners });
+  return shell({ title: `Car Garages and Specialists in ${name.replace(/^All of /, "")} | Cars and Coffee`, description: `Trusted car businesses in ${name.replace(/^All of /, "")}: garages, detailers, restorers and specialists checked by the Cars and Coffee team.`, path: `/directory/region/${slug}`, ld: [ld(crumbs), { "@context": "https://schema.org", "@type": "ItemList", itemListElement: list.slice(0, 30).map((x, i) => ({ "@type": "ListItem", position: i + 1, url: SITE + "/directory/" + x.slug })) }], main, partners });
 }
 
 // ---------- /directory/list-your-business ----------

@@ -10,6 +10,7 @@ const TZ = "Europe/London";
 
 export const EVENT_TYPES = { meet: "Meet", race: "Race night", tour: "Tour", garage: "Garage night", watch: "Watch party", track: "Track day", show: "Show" };
 export const TICKET = { free_rsvp: "Free · RSVP", selling_fast: "Selling fast", on_sale: "On sale", sold_out: "Sold out" };
+export const ORG = { "@type": "Organization", "@id": "https://carsandcoffee.uk/#org", name: "Cars and Coffee UK", url: "https://carsandcoffee.uk/", logo: { "@type": "ImageObject", url: "https://carsandcoffee.uk/logo.png", width: 168, height: 164 }, areaServed: ["Norfolk", "Suffolk"] };
 export const ARROW = '<svg class="ar" viewBox="0 0 20 12" aria-hidden="true"><path d="M0 6h17M12 1l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
 export const SVC_ICON = {
   restoration: '<path d="M14 6a4 4 0 0 0-5 5l-6 6 3 3 6-6a4 4 0 0 0 5-5l-2 2-2-1-1-2z"/>',
@@ -205,8 +206,8 @@ export function renderHome(d) {
   const sp = d.sponsored.find((s) => new Date(s.starts_at) <= new Date() && new Date(s.ends_at) > new Date());
 
   const ld = [
-    { "@context": "https://schema.org", "@type": "Organization", name: "Cars and Coffee UK", url: SITE + "/", logo: SITE + "/logo.png" },
-    { "@context": "https://schema.org", "@type": "WebSite", name: "Cars and Coffee UK", url: SITE + "/", potentialAction: { "@type": "SearchAction", target: SITE + "/search?q={q}", "query-input": "required name=q" } },
+    { "@context": "https://schema.org", ...ORG, sameAs: ["https://club.carsandcoffee.uk/"] },
+    { "@context": "https://schema.org", "@type": "WebSite", "@id": SITE + "/#website", name: "Cars and Coffee UK", url: SITE + "/", publisher: { "@id": SITE + "/#org" }, potentialAction: { "@type": "SearchAction", target: SITE + "/search?q={q}", "query-input": "required name=q" } },
     { "@context": "https://schema.org", "@type": "ItemList", name: "Upcoming events", itemListElement: events.map((e, i) => ({ "@type": "ListItem", position: i + 1, item: {
       "@type": "Event", name: e.title, startDate: e.starts_at, endDate: e.ends_at, eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode", eventStatus: "https://schema.org/EventScheduled",
       location: { "@type": "Place", name: e.venue, address: { "@type": "PostalAddress", addressRegion: e.region || "Norfolk", addressCountry: "GB" } },
