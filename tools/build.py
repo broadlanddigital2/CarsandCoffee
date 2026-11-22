@@ -128,7 +128,7 @@ for k, v in {
     "PARTNERS": partners_strip, "FOOTER_PARTNERS": footer_partners, "FAQ": faq_html, "LD": json.dumps(ld, ensure_ascii=False).replace("</", "<\\/"),
 }.items():
     page = page.replace("{{" + k + "}}", v)
-page = page.replace("{{SB}}", json.dumps({"url": "https://dipjypzrfigkzuarlsov.supabase.co", "key": "sb_publishable_KLK1Ucd9ilVSwzSGL1vkug_3SGGh4NF"}) if MODE == "prod" else "null")
+page = page.replace("{{SB}}", json.dumps({"url": "https://auth.carsandcoffee.uk", "key": "sb_publishable_O9p-X8To8z-GisYYSBKoxg_RxAe1-cU"}) if MODE == "prod" else "null")
 if MODE == "prod":
     import re
     page = re.sub(r"/\*PREVIEW\*/.*?/\*END\*/\n", "", page, flags=re.S)
@@ -147,27 +147,27 @@ def q(v):
     return "'" + str(v).replace("'", "''") + "'"
 def r2(n): return f"homepage/{n}.webp"
 seed = []
-seed.append("insert into cac.homepage_blocks (key,title,position) values " + ",".join(f"({q(k)},{q(t)},{i*10})" for i, (k, t) in enumerate(BLOCKS, 1)) + ";")
-seed.append("insert into cac.events (slug,title,event_type,starts_at,ends_at,venue,region,price_pence,ticket_status,image_path,image_alt) values " +
+seed.append("insert into site.homepage_blocks (key,title,position) values " + ",".join(f"({q(k)},{q(t)},{i*10})" for i, (k, t) in enumerate(BLOCKS, 1)) + ";")
+seed.append("insert into site.events (slug,title,event_type,starts_at,ends_at,venue,region,price_pence,ticket_status,image_path,image_alt) values " +
             ",".join(f"({q(e[0])},{q(e[1])},{q(e[2])},{q(e[3])},{q(e[4])},{q(e[5])},{q(e[6])},{e[7]},{q(e[8])},{q(r2(e[9]))},{q(e[10])})" for e in EVENTS) + ";")
-seed.append("insert into cac.articles (slug,title,category,excerpt,image_path,image_alt,read_minutes,featured,published_at) values " +
+seed.append("insert into site.articles (slug,title,category,excerpt,image_path,image_alt,read_minutes,featured,published_at) values " +
             ",".join(f"({q(a[0])},{q(a[1])},{q(a[2])},{q(a[3])},{q(r2(a[4]))},{q(a[5])},{a[6]},{q(a[7])},{q(a[8])})" for a in ARTICLES) + ";")
-seed.append("insert into cac.community_highlights (handle,title,excerpt,image_path,image_alt,sort) values " +
+seed.append("insert into site.community_highlights (handle,title,excerpt,image_path,image_alt,sort) values " +
             ",".join(f"({q(c[0])},{q(c[1])},{q(c[2])},{q(r2(c[3]))},{q(c[4])},{i})" for i, c in enumerate(COMMUNITY)) + ";")
-seed.append("insert into cac.products (slug,name,price_pence,member_price_pence,badge,image_path,image_alt,units_sold_30d) values " +
+seed.append("insert into site.products (slug,name,price_pence,member_price_pence,badge,image_path,image_alt,units_sold_30d) values " +
             ",".join(f"({q(p[0])},{q(p[1])},{p[2]},{q(p[3])},{q(p[4])},{q(r2(p[5]))},{q(p[6])},{40-i*8})" for i, p in enumerate(PRODUCTS)) + ";")
-seed.append("insert into cac.gallery_items (slug,title,image_path,image_alt,sort) values " +
+seed.append("insert into site.gallery_items (slug,title,image_path,image_alt,sort) values " +
             ",".join(f"({q(g[0])},{q(g[1])},{q(r2(g[2]))},{q(g[3])},{i})" for i, g in enumerate(GALLERY)) + ";")
-seed.append("insert into cac.directory_regions (name,slug,sort) values " + ",".join(f"({q(r)},{q(slug(r))},{i})" for i, r in enumerate(REGIONS)) + ";")
-seed.append("insert into cac.directory_services (name,slug,sort) values " + ",".join(f"({q(s)},{q(slug(s))},{i})" for i, s in enumerate(SERVICES)) + ";")
-seed.append("insert into cac.directory_listings (slug,name,services,town,region,image_path,image_alt,featured) values " +
+seed.append("insert into site.directory_regions (name,slug,sort) values " + ",".join(f"({q(r)},{q(slug(r))},{i})" for i, r in enumerate(REGIONS)) + ";")
+seed.append("insert into site.directory_services (name,slug,sort) values " + ",".join(f"({q(s)},{q(slug(s))},{i})" for i, s in enumerate(SERVICES)) + ";")
+seed.append("insert into site.directory_listings (slug,name,services,town,region,image_path,image_alt,featured) values " +
             ",".join(f"({q(b[0])},{q(b[1])},{q(b[2])},{q(b[3])},{q('East Anglia')},{q(r2(b[4]))},{q(b[5])},true)" for b in DIRECTORY) + ";")
-seed.append("insert into cac.partners (slug,name,tagline,page_path,logo_path,sort) values " + ",".join(f"({q(p[0])},{q(p[1])},{q(p[2])},{q(p[3])},{q('partners/'+p[4])},{i})" for i, p in enumerate(PARTNERS)) + ";")
+seed.append("insert into site.partners (slug,name,tagline,page_path,logo_path,sort) values " + ",".join(f"({q(p[0])},{q(p[1])},{q(p[2])},{q(p[3])},{q('partners/'+p[4])},{i})" for i, p in enumerate(PARTNERS)) + ";")
 for f in PARTNER_FEATURES:
-    seed.append("insert into cac.partner_features (partner_id,block_key,title,body,extra,image_path,image_alt,cta_label,cta_url,cta2_label,cta2_url,countdown_to) "
-                f"select id,{q(f[1])},{q(f[2])},{q(f[3])},{q(f[11])},{q(r2(f[4]))},{q(f[5])},{q(f[6])},{q(f[7])},{q(f[8])},{q(f[9])},{q(f[10])} from cac.partners where slug={q(f[0])};")
-seed.append(f"insert into cac.sponsored_slots (advertiser,title,body,image_path,image_alt,cta_label,cta_url,starts_at,ends_at) values ({q(sp[0])},{q(sp[1])},{q(sp[2])},{q(r2(sp[3]))},{q(sp[4])},{q(sp[5])},{q(sp[6])},now(),now()+interval '30 days');")
-seed.append("insert into cac.faqs (question,answer,sort) values " + ",".join(f"({q(a)},{q(b)},{i})" for i, (a, b) in enumerate(FAQS)) + ";")
-seed.append("insert into cac.site_stats (key,label,value,is_sample) values " + ",".join(f"({q(l.replace(' ','_'))},{q(l)},{q(n)},true)" for n, l in STATS) + ";")
+    seed.append("insert into site.partner_features (partner_id,block_key,title,body,extra,image_path,image_alt,cta_label,cta_url,cta2_label,cta2_url,countdown_to) "
+                f"select id,{q(f[1])},{q(f[2])},{q(f[3])},{q(f[11])},{q(r2(f[4]))},{q(f[5])},{q(f[6])},{q(f[7])},{q(f[8])},{q(f[9])},{q(f[10])} from site.partners where slug={q(f[0])};")
+seed.append(f"insert into site.sponsored_slots (advertiser,title,body,image_path,image_alt,cta_label,cta_url,starts_at,ends_at) values ({q(sp[0])},{q(sp[1])},{q(sp[2])},{q(r2(sp[3]))},{q(sp[4])},{q(sp[5])},{q(sp[6])},now(),now()+interval '30 days');")
+seed.append("insert into site.faqs (question,answer,sort) values " + ",".join(f"({q(a)},{q(b)},{i})" for i, (a, b) in enumerate(FAQS)) + ";")
+seed.append("insert into site.site_stats (key,label,value,is_sample) values " + ",".join(f"({q(l.replace(' ','_'))},{q(l)},{q(n)},true)" for n, l in STATS) + ";")
 open("../supabase/seed_homepage.sql", "w").write("\n".join(seed) + "\n")
 print("seed.sql ok")

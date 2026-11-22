@@ -578,14 +578,14 @@ const bg=$('.burger'),dr=$('#drawer');bg.addEventListener('click',()=>{const o=d
 // basket
 for(const b of $$('.add'))b.addEventListener('click',()=>say(b.dataset.name+' added to your basket'));
 
-// newsletter: saves to cac.newsletter_subscribers in the CRM (Supabase) when SB is set
+// newsletter: saves to site.newsletter_subscribers in the Cars and Coffee database (Supabase) when SB is set
 const SB={{SB}};
 $('#nl').addEventListener('submit',async ev=>{ev.preventDefault();const em=$('#nl-email'),ok=$('#nl-consent').checked,m=$('#nl-msg');
  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em.value)){m.textContent='Please enter a valid email address.';em.focus();return}
  if(!ok){m.textContent='Please tick the box to agree to receive emails.';return}
  if(!SB){m.textContent='Thanks! On the live site this saves your sign-up to the CRM. (Preview: nothing was sent.)';em.value='';return}
  m.textContent='Signing you up…';
- try{const r=await fetch(SB.url+'/rest/v1/newsletter_subscribers',{method:'POST',headers:{apikey:SB.key,Authorization:'Bearer '+SB.key,'Content-Type':'application/json','Content-Profile':'cac',Prefer:'return=minimal'},body:JSON.stringify({email:em.value.trim(),consent:true,source:'homepage'})});
+ try{const r=await fetch(SB.url+'/rest/v1/newsletter_subscribers',{method:'POST',headers:{apikey:SB.key,Authorization:'Bearer '+SB.key,'Content-Type':'application/json','Content-Profile':'site',Prefer:'return=minimal'},body:JSON.stringify({email:em.value.trim(),consent:true,source:'homepage'})});
   if(r.ok){m.textContent='Thanks! You’re on the list.';em.value=''}
   else if(r.status===409){m.textContent='You’re already subscribed. Thanks!'}
   else{m.textContent='Sorry, something went wrong. Please try again later.'}

@@ -1,0 +1,15 @@
+// Cloudflare Worker for the back office: https://admin.carsandcoffee.uk
+// Static single-page app in ./public (no build step), CoreUI styling from a CDN.
+// Talks to the "Cars and Coffee Community" Supabase project (auth.carsandcoffee.uk); only approved admins and moderators can use it.
+{
+  "name": "carsandcoffee-admin",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "./public",
+    "not_found_handling": "single-page-application"
+  },
+  "routes": [
+    { "pattern": "admin.carsandcoffee.uk", "custom_domain": true }
+  ],
+  "workers_dev": true
+}

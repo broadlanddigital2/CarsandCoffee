@@ -527,7 +527,7 @@ footer{background:var(--esp);color:var(--cream);padding:48px 0 24px}
 <p class="meta"><span class="loc"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s7-7.5 7-13a7 7 0 0 0-14 0c0 5.5 7 13 7 13z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="9" r="2.5" fill="currentColor"/></svg>Norfolk</span>
 <span class="ver"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5 9-10" fill="none" stroke="currentColor" stroke-width="2.6"/></svg>Checked by us</span></p>
 <span class="more">View business <svg class="ar" viewBox="0 0 20 12" aria-hidden="true"><path d="M0 6h17M12 1l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></span></div></a></article></div>
-<div class="dirlinks"><b>Browse by region</b><a href="/directory/region/east-anglia">East Anglia</a><a href="/directory/region/south-east">South East</a><a href="/directory/region/london">London</a><a href="/directory/region/midlands">Midlands</a><a href="/directory/region/north">North</a><a href="/directory/region/wales">Wales</a><a href="/directory/region/scotland">Scotland</a></div>
+<div class="dirlinks"><b>Browse by region</b><a href="/directory/region/norwich">Norwich</a><a href="/directory/region/great-yarmouth">Great Yarmouth</a><a href="/directory/region/kings-lynn">Kings Lynn</a><a href="/directory/region/north-norfolk">North Norfolk</a><a href="/directory/region/ipswich">Ipswich</a><a href="/directory/region/bury-st-edmunds">Bury St Edmunds</a><a href="/directory/region/lowestoft">Lowestoft</a><a href="/directory/region/all-of-norfolk">All of Norfolk</a><a href="/directory/region/all-of-suffolk">All of Suffolk</a></div>
 <div class="listcta"><div><h3>Run a car business?</h3><p>Get in front of thousands of local enthusiasts. Basic listings are free; featured spots put you on this homepage.</p></div>
 <div class="btns"><a class="btn red" href="/directory/list-your-business">List your business free <svg class="ar" viewBox="0 0 20 12" aria-hidden="true"><path d="M0 6h17M12 1l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></a><a class="btn ghost" href="/advertise#directory">Get featured</a></div></div>
 </div>
@@ -654,14 +654,14 @@ const bg=$('.burger'),dr=$('#drawer');bg.addEventListener('click',()=>{const o=d
 // basket
 for(const b of $$('.add'))b.addEventListener('click',()=>say(b.dataset.name+' added to your basket'));
 
-// newsletter: saves to cac.newsletter_subscribers in the CRM (Supabase) when SB is set
-const SB={"url": "https://dipjypzrfigkzuarlsov.supabase.co", "key": "sb_publishable_KLK1Ucd9ilVSwzSGL1vkug_3SGGh4NF"};
+// newsletter: saves to site.newsletter_subscribers in the Cars and Coffee database (Supabase) when SB is set
+const SB={"url": "https://auth.carsandcoffee.uk", "key": "sb_publishable_O9p-X8To8z-GisYYSBKoxg_RxAe1-cU"};
 $('#nl').addEventListener('submit',async ev=>{ev.preventDefault();const em=$('#nl-email'),ok=$('#nl-consent').checked,m=$('#nl-msg');
  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em.value)){m.textContent='Please enter a valid email address.';em.focus();return}
  if(!ok){m.textContent='Please tick the box to agree to receive emails.';return}
  if(!SB){m.textContent='Thanks! On the live site this saves your sign-up to the CRM. (Preview: nothing was sent.)';em.value='';return}
  m.textContent='Signing you up…';
- try{const r=await fetch(SB.url+'/rest/v1/newsletter_subscribers',{method:'POST',headers:{apikey:SB.key,Authorization:'Bearer '+SB.key,'Content-Type':'application/json','Content-Profile':'cac',Prefer:'return=minimal'},body:JSON.stringify({email:em.value.trim(),consent:true,source:'homepage'})});
+ try{const r=await fetch(SB.url+'/rest/v1/newsletter_subscribers',{method:'POST',headers:{apikey:SB.key,Authorization:'Bearer '+SB.key,'Content-Type':'application/json','Content-Profile':'site',Prefer:'return=minimal'},body:JSON.stringify({email:em.value.trim(),consent:true,source:'homepage'})});
   if(r.ok){m.textContent='Thanks! You’re on the list.';em.value=''}
   else if(r.status===409){m.textContent='You’re already subscribed. Thanks!'}
   else{m.textContent='Sorry, something went wrong. Please try again later.'}

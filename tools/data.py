@@ -66,7 +66,7 @@ DIRECTORY = [
     ("riverside-performance", "Riverside Performance", ["Servicing", "Tuning", "MOT"], "Suffolk", "dir-2", "Stacked tyres in a performance garage"),
     ("coastline-detailing", "Coastline Detailing", ["Detailing", "Ceramic coating", "Paint correction"], "Norfolk", "gal-aston", "Gleaming silver classic car after a full detail"),
 ]
-REGIONS = ["East Anglia", "South East", "London", "Midlands", "North", "Wales", "Scotland"]
+REGIONS = ["Norwich", "Great Yarmouth", "Kings Lynn", "North Norfolk", "Ipswich", "Bury St Edmunds", "Lowestoft", "All of Norfolk", "All of Suffolk"]
 SERVICES = ["Restoration", "Servicing", "Tuning", "Bodywork", "Wraps and graphics", "Detailing", "Tyres", "Storage"]
 
 PARTNERS = [

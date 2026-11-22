@@ -1,0 +1,633 @@
+// Cars and Coffee admin (admin.carsandcoffee.uk): website pages and SEO, Google Ads landing pages, homepage content, and club moderation.
+// Plain ES modules, no build step. CoreUI provides the styling. Data: "Cars and Coffee Community" Supabase project.
+import { analyse, slugify, labelType, LIMITS, utmUrl, md } from "/seo.js";
+
+const SUPABASE_URL = "https://auth.carsandcoffee.uk";
+const SUPABASE_KEY = "sb_publishable_O9p-X8To8z-GisYYSBKoxg_RxAe1-cU"; // publishable key: safe in the browser
+const SITE = "https://www.carsandcoffee.uk";
+const MOCK = new URLSearchParams(location.search).get("mock");
+
+async function loadSupabase() {
+  for (const src of ["https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm", "https://esm.sh/@supabase/supabase-js@2.45.4", "https://unpkg.com/@supabase/supabase-js@2.45.4/dist/module/index.js?module"]) {
+    for (let i = 0; i < 2; i++) { try { return await import(src); } catch { await new Promise((r) => setTimeout(r, 400)); } }
+  }
+  return null;
+}
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const view = $("#view");
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmtDate = (d, time = false) => d ? new Date(d).toLocaleString("en-GB", time ? { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" } : { day: "numeric", month: "short", year: "numeric" }) : "";
+const ago = (d) => { if (!d) return ""; const m = Math.round((Date.now() - new Date(d)) / 6e4); return m < 60 ? `${m}m ago` : m < 1440 ? `${Math.round(m / 60)}h ago` : `${Math.round(m / 1440)}d ago`; };
+function toast(msg, err = false) { const t = document.createElement("div"); t.className = "toast-msg" + (err ? " err" : ""); t.textContent = msg; $("#toast").append(t); setTimeout(() => t.remove(), err ? 6000 : 3000); }
+const oops = (e) => toast(e?.message || String(e) || "Something went wrong", true);
+
+let sb;
+if (MOCK) sb = (await import("/mock.js")).createMock(MOCK);
+else {
+  const lib = await loadSupabase();
+  if (!lib) { view.innerHTML = `<div class="card mt-5 mx-auto" style="max-width:480px"><div class="card-body"><h2 class="h4">Couldn't connect</h2><p>We couldn't load the admin just now. Check your connection and try again.</p><button class="btn btn-primary" onclick="location.reload()">Try again</button></div></div>`; throw new Error("supabase failed to load"); }
+  sb = lib.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { flowType: "pkce", persistSession: true, detectSessionInUrl: true, storageKey: "cac-admin-auth" } });
+}
+const site = () => sb.schema("site");
+
+// ---------- state ----------
+const state = { session: null, profile: null, stats: null };
+const isTeam = () => state.profile?.status === "approved" && ["admin", "moderator"].includes(state.profile?.role);
+const isAdmin = () => state.profile?.status === "approved" && state.profile?.role === "admin";
+async function loadMe() {
+  const { data: { session } } = await sb.auth.getSession();
+  state.session = session; state.profile = null;
+  if (!session) return;
+  const { data } = await sb.from("profiles").select("id,display_name,handle,status,role").eq("id", session.user.id).maybeSingle();
+  state.profile = data;
+}
+
+// ---------- routing ----------
+const routes = [];
+const route = (pattern, fn, crumbs) => routes.push({ re: new RegExp("^" + pattern.replace(/:(\w+)/g, "(?<$1>[^/]+)") + "$"), fn, crumbs });
+const withMock = (p) => (MOCK ? p + (p.includes("?") ? "&" : "?") + "mock=" + MOCK : p);
+function go(path, replace = false) { path = withMock(path); replace ? history.replaceState({ d: history.state?.d || 0 }, "", path) : history.pushState({ d: (history.state?.d || 0) + 1 }, "", path); render(); }
+document.addEventListener("click", (e) => {
+  const a = e.target.closest("a[data-link]");
+  if (a && a.origin === location.origin && !e.metaKey && !e.ctrlKey && !e.shiftKey) { e.preventDefault(); closeSidebar(); go(a.pathname + a.search.replace(/[?&]mock=[^&]*/, "").replace(/^&/, "?")); }
+});
+window.addEventListener("popstate", render);
+const qs = () => new URLSearchParams(location.search);
+let dirty = false;
+window.addEventListener("beforeunload", (e) => { if (dirty) { e.preventDefault(); e.returnValue = ""; } });
+
+// ---------- layout ----------
+const I = {
+  dash: '<path d="M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-6H3zM13 3v6h8V3z"/>',
+  page: '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/>',
+  ad: '<path d="M3 11l15-6v14L3 13z"/><path d="M7 13v5a2 2 0 0 0 4 0v-4"/>',
+  pin: '<path d="M12 22s7-6.5 7-12a7 7 0 0 0-14 0c0 5.5 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/>',
+  home: '<path d="M3 11l9-8 9 8v10H3z"/><path d="M9 21v-7h6v7"/>',
+  cal: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+  news: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h6v5H7zM15 8h2M15 12h2M7 16h10"/>',
+  faq: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17h.01"/>',
+  star: '<path d="M12 3l2.7 5.6 6.3.9-4.5 4.4 1 6.1L12 17l-5.5 3 1-6.1L3 9.5l6.3-.9z"/>',
+  dir: '<path d="M4 4h16v4H4zM4 12h16v8H4z"/><path d="M8 16h3"/>',
+  mega: '<path d="M4 9v6h4l6 4V5L8 9z"/><path d="M18 9a4 4 0 0 1 0 6"/>',
+  mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
+  users: '<circle cx="9" cy="8" r="3.5"/><path d="M2 20c0-3.5 3-6 7-6s7 2.5 7 6M16 4.5a3.5 3.5 0 0 1 0 7M18 14c2.5.5 4 2.5 4 6"/>',
+  check: '<path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
+  key: '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3"/>',
+  send: '<path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/>',
+};
+const icon = (k) => `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[k]}</svg>`;
+function navHTML() {
+  const pend = state.stats?.pending_applications || 0;
+  const item = (href, ic, label, badge = "") => `<li class="nav-item"><a class="nav-link" href="${href}" data-link>${icon(ic)}${label}${badge}</a></li>`;
+  return `<li class="nav-item"><a class="nav-link" href="/" data-link>${icon("dash")}Dashboard</a></li>
+    <li class="nav-title">Website</li>
+    ${item("/pages", "page", "SEO pages")}
+    ${item("/pages?type=landing", "ad", "Ad landing pages")}
+    ${item("/content/homepage_blocks", "home", "Homepage blocks")}
+    ${item("/content/events", "cal", "Events")}
+    ${item("/content/articles", "news", "News")}
+    ${item("/content/faqs", "faq", "FAQs")}
+    ${item("/content/partners", "star", "Partners")}
+    ${item("/content/partner_features", "star", "Partner features")}
+    ${item("/content/directory_listings", "dir", "Directory")}
+    ${item("/content/sponsored_slots", "mega", "Sponsored slots")}
+    ${item("/content/newsletter_subscribers", "mail", "Newsletter")}
+    <li class="nav-title">Club</li>
+    ${item("/club/applications", "check", "Applications", pend ? `<span class="badge text-bg-danger">${pend}</span>` : "")}
+    ${item("/club/members", "users", "Members")}
+    ${item("/club/access", "key", "Invites and access")}
+    ${item("/club/emails", "send", "Emails")}`;
+}
+function markNav() {
+  const here = location.pathname + (qs().get("type") === "landing" ? "?type=landing" : "");
+  for (const a of $$("#sidenav .nav-link")) {
+    const href = a.getAttribute("href");
+    const on = href === "/" ? location.pathname === "/" : href.includes("?") ? here === href : (location.pathname === href || location.pathname.startsWith(href + "/")) && !(href === "/pages" && here.includes("landing"));
+    a.classList.toggle("active", on);
+  }
+}
+function openSidebar() { $("#sidebar").classList.add("open"); $("#backdrop").hidden = false; }
+function closeSidebar() { $("#sidebar").classList.remove("open"); $("#backdrop").hidden = true; }
+$("#sidebar-open").onclick = openSidebar; $("#sidebar-close").onclick = closeSidebar; $("#backdrop").onclick = closeSidebar;
+$("#signout").onclick = async () => { await sb.auth.signOut(); go("/", true); };
+function crumbs(list) { $("#crumbs").innerHTML = list.map((c, i) => i < list.length - 1 && c[1] ? `<li class="breadcrumb-item"><a href="${c[1]}" data-link>${esc(c[0])}</a></li>` : `<li class="breadcrumb-item active" aria-current="page">${esc(c[0])}</li>`).join(""); document.title = list[list.length - 1][0] + " · Cars and Coffee Admin"; }
+function chrome(show) {
+  $("#sidebar").hidden = !show; $("#topbar").hidden = !show; document.body.classList.toggle("has-sidebar", show);
+  if (show) { $("#sidenav").innerHTML = navHTML(); $("#whoami").textContent = `${state.profile?.display_name || state.session?.user?.email || ""} · ${state.profile?.role || ""}`; markNav(); }
+}
+
+async function render() {
+  if (dirty && !confirmLeave()) return;
+  dirty = false;
+  await loadMe();
+  const path = location.pathname.replace(/\/+$/, "") || "/";
+  if (path === "/auth/callback") { history.replaceState(null, "", withMock("/")); return render(); }
+  if (!state.session) { chrome(false); return signInScreen(); }
+  if (!isTeam()) { chrome(false); return noAccess(); }
+  try { const { data } = await sb.rpc("admin_dashboard_stats"); state.stats = data; } catch {}
+  chrome(true);
+  for (const r of routes) {
+    const m = path.match(r.re);
+    if (m) { view.innerHTML = `<div class="py-5 text-center text-body-secondary">Loading…</div>`; try { await r.fn(m.groups || {}); } catch (e) { view.innerHTML = `<div class="alert alert-danger mt-3">${esc(e.message || e)}</div>`; } $("#main").focus({ preventScroll: true }); window.scrollTo(0, 0); return; }
+  }
+  crumbs([["Not found"]]); view.innerHTML = `<div class="empty"><h1 class="h4">Page not found</h1><a href="/" data-link>Back to the dashboard</a></div>`;
+}
+function confirmLeave() { return window.confirm("You have unsaved changes. Leave this page?"); }
+
+// ---------- sign in ----------
+const G = `<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.5l6.7-6.7C35.6 2.4 30.2 0 24 0 14.6 0 6.6 5.4 2.6 13.3l7.8 6C12.3 13.3 17.6 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.4-4.1 7-10.1 7-17.6z"/><path fill="#FBBC05" d="M10.4 28.7c-.5-1.4-.8-3-.8-4.7s.3-3.2.8-4.7l-7.8-6C.9 16.6 0 20.2 0 24s.9 7.4 2.6 10.7l7.8-6z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.9 2.3-8.3 2.3-6.4 0-11.7-3.8-13.6-9.3l-7.8 6C6.6 42.6 14.6 48 24 48z"/></svg>`;
+function signInScreen() {
+  document.title = "Sign in · Cars and Coffee Admin";
+  view.innerHTML = `<div class="signin-wrap"><div class="card signin-card"><div class="card-body p-4">
+    <div class="d-flex align-items-center gap-3 mb-3"><img src="/logo.svg" alt="" width="52" height="50"><div><div class="fw-bold fs-5">Cars and Coffee</div><div class="text-body-secondary">Team admin</div></div></div>
+    <p class="text-body-secondary">For the Cars and Coffee team only. Sign in with the account you use for the club.</p>
+    <button class="gbtn mb-3" id="google" type="button">${G} Continue with Google</button>
+    <form id="emailform" novalidate><label class="form-label" for="email">Or get a sign-in link by email</label>
+    <div class="input-group"><input class="form-control" type="email" id="email" autocomplete="email" placeholder="you@example.com" required><button class="btn btn-primary" type="submit">Send link</button></div>
+    <p class="small mt-2 mb-0" id="msg" role="status"></p></form>
+  </div></div></div>`;
+  $("#google").onclick = async () => { const { error } = await sb.auth.signInWithOAuth({ provider: "google", options: { redirectTo: location.origin + "/auth/callback" } }); if (error) $("#msg").textContent = error.message; };
+  $("#emailform").onsubmit = async (e) => {
+    e.preventDefault(); const em = $("#email").value.trim(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) { $("#msg").textContent = "Please enter a valid email address."; return; }
+    const { error } = await sb.auth.signInWithOtp({ email: em, options: { shouldCreateUser: false, emailRedirectTo: location.origin + "/auth/callback" } });
+    $("#msg").textContent = error ? "We couldn't send a link to that address. Only team members can sign in here." : "Check your email for a sign-in link.";
+  };
+}
+function noAccess() {
+  document.title = "No access · Cars and Coffee Admin";
+  view.innerHTML = `<div class="signin-wrap"><div class="card signin-card"><div class="card-body p-4">
+    <h1 class="h4">This area is for the team</h1><p>You're signed in as <strong>${esc(state.session.user.email)}</strong>, which isn't an admin or moderator account.</p>
+    <div class="d-flex gap-2"><a class="btn btn-primary" href="https://club.carsandcoffee.uk">Go to the club</a><button class="btn btn-outline-secondary" id="so">Sign out</button></div></div></div></div>`;
+  $("#so").onclick = async () => { await sb.auth.signOut(); go("/", true); };
+}
+
+// ---------- dashboard ----------
+route("/", async () => {
+  crumbs([["Dashboard"]]);
+  const s = state.stats || {};
+  const card = (v, label, href, tone = "") => `<div class="col-6 col-lg-3"><div class="card stat h-100"><div class="card-body"><a href="${href}" data-link><div class="value ${tone}">${v ?? "–"}</div><div class="label">${label}</div></a></div></div></div>`;
+  const [{ data: apps }, { data: pages }] = await Promise.all([
+    sb.rpc("get_application_queue"),
+    site().from("pages").select("id,title,path,page_type,status,seo_score,updated_at").order("updated_at", { ascending: false }).limit(6),
+  ]);
+  view.innerHTML = `<div class="page-head"><h1>Dashboard</h1><div class="d-flex gap-2"><a class="btn btn-primary" href="/pages/new" data-link>New SEO page</a><a class="btn btn-outline-primary" href="/pages/new?type=landing" data-link>New ad landing page</a></div></div>
+    <div class="row g-3 mb-4">
+      ${card(s.pending_applications, `Applications waiting${s.fast_track_waiting ? ` (${s.fast_track_waiting} fast-track)` : ""}`, "/club/applications", s.pending_applications ? "text-danger" : "")}
+      ${card(s.members, `Members${s.new_members_7d ? ` · +${s.new_members_7d} this week` : ""}`, "/club/members")}
+      ${card(s.pages_published, `Pages live · ${s.pages_draft || 0} in draft`, "/pages")}
+      ${card(s.newsletter_subscribers, "Newsletter subscribers", "/content/newsletter_subscribers")}
+      ${card(s.emails_sent_7d, "Emails sent this week", "/club/emails")}
+      ${card(s.emails_queued, "Emails waiting to send", "/club/emails")}
+      ${card(s.emails_failed, "Emails failed", "/club/emails?status=failed", s.emails_failed ? "text-danger" : "")}
+      ${card(s.invites_7d, "Member invites this week", "/club/access")}
+    </div>
+    <div class="row g-3">
+      <div class="col-lg-6"><div class="card h-100"><div class="card-header bg-white fw-semibold d-flex justify-content-between">Waiting for approval <a href="/club/applications" data-link class="small">Open queue</a></div>
+        ${apps && apps.length ? `<ul class="list-group list-group-flush">${apps.slice(0, 6).map((a) => `<li class="list-group-item d-flex justify-content-between align-items-center"><span><strong>${esc(a.full_name)}</strong> <span class="text-body-secondary small">${esc(a.location || "")}</span>${a.fast_track ? ' <span class="badge text-bg-warning">Fast-track</span>' : ""}</span><span class="small text-body-secondary">${Math.round(a.waiting_hours)}h</span></li>`).join("")}</ul>` : `<div class="empty">Nobody waiting. Nice.</div>`}
+      </div></div>
+      <div class="col-lg-6"><div class="card h-100"><div class="card-header bg-white fw-semibold d-flex justify-content-between">Recently edited pages <a href="/pages" data-link class="small">All pages</a></div>
+        ${pages && pages.length ? `<ul class="list-group list-group-flush">${pages.map((p) => `<li class="list-group-item d-flex justify-content-between align-items-center"><a class="rowlink text-reset" href="/pages/${p.id}" data-link>${esc(p.title)}</a><span>${scoreBadge(p.seo_score)} ${statusBadge(p.status)}</span></li>`).join("")}</ul>` : `<div class="empty">No pages yet. <a href="/pages/new" data-link>Create your first SEO page</a>.</div>`}
+      </div></div>
+    </div>`;
+});
+const statusBadge = (s) => `<span class="badge ${{ published: "text-bg-success", draft: "text-bg-secondary", review: "text-bg-warning", archived: "text-bg-light border" }[s] || "text-bg-light"}">${esc({ published: "Live", draft: "Draft", review: "In review", archived: "Archived" }[s] || s)}</span>`;
+const scoreBadge = (n) => n == null ? "" : `<span class="badge ${n >= 80 ? "text-bg-success" : n >= 55 ? "text-bg-warning" : "text-bg-danger"}" title="SEO score">SEO ${n}</span>`;
+
+// ---------- SEO pages ----------
+const TYPES = ["location", "sector", "audience", "guide", "landing", "standard"];
+const TYPE_HELP = {
+  location: "A town or county page, e.g. Car meets in Norwich.", sector: "A type of car or motorsport, e.g. Classic cars, JDM, Track days.",
+  audience: "A group of people, e.g. New drivers, Families, Car clubs.", guide: "A how-to or explainer article.",
+  landing: "A focused page for a Google Ads campaign, with one call to action.", standard: "Any other page, e.g. About or Advertise.",
+};
+const PATH_PREFIX = { location: "/car-meets/", sector: "/cars/", audience: "/for/", guide: "/guides/", landing: "/go/", standard: "/" };
+
+route("/pages", async () => {
+  const type = qs().get("type") || "", status = qs().get("status") || "", q = (qs().get("q") || "").trim();
+  crumbs(type === "landing" ? [["Ad landing pages"]] : [["SEO pages"]]);
+  let query = site().from("pages").select("id,title,path,page_type,status,seo_score,focus_keyword,town,county,updated_at").order("updated_at", { ascending: false }).limit(500);
+  if (type) query = query.eq("page_type", type);
+  if (status) query = query.eq("status", status);
+  const { data, error } = await query; if (error) throw error;
+  const rows = (data || []).filter((p) => !q || (p.title + " " + p.path + " " + (p.focus_keyword || "")).toLowerCase().includes(q.toLowerCase()));
+  const tab = (t, label) => `<a href="/pages${t ? "?type=" + t : ""}" data-link class="${type === t ? "on" : ""}">${label}</a>`;
+  view.innerHTML = `<div class="page-head"><h1>${type === "landing" ? "Ad landing pages" : "SEO pages"}</h1>
+      <a class="btn btn-primary" href="/pages/new${type ? "?type=" + type : ""}" data-link>New ${type ? labelType(type).toLowerCase() + " " : ""}page</a></div>
+    <div class="pill-tabs">${tab("", "All")}${TYPES.map((t) => tab(t, labelType(t))).join("")}</div>
+    <div class="card"><div class="card-body pb-0"><form class="row g-2 mb-3" id="filt"><div class="col-md-6"><input class="form-control" name="q" placeholder="Search title, address or keyword" value="${esc(q)}"></div>
+      <div class="col-md-3"><select class="form-select" name="status"><option value="">Any status</option>${["draft", "review", "published", "archived"].map((s) => `<option value="${s}" ${s === status ? "selected" : ""}>${{ draft: "Draft", review: "In review", published: "Live", archived: "Archived" }[s]}</option>`).join("")}</select></div>
+      <div class="col-md-3"><button class="btn btn-outline-secondary w-100">Filter</button></div></form></div>
+    ${rows.length ? `<div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>Page</th><th>Type</th><th>Focus keyword</th><th>SEO</th><th>Status</th><th>Updated</th></tr></thead><tbody>
+      ${rows.map((p) => `<tr><td><a class="rowlink" href="/pages/${p.id}" data-link>${esc(p.title)}</a><div class="small text-body-secondary">${esc(p.path)}</div></td><td>${labelType(p.page_type)}</td><td class="small">${esc(p.focus_keyword || "–")}</td><td>${scoreBadge(p.seo_score)}</td><td>${statusBadge(p.status)}</td><td class="small text-body-secondary">${ago(p.updated_at)}</td></tr>`).join("")}
+    </tbody></table></div>` : `<div class="empty">No pages here yet.${type ? ` ${esc(TYPE_HELP[type])}` : ""} <a href="/pages/new${type ? "?type=" + type : ""}" data-link>Create one</a>.</div>`}</div>`;
+  $("#filt").onsubmit = (e) => { e.preventDefault(); const f = new FormData(e.target); const p = new URLSearchParams(); if (type) p.set("type", type); if (f.get("q")) p.set("q", f.get("q")); if (f.get("status")) p.set("status", f.get("status")); go("/pages" + (p.toString() ? "?" + p : "")); };
+});
+
+route("/pages/:id", async ({ id }) => {
+  const isNew = id === "new";
+  let p = { page_type: qs().get("type") || "location", status: "draft", secondary_keywords: [], ads: { headlines: [], descriptions: [], keywords: [], utm_source: "google", utm_medium: "cpc" }, schema_type: "WebPage", noindex: false };
+  let revisions = 0;
+  if (!isNew) {
+    const { data, error } = await site().from("pages").select("*").eq("id", id).maybeSingle();
+    if (error) throw error; if (!data) throw new Error("Page not found");
+    p = data; p.ads = p.ads || {};
+    const { count } = await site().from("page_revisions").select("id", { count: "exact", head: true }).eq("page_id", id);
+    revisions = count || 0;
+  }
+  if (isNew && p.page_type === "landing") p.noindex = true;
+  const listLabel = p.page_type === "landing" ? ["Ad landing pages", "/pages?type=landing"] : ["SEO pages", "/pages"];
+  crumbs([listLabel, [isNew ? "New page" : p.title]]);
+  let pathTouched = !isNew;
+  const a = p.ads;
+  const adRows = (arr, n, max, name, ph) => Array.from({ length: n }, (_, i) => `<div class="adline"><input class="form-control form-control-sm" data-ad="${name}" data-i="${i}" maxlength="${max + 20}" value="${esc(arr?.[i] || "")}" placeholder="${ph} ${i + 1}"><span class="count" data-for="${name}-${i}"></span></div>`).join("");
+
+  view.innerHTML = `<form id="pf" novalidate>
+  <div class="page-head"><h1>${isNew ? "New page" : esc(p.title)}</h1>
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+      ${!isNew ? `<span class="small text-body-secondary">${revisions} earlier version${revisions === 1 ? "" : "s"} saved</span>` : ""}
+      ${!isNew && p.status === "published" ? `<a class="btn btn-outline-secondary" href="${SITE}${esc(p.path)}" target="_blank" rel="noopener">View live ↗</a>` : ""}
+      <button class="btn btn-outline-secondary" type="button" id="prev">Preview</button>
+      <button class="btn btn-outline-primary" type="submit" data-status="draft">Save draft</button>
+      <button class="btn btn-primary" type="submit" data-status="published">${p.status === "published" ? "Update live page" : "Publish"}</button>
+    </div></div>
+  <div class="row g-4">
+    <div class="col-xl-7">
+      <div class="card mb-4"><div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-5"><label class="form-label" for="page_type">Page type</label><select class="form-select" id="page_type">${TYPES.map((t) => `<option value="${t}" ${t === p.page_type ? "selected" : ""}>${labelType(t)}</option>`).join("")}</select><div class="form-text" id="typehelp">${esc(TYPE_HELP[p.page_type])}</div></div>
+          <div class="col-md-7"><label class="form-label" for="title">Page name</label><input class="form-control" id="title" required maxlength="120" value="${esc(p.title || "")}" placeholder="e.g. Car meets in Norwich"></div>
+          <div class="col-12"><label class="form-label" for="path">Page address</label><div class="input-group"><span class="input-group-text">carsandcoffee.uk</span><input class="form-control" id="path" required value="${esc(p.path || "")}" placeholder="/car-meets/norfolk/norwich"></div><div class="form-text">Lower-case letters, numbers and hyphens. Changing the address of a live page breaks old links.</div></div>
+          <div class="col-md-6 loc-only"><label class="form-label" for="county">County</label><select class="form-select" id="county"><option value="">Choose…</option>${["Norfolk", "Suffolk", "Cambridgeshire", "Essex"].map((c) => `<option ${c === p.county ? "selected" : ""}>${c}</option>`).join("")}</select></div>
+          <div class="col-md-6 loc-only"><label class="form-label" for="town">Town or area</label><input class="form-control" id="town" value="${esc(p.town || "")}" placeholder="e.g. Norwich"></div>
+          <div class="col-12"><label class="form-label" for="h1">Main heading (H1)</label><input class="form-control" id="h1" maxlength="120" value="${esc(p.h1 || "")}" placeholder="Leave blank to use the page name"></div>
+          <div class="col-12"><label class="form-label" for="intro">Opening paragraph</label><textarea class="form-control" id="intro" rows="3" placeholder="One or two sentences that answer the search straight away. Use the focus keyword.">${esc(p.intro || "")}</textarea></div>
+          <div class="col-12"><label class="form-label d-flex justify-content-between" for="body_md"><span>Page content</span><span class="small text-body-secondary" id="wc"></span></label>
+            <textarea class="form-control code" id="body_md" rows="18" placeholder="## Upcoming meets in Norwich&#10;&#10;Write the page here. Use ## for section headings, - for lists, **bold**, [link text](/events) and ![photo description](/images/photo.webp).">${esc(p.body_md || "")}</textarea>
+            <div class="form-text">Formatting: <code>## Heading</code> · <code>- list item</code> · <code>**bold**</code> · <code>[link](/path)</code> · <code>![alt text](/image.webp)</code></div></div>
+        </div></div></div>
+      <div class="card mb-4"><div class="card-header bg-white fw-semibold">Image and call to action</div><div class="card-body"><div class="row g-3">
+        <div class="col-md-6"><label class="form-label" for="hero_image_path">Main image</label><input class="form-control" id="hero_image_path" value="${esc(p.hero_image_path || "")}" placeholder="/homepage/hero.webp"></div>
+        <div class="col-md-6"><label class="form-label" for="hero_image_alt">Image description (alt text)</label><input class="form-control" id="hero_image_alt" value="${esc(p.hero_image_alt || "")}" placeholder="What the photo shows"></div>
+        <div class="col-md-6"><label class="form-label" for="cta_label">Button text</label><input class="form-control" id="cta_label" maxlength="40" value="${esc(p.cta_label || "")}" placeholder="e.g. See upcoming meets"></div>
+        <div class="col-md-6"><label class="form-label" for="cta_url">Button link</label><input class="form-control" id="cta_url" value="${esc(p.cta_url || "")}" placeholder="/events or https://club.carsandcoffee.uk/apply"></div>
+      </div></div></div>
+      <div class="card mb-4 ads-only"><div class="card-header bg-white fw-semibold">Google Ads</div><div class="card-body">
+        <p class="small text-body-secondary">Write the ads for this page here so the page and ad copy match. Copy them into Google Ads when you set up the campaign.</p>
+        <div class="row g-3 mb-3">
+          <div class="col-md-6"><label class="form-label" for="ad_campaign">Campaign</label><input class="form-control" id="ad_campaign" value="${esc(a.campaign || "")}" placeholder="e.g. Norfolk car meets"></div>
+          <div class="col-md-6"><label class="form-label" for="ad_group">Ad group</label><input class="form-control" id="ad_group" value="${esc(a.ad_group || "")}" placeholder="e.g. Norwich"></div>
+          <div class="col-12"><label class="form-label" for="ad_keywords">Keywords <span class="text-body-secondary small">(one per line)</span></label><textarea class="form-control code" id="ad_keywords" rows="4" placeholder="car meets norwich&#10;&quot;cars and coffee norfolk&quot;&#10;[car shows near me]">${esc((a.keywords || []).join("\n"))}</textarea></div>
+        </div>
+        <label class="form-label">Headlines <span class="text-body-secondary small">(3 to 15, max 30 characters)</span></label>${adRows(a.headlines, 15, LIMITS.adHeadline, "headlines", "Headline")}
+        <label class="form-label mt-3">Descriptions <span class="text-body-secondary small">(2 to 4, max 90 characters)</span></label>${adRows(a.descriptions, 4, LIMITS.adDescription, "descriptions", "Description")}
+        <div class="row g-3 mt-1">
+          <div class="col-md-6"><label class="form-label" for="ad_path1">Display path</label><div class="input-group"><span class="input-group-text">carsandcoffee.uk/</span><input class="form-control" id="ad_path1" maxlength="15" value="${esc(a.path1 || "")}" placeholder="car-meets"><span class="input-group-text">/</span><input class="form-control" id="ad_path2" maxlength="15" value="${esc(a.path2 || "")}" placeholder="norwich"></div></div>
+          <div class="col-md-2"><label class="form-label" for="utm_source">Source</label><input class="form-control" id="utm_source" value="${esc(a.utm_source || "google")}"></div>
+          <div class="col-md-2"><label class="form-label" for="utm_medium">Medium</label><input class="form-control" id="utm_medium" value="${esc(a.utm_medium || "cpc")}"></div>
+          <div class="col-md-2"><label class="form-label" for="utm_campaign">Campaign tag</label><input class="form-control" id="utm_campaign" value="${esc(a.utm_campaign || "")}" placeholder="norfolk-meets"></div>
+          <div class="col-12"><label class="form-label">Final URL for Google Ads</label><div class="input-group"><input class="form-control" id="finalurl" readonly><button class="btn btn-outline-secondary" type="button" id="copyurl">Copy</button></div></div>
+        </div>
+        <label class="form-label mt-3">Ad preview</label><div class="adpreview" id="adprev"></div>
+      </div></div>
+    </div>
+    <div class="col-xl-5"><div class="sticky-side">
+      <div class="card mb-4"><div class="card-header bg-white fw-semibold">SEO optimiser</div><div class="card-body">
+        <div class="mb-3"><label class="form-label" for="focus_keyword">Focus keyword</label><input class="form-control" id="focus_keyword" value="${esc(p.focus_keyword || "")}" placeholder="e.g. car meets norwich"></div>
+        <div class="mb-3"><label class="form-label" for="secondary_keywords">Other keywords <span class="text-body-secondary small">(comma separated)</span></label><input class="form-control" id="secondary_keywords" value="${esc((p.secondary_keywords || []).join(", "))}" placeholder="cars and coffee norwich, norfolk car shows"></div>
+        <div class="mb-3"><label class="form-label d-flex justify-content-between" for="meta_title"><span>SEO title</span><span class="count" id="c_mt"></span></label><input class="form-control" id="meta_title" maxlength="90" value="${esc(p.meta_title || "")}" placeholder="Car Meets in Norwich | Cars and Coffee UK"></div>
+        <div class="mb-3"><label class="form-label d-flex justify-content-between" for="meta_description"><span>Meta description</span><span class="count" id="c_md"></span></label><textarea class="form-control" id="meta_description" rows="3" maxlength="220" placeholder="Find car meets in Norwich every month…">${esc(p.meta_description || "")}</textarea></div>
+        <label class="form-label">Google preview</label><div class="serp mb-3" id="serp"></div>
+        <div class="d-flex align-items-center gap-3 mb-2"><div class="score-ring" id="ring">–</div><div><div class="fw-semibold" id="grade"></div><div class="small text-body-secondary">Updates as you type</div></div></div>
+        <ul class="checks" id="checks"></ul>
+      </div></div>
+      <div class="card mb-4"><div class="card-header bg-white fw-semibold">Settings</div><div class="card-body">
+        <div class="mb-3"><label class="form-label" for="status">Status</label><select class="form-select" id="status">${["draft", "review", "published", "archived"].map((s) => `<option value="${s}" ${s === p.status ? "selected" : ""}>${{ draft: "Draft", review: "In review", published: "Live", archived: "Archived" }[s]}</option>`).join("")}</select></div>
+        <div class="form-check form-switch mb-3"><input class="form-check-input" type="checkbox" id="noindex" ${p.noindex ? "checked" : ""}><label class="form-check-label" for="noindex">Hide from search engines (noindex)</label></div>
+        <div class="mb-3"><label class="form-label" for="canonical_url">Canonical address <span class="text-body-secondary small">(optional)</span></label><input class="form-control" id="canonical_url" value="${esc(p.canonical_url || "")}" placeholder="Only if another page is the main version"></div>
+        <div class="mb-3"><label class="form-label" for="schema_type">Structured data type</label><select class="form-select" id="schema_type">${["WebPage", "Article", "FAQPage", "CollectionPage", "LocalBusiness", "Event"].map((s) => `<option ${s === p.schema_type ? "selected" : ""}>${s}</option>`).join("")}</select></div>
+        <div class="mb-0"><label class="form-label" for="og_image_path">Social share image <span class="text-body-secondary small">(optional)</span></label><input class="form-control" id="og_image_path" value="${esc(p.og_image_path || "")}" placeholder="Uses the main image if blank"></div>
+        ${!isNew ? `<hr><button class="btn btn-sm btn-outline-danger" type="button" id="del">Delete page</button>` : ""}
+      </div></div>
+    </div></div>
+  </div></form>
+  <div class="modal-lite" id="pv" hidden></div>`;
+
+  const f = $("#pf");
+  const val = (id) => $("#" + id)?.value ?? "";
+  const collect = () => {
+    const ad = (name) => $$(`[data-ad="${name}"]`).map((i) => i.value.trim()).filter(Boolean);
+    return {
+      page_type: val("page_type"), title: val("title").trim(), path: val("path").trim(), county: val("county") || null, town: val("town").trim() || null,
+      h1: val("h1").trim() || null, intro: val("intro").trim() || null, body_md: val("body_md"), hero_image_path: val("hero_image_path").trim() || null,
+      hero_image_alt: val("hero_image_alt").trim() || null, cta_label: val("cta_label").trim() || null, cta_url: val("cta_url").trim() || null,
+      focus_keyword: val("focus_keyword").trim() || null, secondary_keywords: val("secondary_keywords").split(",").map((s) => s.trim()).filter(Boolean),
+      meta_title: val("meta_title").trim() || null, meta_description: val("meta_description").trim() || null, status: val("status"),
+      noindex: $("#noindex").checked, canonical_url: val("canonical_url").trim() || null, schema_type: val("schema_type"), og_image_path: val("og_image_path").trim() || null,
+      ads: { campaign: val("ad_campaign").trim(), ad_group: val("ad_group").trim(), keywords: val("ad_keywords").split("\n").map((s) => s.trim()).filter(Boolean),
+        headlines: ad("headlines"), descriptions: ad("descriptions"), path1: val("ad_path1").trim(), path2: val("ad_path2").trim(),
+        utm_source: val("utm_source").trim(), utm_medium: val("utm_medium").trim(), utm_campaign: val("utm_campaign").trim() },
+    };
+  };
+  const countEl = (el, n, [lo, hi]) => { el.textContent = `${n} / ${hi}`; el.className = "count " + (n === 0 ? "" : n > hi ? "bad" : n < lo ? "warn" : "good"); };
+  function refresh() {
+    const d = collect(); const t = d.page_type;
+    $$(".loc-only").forEach((e) => (e.hidden = t !== "location")); $$(".ads-only").forEach((e) => (e.hidden = t !== "landing"));
+    $("#typehelp").textContent = TYPE_HELP[t];
+    countEl($("#c_mt"), (d.meta_title || d.title).length, LIMITS.metaTitle); countEl($("#c_md"), (d.meta_description || "").length, LIMITS.metaDesc);
+    const url = SITE + (d.path || "/");
+    $("#serp").innerHTML = `<div class="site"><img src="/favicon.svg" alt=""><span>Cars and Coffee UK<small>${esc(url.replace("https://", "").replace(/\//g, " › ").replace(" › ", " › ").slice(0, 70))}</small></span></div>
+      <div class="t">${esc(d.meta_title || d.title || "Your SEO title")}</div><div class="d">${esc((d.meta_description || "Write a meta description to control the text Google shows here.").slice(0, 160))}${(d.meta_description || "").length > 160 ? "…" : ""}</div>`;
+    const r = analyse(d);
+    const ring = $("#ring"); ring.textContent = r.score; ring.className = "score-ring " + r.grade;
+    $("#grade").textContent = { good: "Good to go", ok: "Nearly there", bad: "Needs work" }[r.grade];
+    $("#checks").innerHTML = r.checks.map((c) => `<li class="${c.status}"><span class="dot">${{ pass: "✓", warn: "!", fail: "✕", info: "i" }[c.status]}</span><span>${esc(c.label)}${c.tip ? `<span class="tip">${esc(c.tip)}</span>` : ""}</span></li>`).join("");
+    $("#wc").textContent = `${r.words} words`;
+    for (const name of ["headlines", "descriptions"]) {
+      const max = name === "headlines" ? LIMITS.adHeadline : LIMITS.adDescription;
+      $$(`[data-ad="${name}"]`).forEach((i) => { const c = $(`[data-for="${name}-${i.dataset.i}"]`); const n = i.value.length; c.textContent = n ? `${n}/${max}` : ""; c.className = "count " + (n > max ? "bad" : n ? "good" : ""); });
+    }
+    const final = utmUrl(url, d.ads); $("#finalurl").value = final;
+    const hs = d.ads.headlines.slice(0, 3), ds = d.ads.descriptions.slice(0, 2);
+    $("#adprev").innerHTML = `<div class="spons">Sponsored</div><div class="small">carsandcoffee.uk${d.ads.path1 ? "/" + esc(d.ads.path1) : ""}${d.ads.path2 ? "/" + esc(d.ads.path2) : ""}</div>
+      <div class="t">${hs.length ? hs.map(esc).join(" | ") : "Headline 1 | Headline 2 | Headline 3"}</div><div class="d">${ds.length ? ds.map(esc).join(" ") : "Description 1. Description 2."}</div>`;
+    return r;
+  }
+  f.addEventListener("input", (e) => {
+    dirty = true;
+    if (e.target.id === "path") pathTouched = true;
+    if (!pathTouched && ["title", "page_type", "town", "county"].includes(e.target.id)) {
+      const d = collect();
+      const base = d.page_type === "location" && d.county ? `/car-meets/${slugify(d.county)}/${slugify(d.town || d.title.replace(/^(car meets|cars and coffee)\s+(in\s+)?/i, ""))}` : (PATH_PREFIX[d.page_type] || "/") + slugify(d.title);
+      $("#path").value = base.replace(/\/+$/, "") || "/";
+    }
+    refresh();
+  });
+  f.addEventListener("change", refresh);
+  refresh();
+  $("#copyurl").onclick = async () => { try { await navigator.clipboard.writeText($("#finalurl").value); toast("Final URL copied"); } catch { $("#finalurl").select(); } };
+  $("#prev").onclick = () => {
+    const d = collect(); const pv = $("#pv");
+    pv.hidden = false;
+    pv.innerHTML = `<div class="modal-lite-box card"><div class="card-header bg-white d-flex justify-content-between align-items-center"><strong>Preview</strong><button class="btn-close" type="button" aria-label="Close"></button></div>
+      <div class="card-body md-preview">${d.hero_image_path ? `<img src="${esc(d.hero_image_path.startsWith("/") ? SITE + d.hero_image_path : d.hero_image_path)}" alt="${esc(d.hero_image_alt || "")}" class="mb-3 rounded">` : ""}<h1>${esc(d.h1 || d.title)}</h1>${d.intro ? `<p class="lead">${esc(d.intro)}</p>` : ""}${md(d.body_md)}${d.cta_label ? `<p><span class="btn btn-primary">${esc(d.cta_label)}</span></p>` : ""}</div></div>`;
+    pv.onclick = (e) => { if (e.target === pv || e.target.closest(".btn-close")) pv.hidden = true; };
+  };
+  f.onsubmit = async (e) => {
+    e.preventDefault();
+    const d = collect();
+    const wanted = e.submitter?.dataset.status; if (wanted === "published") d.status = "published"; else if (wanted === "draft" && d.status === "published" && isNew) d.status = "draft";
+    if (wanted === "draft" && !isNew && p.status === "published") d.status = $("#status").value;
+    if (!d.title) { toast("Give the page a name", true); $("#title").focus(); return; }
+    if (!/^\/[a-z0-9/-]*$/.test(d.path)) { toast("The page address can only use lower-case letters, numbers, hyphens and slashes, and must start with /", true); $("#path").focus(); return; }
+    d.seo_score = analyse(d).score;
+    const btns = $$("button[type=submit]", f); btns.forEach((b) => (b.disabled = true));
+    const res = isNew ? await site().from("pages").insert(d).select("id").single() : await site().from("pages").update(d).eq("id", id).select("id").single();
+    btns.forEach((b) => (b.disabled = false));
+    if (res.error) { return toast(/duplicate|unique/i.test(res.error.message) ? "Another page already uses that address" : res.error.message, true); }
+    dirty = false;
+    toast(d.status === "published" ? "Saved and live" : "Saved");
+    if (isNew) go(`/pages/${res.data.id}`, true); else render();
+  };
+  if ($("#del")) {
+    let armed = false;
+    $("#del").onclick = async () => {
+      if (!armed) { armed = true; $("#del").textContent = "Click again to delete for good"; $("#del").classList.replace("btn-outline-danger", "btn-danger"); setTimeout(() => { armed = false; const b = $("#del"); if (b) { b.textContent = "Delete page"; b.classList.replace("btn-danger", "btn-outline-danger"); } }, 4000); return; }
+      const { error } = await site().from("pages").delete().eq("id", id); if (error) return oops(error);
+      dirty = false; toast("Page deleted"); go(p.page_type === "landing" ? "/pages?type=landing" : "/pages", true);
+    };
+  }
+});
+
+// ---------- generic content editors ----------
+const F = (name, label, type = "text", extra = {}) => ({ name, label, type, ...extra });
+const CONTENT = {
+  homepage_blocks: { title: "Homepage blocks", pk: "key", order: ["position", true], list: ["title", "position", "enabled"], noCreate: true, noDelete: true,
+    help: "Turn homepage sections on or off and change their order (lower numbers appear first). Schedule a block by setting start and end times.",
+    fields: [F("key", "Key", "readonly"), F("title", "Name"), F("position", "Position", "number"), F("enabled", "Shown on the homepage", "bool"), F("starts_at", "Show from", "datetime"), F("ends_at", "Show until", "datetime")] },
+  events: { title: "Events", order: ["starts_at", true], list: ["title", "starts_at", "venue", "ticket_status", "published"],
+    fields: [F("title", "Title", "text", { required: true }), F("slug", "Address (slug)", "slug", { from: "title" }), F("event_type", "Type", "select", { options: ["meet", "tour", "garage", "watch", "race", "track", "show"] }),
+      F("starts_at", "Starts", "datetime", { required: true }), F("ends_at", "Ends", "datetime", { required: true }), F("venue", "Venue", "text", { required: true }), F("region", "Region"),
+      F("price_pence", "Price (pence, 0 for free)", "number"), F("ticket_status", "Tickets", "select", { options: ["free_rsvp", "on_sale", "selling_fast", "sold_out"] }),
+      F("members_only", "Members only", "bool"), F("image_path", "Image", "text", { ph: "homepage/ev-breakfast.webp" }), F("image_alt", "Image description"), F("published", "Published", "bool", { def: true })] },
+  articles: { title: "News", order: ["published_at", false], list: ["title", "category", "published_at", "status", "featured"],
+    fields: [F("title", "Headline", "text", { required: true }), F("slug", "Address (slug)", "slug", { from: "title" }), F("category", "Category", "text", { required: true, ph: "Restoration, WEC, Technical…" }),
+      F("excerpt", "Summary", "textarea"), F("body", "Article (Markdown)", "markdown"), F("image_path", "Image"), F("image_alt", "Image description"), F("read_minutes", "Reading time (minutes)", "number"),
+      F("featured", "Featured on the homepage", "bool"), F("status", "Status", "select", { options: ["draft", "published"] }), F("published_at", "Publish date", "date")] },
+  faqs: { title: "FAQs", idType: "int", order: ["sort", true], list: ["question", "sort", "published"],
+    fields: [F("question", "Question", "text", { required: true }), F("answer", "Answer", "textarea", { required: true }), F("sort", "Order", "number"), F("published", "Published", "bool", { def: true })] },
+  partners: { title: "Partners", order: ["sort", true], list: ["name", "tagline", "sort", "active"],
+    fields: [F("name", "Name", "text", { required: true }), F("slug", "Slug", "slug", { from: "name" }), F("tagline", "Tagline"), F("page_path", "Website"), F("logo_path", "Logo file", "text", { ph: "partners/le-man-cave.svg" }), F("sort", "Order", "number"), F("active", "Active", "bool", { def: true })] },
+  partner_features: { title: "Partner features", order: ["starts_at", false], list: ["title", "block_key", "starts_at", "active"],
+    help: "The Detail of the Month, Livery of the Week and Race Night blocks on the homepage.",
+    fields: [F("partner_id", "Partner", "ref", { table: "partners", label: "name", required: true }), F("block_key", "Homepage block", "select", { options: ["detail_of_month", "livery_of_week", "race_night"] }), F("title", "Title", "text", { required: true }),
+      F("body", "Text", "textarea"), F("extra", "Extra line"), F("image_path", "Image"), F("image_alt", "Image description"), F("cta_label", "Button 1 text"), F("cta_url", "Button 1 link"),
+      F("cta2_label", "Button 2 text"), F("cta2_url", "Button 2 link"), F("countdown_to", "Countdown to", "datetime"), F("starts_at", "Show from", "datetime"), F("ends_at", "Show until", "datetime"), F("active", "Active", "bool", { def: true })] },
+  directory_listings: { title: "Directory", order: ["created_at", false], list: ["name", "town", "status", "featured"],
+    fields: [F("name", "Business name", "text", { required: true }), F("slug", "Slug", "slug", { from: "name" }), F("services", "Services (comma separated)", "array"), F("town", "Town"), F("region", "Region"),
+      F("website", "Website"), F("image_path", "Image"), F("image_alt", "Image description"), F("featured", "Featured on the homepage", "bool"), F("featured_until", "Featured until", "date"),
+      F("status", "Status", "select", { options: ["pending", "published", "rejected"] })] },
+  sponsored_slots: { title: "Sponsored slots", order: ["starts_at", false], list: ["advertiser", "title", "starts_at", "ends_at", "status"],
+    fields: [F("advertiser", "Advertiser", "text", { required: true }), F("title", "Headline", "text", { required: true }), F("body", "Text", "textarea"), F("image_path", "Image"), F("image_alt", "Image description"),
+      F("cta_label", "Button text"), F("cta_url", "Button link"), F("starts_at", "Starts", "datetime", { required: true }), F("ends_at", "Ends", "datetime", { required: true }),
+      F("status", "Status", "select", { options: ["pending", "approved", "rejected", "paused"] }), F("impressions", "Impressions", "readonly"), F("clicks", "Clicks", "readonly")] },
+  newsletter_subscribers: { title: "Newsletter", order: ["created_at", false], list: ["email", "source", "created_at", "unsubscribed_at"], noCreate: true, csv: true,
+    fields: [F("email", "Email", "readonly"), F("source", "Signed up from", "readonly"), F("created_at", "Signed up", "readonly"), F("consent_text", "Agreed to", "readonly"), F("unsubscribed_at", "Unsubscribed", "datetime")] },
+};
+const LABELS = { free_rsvp: "Free (RSVP)", on_sale: "On sale", selling_fast: "Selling fast", sold_out: "Sold out", detail_of_month: "Detail of the Month", livery_of_week: "Livery of the Week", race_night: "Race Night" };
+function cell(v, f) {
+  if (v == null || v === "") return '<span class="text-body-secondary">–</span>';
+  if (typeof v === "boolean") return v ? '<span class="badge text-bg-success">Yes</span>' : '<span class="badge text-bg-light border">No</span>';
+  if (f?.type === "datetime" || /_at$/.test(f?.name || "")) return fmtDate(v, true);
+  if (f?.type === "date") return fmtDate(v);
+  return esc(LABELS[v] || v);
+}
+route("/content/:table", async ({ table }) => {
+  const c = CONTENT[table]; if (!c) throw new Error("Unknown section");
+  crumbs([[c.title]]);
+  const { data, error } = await site().from(table).select("*").order(c.order[0], { ascending: c.order[1] }).limit(1000);
+  if (error) throw error;
+  const fmap = Object.fromEntries(c.fields.map((f) => [f.name, f]));
+  const pk = c.pk || "id";
+  view.innerHTML = `<div class="page-head"><h1>${esc(c.title)}</h1><div class="d-flex gap-2">${c.csv ? `<button class="btn btn-outline-secondary" id="csv">Download CSV</button>` : ""}${c.noCreate ? "" : `<a class="btn btn-primary" href="/content/${table}/new" data-link>Add</a>`}</div></div>
+    ${c.help ? `<p class="text-body-secondary">${esc(c.help)}</p>` : ""}
+    <div class="card">${data.length ? `<div class="table-responsive"><table class="table table-hover mb-0"><thead><tr>${c.list.map((k) => `<th>${esc(fmap[k]?.label || k)}</th>`).join("")}</tr></thead><tbody>
+      ${data.map((r) => `<tr>${c.list.map((k, i) => `<td>${i === 0 ? `<a class="rowlink" href="/content/${table}/${encodeURIComponent(r[pk])}" data-link>${esc(r[k] ?? "(untitled)")}</a>` : cell(r[k], fmap[k])}</td>`).join("")}</tr>`).join("")}
+    </tbody></table></div>` : `<div class="empty">Nothing here yet.</div>`}</div>
+    <p class="small text-body-secondary mt-3">${data.length} item${data.length === 1 ? "" : "s"}. Changes are saved to the database straight away; the website picks them up when it's next rebuilt.</p>`;
+  if (c.csv) $("#csv").onclick = () => {
+    const cols = ["email", "source", "created_at", "unsubscribed_at"];
+    const csv = [cols.join(","), ...data.map((r) => cols.map((k) => `"${String(r[k] ?? "").replace(/"/g, '""')}"`).join(","))].join("\n");
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); a.download = `${table}-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+  };
+});
+const toLocal = (v) => { if (!v) return ""; const d = new Date(v); const z = (n) => String(n).padStart(2, "0"); return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}T${z(d.getHours())}:${z(d.getMinutes())}`; };
+route("/content/:table/:id", async ({ table, id }) => {
+  const c = CONTENT[table]; if (!c) throw new Error("Unknown section");
+  const pk = c.pk || "id"; const isNew = id === "new";
+  let row = {};
+  if (!isNew) { const { data, error } = await site().from(table).select("*").eq(pk, c.idType === "int" ? Number(id) : decodeURIComponent(id)).maybeSingle(); if (error) throw error; if (!data) throw new Error("Not found"); row = data; }
+  else c.fields.forEach((f) => { if (f.def !== undefined) row[f.name] = f.def; if (f.type === "select") row[f.name] = row[f.name] ?? f.options[0]; });
+  const refs = {};
+  for (const f of c.fields.filter((f) => f.type === "ref")) { const { data } = await site().from(f.table).select(`id,${f.label}`).order(f.label); refs[f.name] = data || []; }
+  const titleKey = c.list[0];
+  crumbs([[c.title, `/content/${table}`], [isNew ? "Add" : String(row[titleKey] ?? "Edit")]]);
+  const input = (f) => {
+    const v = row[f.name]; const id = "f_" + f.name; const req = f.required ? "required" : "";
+    switch (f.type) {
+      case "readonly": return `<input class="form-control" id="${id}" value="${esc(/_at$/.test(f.name) ? fmtDate(v, true) : v ?? "")}" readonly disabled>`;
+      case "bool": return `<div class="form-check form-switch mt-1"><input class="form-check-input" type="checkbox" id="${id}" ${v ? "checked" : ""}><label class="form-check-label" for="${id}">${esc(f.label)}</label></div>`;
+      case "textarea": return `<textarea class="form-control" id="${id}" rows="4" ${req}>${esc(v ?? "")}</textarea>`;
+      case "markdown": return `<textarea class="form-control code" id="${id}" rows="14">${esc(v ?? "")}</textarea>`;
+      case "select": return `<select class="form-select" id="${id}">${f.options.map((o) => `<option value="${o}" ${o === v ? "selected" : ""}>${esc(LABELS[o] || o)}</option>`).join("")}</select>`;
+      case "ref": return `<select class="form-select" id="${id}" ${req}><option value="">Choose…</option>${refs[f.name].map((o) => `<option value="${o.id}" ${o.id === v ? "selected" : ""}>${esc(o[f.label])}</option>`).join("")}</select>`;
+      case "number": return `<input class="form-control" type="number" id="${id}" value="${esc(v ?? "")}" ${req}>`;
+      case "date": return `<input class="form-control" type="date" id="${id}" value="${esc(v ? String(v).slice(0, 10) : "")}" ${req}>`;
+      case "datetime": return `<input class="form-control" type="datetime-local" id="${id}" value="${toLocal(v)}" ${req}>`;
+      case "array": return `<input class="form-control" id="${id}" value="${esc((v || []).join(", "))}">`;
+      default: return `<input class="form-control" id="${id}" value="${esc(v ?? "")}" placeholder="${esc(f.ph || "")}" ${req}>`;
+    }
+  };
+  view.innerHTML = `<form id="cf" novalidate><div class="page-head"><h1>${isNew ? "Add to " + esc(c.title) : esc(row[titleKey] ?? "Edit")}</h1>
+      <div class="d-flex gap-2"><a class="btn btn-outline-secondary" href="/content/${table}" data-link>Back</a><button class="btn btn-primary" type="submit">Save</button></div></div>
+    <div class="card"><div class="card-body"><div class="row g-3">
+      ${c.fields.map((f) => `<div class="${["textarea", "markdown"].includes(f.type) ? "col-12" : "col-md-6"}">${f.type === "bool" ? "" : `<label class="form-label" for="f_${f.name}">${esc(f.label)}${f.required ? ' <span class="text-danger">*</span>' : ""}</label>`}${input(f)}</div>`).join("")}
+    </div></div></div>
+    ${!isNew && !c.noDelete ? `<button class="btn btn-sm btn-outline-danger mt-3" type="button" id="del">Delete</button>` : ""}</form>`;
+  const slugF = c.fields.find((f) => f.type === "slug");
+  if (slugF && isNew) $("#f_" + slugF.from).addEventListener("input", (e) => { if (!$("#f_" + slugF.name).dataset.touched) $("#f_" + slugF.name).value = slugify(e.target.value); });
+  if (slugF) $("#f_" + slugF.name).addEventListener("input", (e) => (e.target.dataset.touched = "1"));
+  $("#cf").addEventListener("input", () => (dirty = true));
+  $("#cf").onsubmit = async (e) => {
+    e.preventDefault();
+    const out = {};
+    for (const f of c.fields) {
+      if (f.type === "readonly") continue;
+      const el = $("#f_" + f.name); let v;
+      if (f.type === "bool") v = el.checked;
+      else if (f.type === "number") v = el.value === "" ? null : Number(el.value);
+      else if (f.type === "datetime") v = el.value ? new Date(el.value).toISOString() : null;
+      else if (f.type === "array") v = el.value.split(",").map((s) => s.trim()).filter(Boolean);
+      else v = el.value.trim() === "" ? null : el.value.trim();
+      if (f.required && (v == null || v === "")) { toast(`${f.label} is required`, true); el.focus(); return; }
+      out[f.name] = v;
+    }
+    if (slugF && out[slugF.name]) out[slugF.name] = slugify(out[slugF.name]);
+    const res = isNew ? await site().from(table).insert(out).select(pk).single() : await site().from(table).update(out).eq(pk, row[pk]).select(pk).single();
+    if (res.error) return toast(/duplicate|unique/i.test(res.error.message) ? "That slug is already used" : res.error.message, true);
+    dirty = false; toast("Saved"); go(`/content/${table}`, true);
+  };
+  if ($("#del")) { let armed = false; $("#del").onclick = async () => {
+    if (!armed) { armed = true; $("#del").textContent = "Click again to delete for good"; $("#del").classList.replace("btn-outline-danger", "btn-danger"); return; }
+    const { error } = await site().from(table).delete().eq(pk, row[pk]); if (error) return oops(error);
+    dirty = false; toast("Deleted"); go(`/content/${table}`, true);
+  }; }
+});
+
+// ---------- club ----------
+route("/club/applications", async () => {
+  crumbs([["Applications"]]);
+  const { data, error } = await sb.rpc("get_application_queue"); if (error) throw error;
+  const rows = data || [];
+  view.innerHTML = `<div class="page-head"><h1>Applications</h1><span class="text-body-secondary">${rows.length} waiting · target: decide within 24 hours</span></div>
+    ${rows.length ? rows.map((a) => `<div class="card mb-3" data-app="${a.id}"><div class="card-body">
+      <div class="d-flex flex-wrap justify-content-between gap-2"><div><h2 class="h5 mb-1">${esc(a.full_name)} ${a.fast_track ? '<span class="badge text-bg-warning">Fast-track</span>' : ""} ${a.status === "more_info" ? '<span class="badge text-bg-info">Asked for more info</span>' : ""}</h2>
+        <div class="small text-body-secondary">${esc(a.email || "")} · ${esc(a.location || "")} · waiting ${Math.round(a.waiting_hours)}h</div></div></div>
+      <dl class="row small mt-3 mb-2"><dt class="col-sm-3">Interests</dt><dd class="col-sm-9">${esc((a.favourite_series || []).join(", ") || "–")}</dd>
+        <dt class="col-sm-3">Car</dt><dd class="col-sm-9">${esc(a.car || "–")}</dd><dt class="col-sm-3">Heard about us</dt><dd class="col-sm-9">${esc(a.heard_about || "–")}</dd>
+        ${a.recommender_name ? `<dt class="col-sm-3">Recommended by</dt><dd class="col-sm-9">${esc(a.recommender_name)}${a.recommender_handle ? " (@" + esc(a.recommender_handle) + ")" : ""} · ${a.recommender_approved_count} approved, ${a.recommender_removed_count} removed</dd>` : ""}
+        ${a.message_to_applicant ? `<dt class="col-sm-3">Our question</dt><dd class="col-sm-9">${esc(a.message_to_applicant)}</dd>` : ""}</dl>
+      <textarea class="form-control form-control-sm mb-2" rows="2" placeholder="Message to the applicant (needed for More info; optional otherwise)" data-msg></textarea>
+      <input class="form-control form-control-sm mb-2" placeholder="Private team note (optional)" data-notes value="${esc(a.admin_notes || "")}">
+      <div class="d-flex flex-wrap gap-2"><button class="btn btn-sm btn-success" data-d="approved">Approve</button><button class="btn btn-sm btn-outline-secondary" data-d="more_info">Ask for more info</button><button class="btn btn-sm btn-outline-danger" data-d="rejected">Decline</button></div>
+    </div></div>`).join("") : `<div class="card"><div class="empty">Nobody waiting for approval.</div></div>`}`;
+  view.onclick = async (e) => {
+    const b = e.target.closest("[data-d]"); if (!b) return;
+    const card = b.closest("[data-app]"); const msg = $("[data-msg]", card).value.trim();
+    if (b.dataset.d === "more_info" && !msg) { toast("Write the question you want to ask them", true); $("[data-msg]", card).focus(); return; }
+    b.disabled = true;
+    const { error } = await sb.rpc("decide_application", { p_application_id: card.dataset.app, p_decision: b.dataset.d, p_message: msg || null, p_notes: $("[data-notes]", card).value.trim() || null });
+    if (error) { b.disabled = false; return oops(error); }
+    toast({ approved: "Approved, welcome email queued", more_info: "Question sent", rejected: "Declined" }[b.dataset.d]); card.remove();
+  };
+});
+
+route("/club/members", async () => {
+  crumbs([["Members"]]);
+  const q = qs().get("q") || "", st = qs().get("status") || "";
+  const { data, error } = await sb.rpc("admin_list_members", { p_search: q || null, p_status: st || null, p_limit: 500 }); if (error) throw error;
+  const rows = data || [];
+  view.innerHTML = `<div class="page-head"><h1>Members</h1><span class="text-body-secondary">${rows.length} shown</span></div>
+    <div class="card"><div class="card-body pb-0"><form class="row g-2 mb-3" id="mf"><div class="col-md-6"><input class="form-control" name="q" value="${esc(q)}" placeholder="Search name, @handle or email"></div>
+      <div class="col-md-3"><select class="form-select" name="status"><option value="">Everyone</option>${["approved", "pending", "banned"].map((s) => `<option ${s === st ? "selected" : ""}>${s}</option>`).join("")}</select></div><div class="col-md-3"><button class="btn btn-outline-secondary w-100">Search</button></div></form></div>
+    ${rows.length ? `<div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>Member</th><th>Status</th><th>Role</th><th>Recommended</th><th>Joined</th><th>Last seen</th><th></th></tr></thead><tbody>
+      ${rows.map((m) => `<tr data-id="${m.id}"><td><strong>${esc(m.display_name || "–")}</strong>${m.handle ? ` <span class="text-body-secondary">@${esc(m.handle)}</span>` : ""}<div class="small text-body-secondary">${esc(m.email)}${m.is_private ? " · private profile" : ""}</div></td>
+        <td><span class="badge ${m.status === "approved" ? "text-bg-success" : m.status === "banned" ? "text-bg-danger" : "text-bg-secondary"}">${esc(m.status)}</span></td>
+        <td>${isAdmin() && m.id !== state.profile.id ? `<select class="form-select form-select-sm" data-role style="width:auto">${["member", "moderator", "admin"].map((r) => `<option ${r === m.role ? "selected" : ""}>${r}</option>`).join("")}</select>` : esc(m.role)}</td>
+        <td class="small">${m.recommended_count}${m.can_recommend ? "" : ' <span class="badge text-bg-warning">paused</span>'}</td>
+        <td class="small">${fmtDate(m.approved_at || m.created_at)}</td><td class="small text-body-secondary">${ago(m.last_sign_in_at)}</td>
+        <td class="text-end text-nowrap">${m.id === state.profile.id ? '<span class="small text-body-secondary">You</span>' : `<button class="btn btn-sm btn-outline-secondary" data-rec="${m.can_recommend ? 0 : 1}">${m.can_recommend ? "Pause invites" : "Allow invites"}</button>
+          ${m.status === "banned" ? `<button class="btn btn-sm btn-outline-success" data-unban>Unban</button>` : `<button class="btn btn-sm btn-outline-danger" data-ban>Ban</button>`}`}</td></tr>`).join("")}
+    </tbody></table></div>` : `<div class="empty">No members match.</div>`}</div>`;
+  $("#mf").onsubmit = (e) => { e.preventDefault(); const f = new FormData(e.target); const p = new URLSearchParams(); if (f.get("q")) p.set("q", f.get("q")); if (f.get("status")) p.set("status", f.get("status")); go("/club/members" + (p.toString() ? "?" + p : "")); };
+  view.onchange = async (e) => { const s = e.target.closest("[data-role]"); if (!s) return; const { error } = await sb.rpc("set_member_role", { p_user_id: s.closest("tr").dataset.id, p_role: s.value }); error ? oops(error) : toast("Role updated"); };
+  view.onclick = async (e) => {
+    const tr = e.target.closest("tr[data-id]"); if (!tr) return; const uid = tr.dataset.id; let r;
+    if (e.target.matches("[data-rec]")) r = await sb.rpc("set_recommend_rights", { p_user_id: uid, p_allowed: e.target.dataset.rec === "1" });
+    else if (e.target.matches("[data-ban]")) {
+      if (!e.target.dataset.armed) { e.target.dataset.armed = "1"; e.target.textContent = "Confirm ban"; e.target.classList.replace("btn-outline-danger", "btn-danger"); return; }
+      r = await sb.rpc("ban_member", { p_user_id: uid, p_reason: "Banned from admin" });
+    } else if (e.target.matches("[data-unban]")) r = await sb.rpc("unban_member", { p_user_id: uid, p_reason: "Unbanned from admin" });
+    else return;
+    if (r.error) return oops(r.error); toast("Updated"); render();
+  };
+});
+
+route("/club/access", async () => {
+  crumbs([["Invites and access"]]);
+  const [{ data: open }, { data: allow, error: aErr }, { data: inv }] = await Promise.all([
+    sb.from("settings").select("value").eq("key", "signups_open").maybeSingle(),
+    sb.from("signup_allowlist").select("email,note,added_at").order("added_at", { ascending: false }),
+    sb.from("member_invites").select("friend_name,email,created_at,inviter").order("created_at", { ascending: false }).limit(100),
+  ]);
+  view.innerHTML = `<div class="page-head"><h1>Invites and access</h1></div>
+    <div class="card mb-4"><div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
+      <div><h2 class="h5 mb-1">Who can sign up</h2><p class="mb-0 text-body-secondary">${open?.value ? "Anyone can sign up and apply." : "Invite-only: only people on the list below (or invited by a member) can create an account."}</p></div>
+      ${isAdmin() ? `<div class="form-check form-switch fs-5"><input class="form-check-input" type="checkbox" id="openup" ${open?.value ? "checked" : ""}><label class="form-check-label fs-6" for="openup">Open sign-ups</label></div>` : ""}
+    </div></div>
+    <div class="row g-4"><div class="col-lg-6"><div class="card h-100"><div class="card-header bg-white fw-semibold">Sign-up list</div><div class="card-body">
+      ${isAdmin() ? `<form class="row g-2 mb-3" id="af"><div class="col-sm-6"><input class="form-control" type="email" id="aem" placeholder="email@example.com" required></div><div class="col-sm-4"><input class="form-control" id="anote" placeholder="Note"></div><div class="col-sm-2"><button class="btn btn-primary w-100">Add</button></div></form>` : ""}
+      ${aErr ? `<p class="text-body-secondary">Only admins can see this list.</p>` : `<ul class="list-group list-group-flush">${(allow || []).map((r) => `<li class="list-group-item d-flex justify-content-between align-items-center"><span><strong>${esc(r.email)}</strong><div class="small text-body-secondary">${esc(r.note || "")} · ${fmtDate(r.added_at)}</div></span>${isAdmin() ? `<button class="btn btn-sm btn-outline-danger" data-rm="${esc(r.email)}">Remove</button>` : ""}</li>`).join("") || '<li class="list-group-item text-body-secondary">Empty</li>'}</ul>`}
+    </div></div></div>
+    <div class="col-lg-6"><div class="card h-100"><div class="card-header bg-white fw-semibold">Email invites sent by members</div>
+      ${(inv || []).length ? `<div class="table-responsive"><table class="table mb-0"><thead><tr><th>Friend</th><th>Email</th><th>Sent</th></tr></thead><tbody>${inv.map((i) => `<tr><td>${esc(i.friend_name)}</td><td class="small">${esc(i.email)}</td><td class="small">${ago(i.created_at)}</td></tr>`).join("")}</tbody></table></div>` : `<div class="empty">No invites yet.</div>`}
+    </div></div></div>`;
+  if ($("#openup")) $("#openup").onchange = async (e) => { const { error } = await sb.from("settings").update({ value: e.target.checked }).eq("key", "signups_open"); if (error) return oops(error); toast(e.target.checked ? "Sign-ups are open" : "Sign-ups are invite-only"); render(); };
+  if ($("#af")) $("#af").onsubmit = async (e) => { e.preventDefault(); const em = $("#aem").value.trim().toLowerCase(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) return toast("Enter a valid email", true);
+    const { error } = await sb.from("signup_allowlist").insert({ email: em, note: $("#anote").value.trim() || null }); if (error) return oops(error); toast("Added"); render(); };
+  view.onclick = async (e) => { const b = e.target.closest("[data-rm]"); if (!b) return;
+    if (!b.dataset.armed) { b.dataset.armed = "1"; b.textContent = "Confirm"; return; }
+    const { error } = await sb.from("signup_allowlist").delete().eq("email", b.dataset.rm); if (error) return oops(error); toast("Removed"); render(); };
+});
+
+route("/club/emails", async () => {
+  crumbs([["Emails"]]);
+  const st = qs().get("status") || "";
+  let q = sb.from("email_outbox").select("id,to_email,template,status,attempts,error,created_at,sent_at").order("id", { ascending: false }).limit(200);
+  if (st) q = q.eq("status", st);
+  const { data, error } = await q;
+  if (error) { view.innerHTML = `<div class="page-head"><h1>Emails</h1></div><div class="alert alert-info">Only admins can see the email log.</div>`; return; }
+  const T = { member_invite: "Member invite", application_received: "Application received", application_approved: "Welcome (approved)", application_more_info: "More info needed", application_rejected: "Not approved", recommendation_approved: "Your mate joined", team_new_application: "Team: new application" };
+  const tab = (s, l) => `<a href="/club/emails${s ? "?status=" + s : ""}" data-link class="${st === s ? "on" : ""}">${l}</a>`;
+  view.innerHTML = `<div class="page-head"><h1>Emails</h1><span class="text-body-secondary">Sent through SendGrid every minute from club@carsandcoffee.uk</span></div>
+    <div class="pill-tabs">${tab("", "All")}${tab("queued", "Waiting")}${tab("sent", "Sent")}${tab("failed", "Failed")}</div>
+    <div class="card">${data.length ? `<div class="table-responsive"><table class="table mb-0"><thead><tr><th>To</th><th>Email</th><th>Status</th><th>Queued</th><th>Sent</th><th></th></tr></thead><tbody>
+      ${data.map((m) => `<tr><td class="small">${esc(m.to_email)}</td><td>${esc(T[m.template] || m.template)}</td>
+        <td><span class="badge ${{ sent: "text-bg-success", failed: "text-bg-danger", queued: "text-bg-secondary", sending: "text-bg-info" }[m.status] || "text-bg-light"}">${esc(m.status)}</span>${m.error ? `<div class="small text-danger mt-1" style="max-width:320px">${esc(m.error.slice(0, 160))}</div>` : ""}</td>
+        <td class="small">${fmtDate(m.created_at, true)}</td><td class="small">${fmtDate(m.sent_at, true)}</td>
+        <td>${m.status === "failed" && isAdmin() ? `<button class="btn btn-sm btn-outline-secondary" data-retry="${m.id}">Retry</button>` : ""}</td></tr>`).join("")}
+    </tbody></table></div>` : `<div class="empty">No emails.</div>`}</div>`;
+  view.onclick = async (e) => { const b = e.target.closest("[data-retry]"); if (!b) return; const { error } = await sb.rpc("admin_retry_email", { p_id: Number(b.dataset.retry) }); if (error) return oops(error); toast("Queued to retry"); render(); };
+});
+
+render();
