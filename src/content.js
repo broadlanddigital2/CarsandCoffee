@@ -1,5 +1,5 @@
 // Event, news and guide pages (and their listing pages), rendered from the database inside the homepage's header and footer.
-import { E, img, ARROW, q, eventCard, EVENT_TYPES, TICKET, money, fmt } from "./home.js";
+import { E, img, ARROW, q, eventCard, EVENT_TYPES, TICKET, money, fmt, nearYou, placesQ } from "./home.js";
 import { shell, directions, newsletterHTML, crumbsHTML } from "./pages.js";
 
 const SITE = "https://www.carsandcoffee.uk";
@@ -154,7 +154,7 @@ async function eventPage(slug) {
 
 async function eventsList() {
   const now = new Date().toISOString();
-  const [events, partners] = await Promise.all([q(`events?select=${evSelect}&ends_at=gte.${now}&order=starts_at&limit=100`), partnersQ()]);
+  const [events, partners, places] = await Promise.all([q(`events?select=${evSelect}&ends_at=gte.${now}&order=starts_at&limit=100`), partnersQ(), placesQ()]);
   const types = [...new Set(events.map((e) => e.event_type))];
   const groups = [];
   for (const e of events) { const k = monthLabel(e.starts_at); let g = groups.find((x) => x.k === k); if (!g) groups.push((g = { k, items: [] })); g.items.push(e); }
@@ -162,6 +162,7 @@ async function eventsList() {
   const html = [crumbsHTML(crumbs),
     `<section class="phero"><img class="bg" src="/homepage/hero.webp" alt=""><div class="wrap"><span class="eyebrow">Norfolk and Suffolk</span><h1>Car meets and events</h1><p>Breakfast meets, classic runs, garage nights and race nights. Most morning meets are free: just RSVP and turn up.</p></div></section>`,
     `<section class="lp-sec"><div class="wrap">
+      ${nearYou(places)}
       ${types.length > 1 ? `<div class="ev-filter" role="group" aria-label="Filter events"><button class="on" data-f="">All</button>${types.map((t) => `<button data-f="${E(t)}">${E(EVENT_TYPES[t] || t)}</button>`).join("")}</div>` : ""}
       ${groups.length ? groups.map((g) => `<div class="ev-month"><h2>${E(g.k)}</h2><div class="evs">${g.items.map(eventCard).join("")}</div></div>`).join("") : `<p class="lp-empty">No events scheduled right now. Join the newsletter to hear about the next one.</p>`}
       <p class="ev-empty" hidden>No events of that type coming up.</p>

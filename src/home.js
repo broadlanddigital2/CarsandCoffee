@@ -52,6 +52,17 @@ export const eventCard = (e) => {
 <p class="price"><span>${money(e.price_pence)}</span><span class="ts ${tcls}">${E(TICKET[e.ticket_status] || e.ticket_status)}</span></p></div></div></a></article>`;
 };
 
+// "Car meets near you": town search plus links to every live location page. Used on the homepage and the events page.
+export const placesQ = () => q("pages?select=path,title,county,town,content&page_type=eq.location&status=eq.published&order=path").catch(() => []);
+export function nearYou(places = []) {
+  const hub = places.find((p) => !p.county);
+  const towns = [...new Set([...(hub?.content?.norfolk_towns || []), ...(hub?.content?.suffolk_towns || []), ...places.filter((p) => p.town).map((p) => p.town)])].sort();
+  const links = places.filter((p) => p.county).sort((a, b) => (a.town ? 1 : 0) - (b.town ? 1 : 0) || (a.town || a.county).localeCompare(b.town || b.county));
+  return `<div class="near"><div class="near-t"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s7-7.5 7-13a7 7 0 0 0-14 0c0 5.5 7 13 7 13z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="9" r="2.5" fill="currentColor"/></svg><div><strong>Car meets near you</strong><span>Meets, venues, drives and local businesses by town.</span></div></div>
+<form class="near-f" action="/car-meets" method="get" role="search"><label for="near-town" class="sr">Your town</label><input id="near-town" name="town" list="near-towns" placeholder="Your town, e.g. Norwich" autocomplete="off"><button class="btn red" type="submit">Find meets</button><datalist id="near-towns">${towns.map((t) => `<option value="${E(t)}"></option>`).join("")}</datalist></form>
+<div class="near-l">${links.map((p) => `<a href="${E(p.path)}">${E(p.town || p.county)}</a>`).join("")}<a href="/car-meets">All areas ${ARROW}</a></div></div>`;
+}
+
 export const bizCard = (l) => `<article class="biz"><a href="/directory/${E(l.slug)}"><div class="ph"><img src="${E(img(l.image_path))}" alt="${E(l.image_alt)}" width="600" height="300" loading="lazy">${l.featured === false ? "" : `<span class="tag feat-tag">Featured</span>`}</div>
 <div class="bizb"><h3>${E(l.name)}</h3><p class="svc">${(l.services || []).map(E).join(" · ")}</p>
 <p class="meta"><span class="loc"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s7-7.5 7-13a7 7 0 0 0-14 0c0 5.5 7 13 7 13z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="9" r="2.5" fill="currentColor"/></svg>${E(l.town)}</span>
@@ -76,7 +87,8 @@ export async function loadHome() {
     q("faqs?select=question,answer&order=sort"),
     q("site_stats?select=key,label,value"),
   ]);
-  return { blocks, events, articles, community, products, gallery, listings, services, regions, partners, features, sponsored, faqs, stats };
+  const places = await placesQ();
+  return { blocks, events, articles, community, products, gallery, listings, services, regions, partners, features, sponsored, faqs, stats, places };
 }
 
 export function renderHome(d) {
@@ -156,7 +168,7 @@ export function renderHome(d) {
   ];
 
   const vals = {
-    ARROW, EVENTS_LINK: link("View all events", "/events"), CHIPS: chips, EVENTS: events.map(eventCard).join(""), NEWS: news,
+    ARROW, NEAR_YOU: nearYou(d.places || []), EVENTS_LINK: link("View all events", "/events"), CHIPS: chips, EVENTS: events.map(eventCard).join(""), NEWS: news,
     DREAM: partnerBand("detail_of_month", "ao"), COMMUNITY: community, LIVERY: partnerBand("livery_of_week", "rcg"), SHOP: shop,
     LEMANS: partnerBand("race_night", "lmc"), GALLERY: gallery, DIRECTORY: dir, REGIONS: regions, SVC_TILES: svcTiles, SVC_OPTIONS: svcOptions,
     STATS: stats, PARTNERS: partnersStrip, FOOTER_PARTNERS: footerPartners, FAQ: faq, BRANDLINE: "/homepage/brandline.webp",
