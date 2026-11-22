@@ -99,6 +99,8 @@ export async function businessPage(slug) {
   const offerings = (Array.isArray(l.offerings) ? l.offerings : []).filter((x) => x && x.name);
   const video = videoEmbed(l.video_url, l.image_path, l.name);
   const avg = reviews.length ? reviews.reduce((n, r) => n + r.rating, 0) / reviews.length : 0;
+  const realReviews = reviews.filter((r) => !/^\[sample/i.test(r.body || "")); // sample content is never sent to Google
+  const realAvg = realReviews.length ? realReviews.reduce((n, r) => n + r.rating, 0) / realReviews.length : 0;
   const hours = l.hours && Object.keys(l.hours).length ? l.hours : null;
   const about = l.body_html ? sanitize(l.body_html) : l.summary ? `<p>${E(l.summary)}</p>` : `<p>More details about ${E(l.name)} coming soon.</p>`;
   const socials = [["Instagram", socialHref(l.instagram, "https://instagram.com/")], ["Facebook", socialHref(l.facebook, "https://facebook.com/")], ["YouTube", socialHref(l.youtube, "https://youtube.com/@")], ["TikTok", socialHref(l.tiktok, "https://tiktok.com/@")], ["X", socialHref(l.x_url, "https://x.com/")], ["LinkedIn", socialHref(l.linkedin, "https://www.linkedin.com/company/")]].filter(([, h]) => h);
@@ -170,7 +172,7 @@ export async function businessPage(slug) {
     address: { "@type": "PostalAddress", streetAddress: l.address_line || undefined, addressLocality: l.town || undefined, addressRegion: l.county || undefined, postalCode: l.postcode || undefined, addressCountry: "GB" },
     ...(l.lat != null && !l.approximate ? { geo: { "@type": "GeoCoordinates", latitude: l.lat, longitude: l.lng } } : {}),
     ...(hours ? { openingHoursSpecification: DAYS.filter(([k]) => hours[k] && !hours[k].closed && hours[k].open).map(([k, n]) => ({ "@type": "OpeningHoursSpecification", dayOfWeek: n, opens: hours[k].open, closes: hours[k].close })) } : {}),
-    ...(reviews.length ? { aggregateRating: { "@type": "AggregateRating", ratingValue: avg.toFixed(1), reviewCount: reviews.length }, review: reviews.slice(0, 5).map((r) => ({ "@type": "Review", reviewRating: { "@type": "Rating", ratingValue: r.rating }, author: { "@type": "Person", name: r.name }, reviewBody: r.body, datePublished: r.created_at.slice(0, 10) })) } : {}) };
+    ...(realReviews.length ? { aggregateRating: { "@type": "AggregateRating", ratingValue: realAvg.toFixed(1), reviewCount: realReviews.length }, review: realReviews.slice(0, 5).map((r) => ({ "@type": "Review", reviewRating: { "@type": "Rating", ratingValue: r.rating }, author: { "@type": "Person", name: r.name }, reviewBody: r.body, datePublished: r.created_at.slice(0, 10) })) } : {}) };
   return shell({ title: l.meta_title || `${l.name}: ${(l.services || []).slice(0, 2).join(" and ")} in ${l.town || l.county || "Norfolk"} | Cars and Coffee`, description: l.meta_description || l.summary || `${l.name} in ${l.town || l.county}: ${(l.services || []).join(", ")}. Checked by Cars and Coffee UK.`,
     path: `/directory/${l.slug}`, image: l.image_path, ld: [ld(crumbs), schema], main, partners });
 }
