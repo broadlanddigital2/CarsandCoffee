@@ -362,6 +362,7 @@ route("/recommend", async () => {
   const link = `${location.origin}/join/${m.invite_code || ""}`;
   const used = Number(m.recommendations_last_30_days || 0), limit = Number(m.recommendation_limit || 10);
   const { data: recs } = await sb.rpc("get_my_recommendations");
+  const { data: invites } = await sb.rpc("get_my_invites");
   const msg = encodeURIComponent(`Join me in the Cars and Coffee Club, the members' club for car enthusiasts in Norfolk and Suffolk. My invite link fast-tracks your application: ${link}`);
   const statusBadge = { pending: `<span class="badge">Waiting</span>`, more_info: `<span class="badge">More info needed</span>`, approved: `<span class="badge ok">Approved</span>`, rejected: `<span class="badge red">Not approved</span>` };
   app.innerHTML = `<span class="eyebrow">Recommend a mate</span><h1>Bring your mates</h1>
@@ -373,7 +374,7 @@ route("/recommend", async () => {
         <div class="linkbox"><input type="text" id="link" readonly value="${esc(link)}" aria-label="Your invite link"><button class="btn red small" id="copy" type="button">Copy</button></div>
         <div class="btns">
           <a class="btn ghost small" href="https://wa.me/?text=${msg}" rel="noopener" target="_blank">WhatsApp</a>
-          <a class="btn ghost small" href="mailto:?subject=${encodeURIComponent("Join me in the Cars and Coffee Club")}&body=${msg}">Email</a>
+          <a class="btn ghost small" href="/invite" data-link>Email</a>
           <a class="btn ghost small" href="sms:?&body=${msg}">Text</a>
         </div>
         <p class="small muted" style="margin-top:14px">Fast-track places used this month: <strong>${Math.min(used, limit)} of ${limit}</strong></p>
@@ -383,7 +384,9 @@ route("/recommend", async () => {
     <h2 style="margin-top:32px">People you've recommended</h2>
     ${recs && recs.length ? `<table><thead><tr><th>Name</th><th>Applied</th><th>Status</th></tr></thead><tbody>
       ${recs.map((r) => `<tr><td>${esc(r.first_name)}</td><td>${fmtDate(r.applied_at)}</td><td>${statusBadge[r.status] || esc(r.status)}</td></tr>`).join("")}</tbody></table>`
-      : `<p class="muted">Nobody yet. Share your link to get started.</p>`}`;
+      : `<p class="muted">Nobody yet. Share your link to get started.</p>`}
+    ${invites && invites.length ? `<h2 style="margin-top:32px">Email invites sent</h2><table><thead><tr><th>Name</th><th>Email</th><th>Sent</th><th>Status</th></tr></thead><tbody>
+      ${invites.map((i) => `<tr><td>${esc(i.friend_name)}</td><td>${esc(i.email)}</td><td>${fmtDate(i.sent_at)}</td><td>${i.joined ? `<span class="badge ok">Applied</span>` : `<span class="badge">Invited</span>`}</td></tr>`).join("")}</tbody></table>` : ""}`;
   $("#copy").onclick = async () => { try { await navigator.clipboard.writeText(link); toast("Link copied"); } catch { $("#link").select(); toast("Press Ctrl+C / Cmd+C to copy"); } };
   try {
     let mod; for (const src of ["https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/+esm", "https://esm.sh/qrcode-generator@1.4.4"]) { try { mod = await import(src); break; } catch {} }
@@ -391,6 +394,38 @@ route("/recommend", async () => {
     const qr = qrcode(0, "M"); qr.addData(link); qr.make();
     $("#qr").innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
   } catch { $("#qr").innerHTML = `<p style="color:#241712;font-size:13px;padding:8px">QR code unavailable. Share the link instead.</p>`; }
+});
+
+route("/invite", async () => {
+  if (!state.session) return go("/sign-in", true);
+  if (state.profile?.status !== "approved") return go(homeFor(), true);
+  const m = state.membership || {};
+  const me = esc(state.profile?.display_name || "A member");
+  app.innerHTML = `<div class="narrow"><span class="eyebrow">Recommend a mate</span><h1>Email a mate</h1>
+    <p class="muted">We'll send them a personal invite from the club with your invite link. Their application is fast-tracked, and they can join even while the club is invite-only.</p>
+    ${m.can_recommend === false ? `<div class="notice red">Your recommendation rights are paused. Contact the team if you think this is a mistake.</div>` : `
+    <form id="inviteform" class="panel" novalidate>
+      <label class="f">Their first name<input type="text" id="inv_name" maxlength="60" autocomplete="off" required placeholder="e.g. Tom"></label>
+      <label class="f">Their email address<input type="email" id="inv_email" maxlength="254" autocomplete="off" required placeholder="tom@example.com"></label>
+      <label class="f">Add a note <small>(optional, up to 300 characters)</small><textarea id="inv_note" maxlength="300" rows="3" placeholder="See you at the next meet!"></textarea></label>
+      <p class="small muted" id="inv_preview">They'll get an email from Cars and Coffee UK saying <strong>${me} has invited you to join the Cars and Coffee Club</strong>, with your note and a button to apply.</p>
+      <p class="msg" id="inv_msg" role="status" aria-live="polite"></p>
+      <div class="btns"><button class="btn red" type="submit" id="inv_send">Send invite</button><a class="btn ghost" href="/recommend" data-link>Back</a></div>
+    </form>
+    <p class="small muted">Only invite people you know. We only use their email to send this one invite, and won't email the same person again for a week.</p>`}</div>`;
+  const f = $("#inviteform"); if (!f) return;
+  f.onsubmit = async (e) => {
+    e.preventDefault();
+    const name = $("#inv_name").value.trim(), email = $("#inv_email").value.trim(), note = $("#inv_note").value.trim(), msg = $("#inv_msg"), btn = $("#inv_send");
+    if (!name) { msg.textContent = "Please enter your mate's name."; $("#inv_name").focus(); return; }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { msg.textContent = "Please enter a valid email address."; $("#inv_email").focus(); return; }
+    btn.disabled = true; msg.textContent = "Sending…";
+    const { data, error } = await sb.rpc("send_member_invite", { p_name: name, p_email: email, p_note: note || null });
+    btn.disabled = false;
+    if (error || !data) { msg.textContent = "Sorry, something went wrong. Please try again."; return; }
+    msg.textContent = data.message;
+    if (data.status === "sent") { toast(data.message); f.reset(); $("#inv_name").focus(); msg.textContent = data.message + " Want to invite someone else?"; }
+  };
 });
 
 route("/admin", async () => {

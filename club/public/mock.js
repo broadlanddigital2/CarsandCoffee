@@ -41,6 +41,8 @@ export function createMock(scenario) {
     get_my_recommendations: () => [{ first_name: "Ellie", status: "pending", applied_at: new Date(now - 3 * 3600e3).toISOString() }, { first_name: "Tom", status: "approved", applied_at: new Date(now - 9 * day).toISOString() }],
     get_application_queue: () => queue,
     decide_application: () => null,
+    get_my_invites: () => [{ friend_name: "Dan", email: "dan@example.com", sent_at: new Date(now - day).toISOString(), joined: false }],
+    send_member_invite: () => ({ status: "sent", message: "Invite sent." }),
   };
   return {
     auth: {
