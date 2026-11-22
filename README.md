@@ -1,6 +1,6 @@
 # Cars and Coffee UK
 
-Main website for **www.carsandcoffeeuk.co.uk**: UK car meets, motorsport news, members' community, shop, partners and a business directory.
+Main website for **www.carsandcoffee.co.uk**: UK car meets, motorsport news, members' community, shop, partners and a business directory.
 
 ## What's here
 

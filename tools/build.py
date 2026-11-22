@@ -101,16 +101,16 @@ chips = '<button type="button" class="chip on" data-f="all" aria-pressed="true">
 sp = SPONSORED
 
 ld = [
-    {"@context": "https://schema.org", "@type": "Organization", "name": "Cars and Coffee UK", "url": "https://www.carsandcoffeeuk.co.uk/",
-     "logo": "https://www.carsandcoffeeuk.co.uk/logo.png"},
-    {"@context": "https://schema.org", "@type": "WebSite", "name": "Cars and Coffee UK", "url": "https://www.carsandcoffeeuk.co.uk/",
-     "potentialAction": {"@type": "SearchAction", "target": "https://www.carsandcoffeeuk.co.uk/search?q={q}", "query-input": "required name=q"}},
+    {"@context": "https://schema.org", "@type": "Organization", "name": "Cars and Coffee UK", "url": "https://www.carsandcoffee.co.uk/",
+     "logo": "https://www.carsandcoffee.co.uk/logo.png"},
+    {"@context": "https://schema.org", "@type": "WebSite", "name": "Cars and Coffee UK", "url": "https://www.carsandcoffee.co.uk/",
+     "potentialAction": {"@type": "SearchAction", "target": "https://www.carsandcoffee.co.uk/search?q={q}", "query-input": "required name=q"}},
     {"@context": "https://schema.org", "@type": "ItemList", "name": "Upcoming events", "itemListElement": [
         {"@type": "ListItem", "position": i + 1, "item": {"@type": "Event", "name": e[1], "startDate": e[3], "endDate": e[4],
          "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode", "eventStatus": "https://schema.org/EventScheduled",
          "location": {"@type": "Place", "name": e[5], "address": {"@type": "PostalAddress", "addressRegion": e[6], "addressCountry": "GB"}},
-         "offers": {"@type": "Offer", "price": f"{e[7]/100:.2f}", "priceCurrency": "GBP", "url": f"https://www.carsandcoffeeuk.co.uk/events/{e[0]}"},
-         "url": f"https://www.carsandcoffeeuk.co.uk/events/{e[0]}"}} for i, e in enumerate(EVENTS)]},
+         "offers": {"@type": "Offer", "price": f"{e[7]/100:.2f}", "priceCurrency": "GBP", "url": f"https://www.carsandcoffee.co.uk/events/{e[0]}"},
+         "url": f"https://www.carsandcoffee.co.uk/events/{e[0]}"}} for i, e in enumerate(EVENTS)]},
     {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [
         {"@type": "Question", "name": q, "acceptedAnswer": {"@type": "Answer", "text": a}} for q, a in FAQS]},
 ]
