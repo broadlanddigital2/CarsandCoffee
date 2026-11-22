@@ -96,3 +96,5 @@ h1, h2, h3, .h4, .h5 { color: #1d130f; }
 .imgfield { display: flex; gap: 14px; align-items: flex-start; }
 .imgprev { width: 120px; height: 80px; border-radius: 8px; background: #efe8df; display: grid; place-items: center; overflow: hidden; flex: none; border: 1px solid #e3ddd5; }
 .imgprev img { width: 100%; height: 100%; object-fit: cover; }
+.row-off td { color: #8a7b70; }
+.row-off .rowlink { color: #8a7b70; }

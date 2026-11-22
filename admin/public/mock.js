@@ -21,7 +21,7 @@ export function createMock(scenario) {
         { id: "p2", path: "/go/norfolk-car-meets", page_type: "landing", title: "Norfolk car meets (Google Ads)", focus_keyword: "car meets norfolk", status: "published", seo_score: 61, noindex: true, ads: { headlines: ["Car Meets in Norfolk", "Free Breakfast Meets", "All Cars Welcome"], descriptions: ["Relaxed Sunday car meets across Norfolk. Free to attend, RSVP online.", "Classics, modern and track cars. Find your next meet today."], keywords: ["car meets norfolk"], utm_source: "google", utm_medium: "cpc", utm_campaign: "norfolk-meets" }, cta_label: "See upcoming meets", cta_url: "/events", updated_at: iso(now - day) },
       ],
       page_revisions: [{ id: 1, page_id: "p1" }, { id: 2, page_id: "p1" }],
-      events: [{ id: "e1", slug: "norfolk-breakfast-meet-dec-2026", title: "Norfolk Breakfast Meet", event_type: "meet", starts_at: "2026-12-06T07:30:00Z", ends_at: "2026-12-06T11:30:00Z", venue: "The Workshop, Norfolk", region: "East Anglia", price_pence: 0, ticket_status: "free_rsvp", members_only: false, published: true }],
+      events: [{ id: "e0", slug: "old-meet", title: "Summer Meet (past)", event_type: "meet", starts_at: "2026-07-06T07:30:00Z", ends_at: "2026-07-06T11:30:00Z", venue: "The Workshop", price_pence: 0, ticket_status: "free_rsvp", published: true }, { id: "e1", slug: "norfolk-breakfast-meet-dec-2026", title: "Norfolk Breakfast Meet", event_type: "meet", starts_at: "2026-12-06T07:30:00Z", ends_at: "2026-12-06T11:30:00Z", venue: "The Workshop, Norfolk", region: "East Anglia", price_pence: 0, ticket_status: "free_rsvp", members_only: false, published: true }],
       articles: [{ id: "a1", slug: "mk1-gti-new-life", title: "How a Mk1 GTI found a new life", category: "Restoration", status: "published", featured: true, published_at: "2026-11-20" }],
       faqs: [{ id: 1, question: "How do I join Cars and Coffee UK?", answer: "Tap Join…", sort: 0, published: true }],
       partners: [{ id: "pa1", slug: "le-man-cave", name: "Le Man Cave", tagline: "Racing simulators and Scalextric, Norwich", sort: 2, active: true }],
@@ -45,6 +45,7 @@ export function createMock(scenario) {
     const api = {
       select(_c, opts = {}) { if (opts.head) head = true; if (opts.count) countMode = opts.count; return api; },
       eq(k, v) { filters.push((r) => r[k] === v); return api; },
+      gte(k, v) { filters.push((r) => (r[k] || "") >= v); return api; }, lt(k, v) { filters.push((r) => (r[k] || "") < v); return api; },
       order() { return api; }, limit() { return api; },
       maybeSingle() { single = true; return run(); }, single() { single = true; return run(); },
       insert(row) { op = "insert"; payload = row; return api; },

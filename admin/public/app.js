@@ -470,19 +470,74 @@ function cell(v, f) {
   if (f?.type === "date") return fmtDate(v);
   return esc(LABELS[v] || v);
 }
+// on/off switch shown on each row of a list: which field it flips and the "on" / "off" values
+const TOGGLE = {
+  events: { field: "published", label: "Live" }, articles: { field: "status", on: "published", off: "draft", label: "Live" },
+  faqs: { field: "published", label: "Live" }, partners: { field: "active", label: "Active" }, partner_features: { field: "active", label: "Live" },
+  community_highlights: { field: "active", label: "Shown" }, products: { field: "active", label: "On sale" }, gallery_items: { field: "featured", label: "On homepage" },
+  directory_listings: { field: "status", on: "published", off: "pending", label: "Live" }, sponsored_slots: { field: "status", on: "approved", off: "paused", label: "Running" },
+  homepage_blocks: { field: "enabled", label: "Shown" },
+};
+const isOn = (t, r) => (t.on ?? true) === r[t.field];
 route("/content/:table", async ({ table }) => {
   const c = CONTENT[table]; if (!c) throw new Error("Unknown section");
   crumbs([[c.title]]);
-  const { data, error } = await site().from(table).select("*").order(c.order[0], { ascending: c.order[1] }).limit(1000);
+  const when = qs().get("when") || (table === "events" ? "upcoming" : ""), search = (qs().get("q") || "").trim().toLowerCase();
+  let query = site().from(table).select("*").order(c.order[0], { ascending: c.order[1] }).limit(1000);
+  if (table === "events" && when === "upcoming") query = query.gte("ends_at", new Date().toISOString());
+  if (table === "events" && when === "past") query = query.lt("ends_at", new Date().toISOString()).order("starts_at", { ascending: false });
+  const { data: all, error } = await query;
   if (error) throw error;
   const fmap = Object.fromEntries(c.fields.map((f) => [f.name, f]));
   const pk = c.pk || "id";
+  const tg = TOGGLE[table];
+  const cols = c.list.filter((k) => !tg || k !== tg.field);
+  const data = (all || []).filter((r) => !search || cols.some((k) => String(r[k] ?? "").toLowerCase().includes(search)));
+  const filterTab = (w, l) => `<a href="/content/events${w ? "?when=" + w : "?when=all"}" data-link class="${when === w || (w === "all" && !when) ? "on" : ""}">${l}</a>`;
   view.innerHTML = `<div class="page-head"><h1>${esc(c.title)}</h1><div class="d-flex gap-2">${c.csv ? `<button class="btn btn-outline-secondary" id="csv">Download CSV</button>` : ""}${c.noCreate ? "" : `<a class="btn btn-primary" href="/content/${table}/new" data-link>Add</a>`}</div></div>
     ${c.help ? `<p class="text-body-secondary">${esc(c.help)}</p>` : ""}
-    <div class="card">${data.length ? `<div class="table-responsive"><table class="table table-hover mb-0"><thead><tr>${c.list.map((k) => `<th>${esc(fmap[k]?.label || k)}</th>`).join("")}</tr></thead><tbody>
-      ${data.map((r) => `<tr>${c.list.map((k, i) => `<td>${i === 0 ? `<a class="rowlink" href="/content/${table}/${encodeURIComponent(r[pk])}" data-link>${esc(r[k] ?? "(untitled)")}</a>` : cell(r[k], fmap[k])}</td>`).join("")}</tr>`).join("")}
-    </tbody></table></div>` : `<div class="empty">Nothing here yet.</div>`}</div>
-    <p class="small text-body-secondary mt-3">${data.length} item${data.length === 1 ? "" : "s"}. Changes are saved to the database straight away; the website picks them up when it's next rebuilt.</p>`;
+    ${table === "events" ? `<div class="pill-tabs">${filterTab("upcoming", "Upcoming")}${filterTab("past", "Past")}${filterTab("all", "All")}</div>` : ""}
+    <div class="card">${(all || []).length > 8 ? `<div class="card-body pb-0"><form id="lsearch" class="mb-3"><input class="form-control" name="q" value="${esc(search)}" placeholder="Search ${esc(c.title.toLowerCase())}"></form></div>` : ""}
+    ${data.length ? `<div class="table-responsive"><table class="table table-hover mb-0 align-middle"><thead><tr>${cols.map((k) => `<th>${esc(fmap[k]?.label || k)}</th>`).join("")}${tg ? `<th>${esc(tg.label)}</th>` : ""}<th class="text-end">Actions</th></tr></thead><tbody>
+      ${data.map((r) => `<tr data-pk="${esc(r[pk])}" class="${tg && !isOn(tg, r) ? "row-off" : ""}">${cols.map((k, i) => `<td>${i === 0 ? `<a class="rowlink" href="/content/${table}/${encodeURIComponent(r[pk])}" data-link>${esc(r[k] ?? "(untitled)")}</a>` : cell(r[k], fmap[k])}</td>`).join("")}
+        ${tg ? `<td><div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" data-toggle ${isOn(tg, r) ? "checked" : ""} aria-label="${esc(tg.label)}"></div></td>` : ""}
+        <td class="text-end text-nowrap"><a class="btn btn-sm btn-outline-secondary" href="/content/${table}/${encodeURIComponent(r[pk])}" data-link>Edit</a>
+          ${c.noCreate ? "" : `<button class="btn btn-sm btn-outline-secondary" data-dup>Duplicate</button>`}
+          ${c.noDelete ? "" : `<button class="btn btn-sm btn-outline-danger" data-del>Delete</button>`}</td></tr>`).join("")}
+    </tbody></table></div>` : `<div class="empty">${search ? "Nothing matches your search." : table === "events" && when === "upcoming" ? 'No upcoming events. <a href="/content/events/new" data-link>Add one</a>.' : "Nothing here yet."}</div>`}</div>
+    <p class="small text-body-secondary mt-3">${data.length} item${data.length === 1 ? "" : "s"}. Changes show on the website within a minute.</p>`;
+  if ($("#lsearch")) $("#lsearch").onsubmit = (e) => { e.preventDefault(); const p = new URLSearchParams(location.search); p.delete("mock"); const v = new FormData(e.target).get("q"); v ? p.set("q", v) : p.delete("q"); go(`/content/${table}${p.toString() ? "?" + p : ""}`); };
+  const keyOf = (tr) => (c.idType === "int" ? Number(tr.dataset.pk) : tr.dataset.pk);
+  view.onchange = async (e) => {
+    const sw = e.target.closest("[data-toggle]"); if (!sw) return;
+    const tr = sw.closest("tr"); const val = sw.checked ? (tg.on ?? true) : (tg.off ?? false);
+    const { error } = await site().from(table).update({ [tg.field]: val }).eq(pk, keyOf(tr));
+    if (error) { sw.checked = !sw.checked; return oops(error); }
+    tr.classList.toggle("row-off", !sw.checked); toast(sw.checked ? `Switched on: ${tg.label.toLowerCase()}` : "Switched off");
+  };
+  view.onclick = async (e) => {
+    const tr = e.target.closest("tr[data-pk]"); if (!tr) return;
+    if (e.target.matches("[data-del]")) {
+      const b = e.target;
+      if (!b.dataset.armed) { b.dataset.armed = "1"; b.textContent = "Confirm delete"; b.classList.replace("btn-outline-danger", "btn-danger"); setTimeout(() => { if (b.isConnected) { delete b.dataset.armed; b.textContent = "Delete"; b.classList.replace("btn-danger", "btn-outline-danger"); } }, 4000); return; }
+      const { error } = await site().from(table).delete().eq(pk, keyOf(tr));
+      if (error) return oops(/foreign key|violates/i.test(error.message) ? new Error("This item is used elsewhere (for example a partner with features or products), so it can't be deleted. Switch it off instead.") : error);
+      tr.remove(); toast("Deleted");
+    }
+    if (e.target.matches("[data-dup]")) {
+      const r = (all || []).find((x) => String(x[pk]) === tr.dataset.pk); if (!r) return;
+      const copy = { ...r };
+      delete copy.id; delete copy.created_at; delete copy.updated_at;
+      const suffix = "-copy-" + Math.random().toString(36).slice(2, 6);
+      if (copy.slug) copy.slug += suffix;
+      if (pk !== "id" && copy[pk]) copy[pk] += suffix.replace(/-/g, "_");
+      if ("title" in copy && copy.title) copy.title += " (copy)"; else if ("name" in copy && copy.name) copy.name += " (copy)";
+      if (tg) copy[tg.field] = tg.off ?? false;
+      const { data: made, error } = await site().from(table).insert(copy).select(pk).single();
+      if (error) return oops(error);
+      toast("Copy created (switched off). Edit it, then switch it on."); go(`/content/${table}/${encodeURIComponent(made[pk])}`);
+    }
+  };
   if (c.csv) $("#csv").onclick = () => {
     const cols = ["email", "source", "created_at", "unsubscribed_at"];
     const csv = [cols.join(","), ...data.map((r) => cols.map((k) => `"${String(r[k] ?? "").replace(/"/g, '""')}"`).join(","))].join("\n");
