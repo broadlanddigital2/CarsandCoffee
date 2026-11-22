@@ -52,14 +52,61 @@ export const eventCard = (e) => {
 <p class="price"><span>${money(e.price_pence)}</span><span class="ts ${tcls}">${E(TICKET[e.ticket_status] || e.ticket_status)}</span></p></div></div></a></article>`;
 };
 
+// Town search with a styled suggestions list (replaces the browser's plain datalist).
+// items: [{ t: town, c: county, h: link, live: has its own page }]
+let tsN = 0;
+export function townSearch(items, { placeholder = "Your town, e.g. Norwich", button = "Find meets", label = "Your town", hideLabel = true, cls = "" } = {}) {
+  const id = "ts" + ++tsN;
+  const data = JSON.stringify(items.map((x) => ({ t: x.t, c: x.c || "", h: x.h, l: !!x.live }))).replace(/</g, "\\u003c");
+  return `<form class="tw ${cls}" id="${id}" action="/car-meets" method="get" role="search" autocomplete="off">
+  <label for="${id}-i"${hideLabel ? ' class="sr"' : ""}>${E(label)}</label>
+  <div class="tw-row"><div class="tw-box"><svg class="tw-ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="m20 20-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    <input id="${id}-i" name="town" type="text" placeholder="${E(placeholder)}" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="${id}-l" spellcheck="false">
+    <ul class="tw-list" id="${id}-l" role="listbox" hidden></ul></div><button class="btn red" type="submit">${E(button)}</button></div>
+  <p class="tw-msg" role="status"></p>
+  <script>(function(){var f=document.getElementById('${id}'),i=f.querySelector('input'),ul=f.querySelector('.tw-list'),msg=f.querySelector('.tw-msg'),D=${data},cur=-1,shown=[];
+    var norm=function(s){return String(s||'').toLowerCase().replace(/[’']/g,'').replace(/\\s+/g,' ').trim();};
+    var esc=function(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});};
+    function match(q){q=norm(q);if(!q)return D.filter(function(x){return x.l;}).concat(D.filter(function(x){return !x.l;})).slice(0,8);
+      var a=[],b=[];D.forEach(function(x){var n=norm(x.t);if(n.indexOf(q)===0)a.push(x);else if(n.indexOf(q)>0||norm(x.c).indexOf(q)===0)b.push(x);});return a.concat(b).slice(0,8);}
+    function hi(t,q){q=norm(q);var n=norm(t),k=n.indexOf(q);if(!q||k<0)return esc(t);return esc(t.slice(0,k))+'<mark>'+esc(t.slice(k,k+q.length))+'</mark>'+esc(t.slice(k+q.length));}
+    function draw(){shown=match(i.value);cur=-1;
+      if(!shown.length){ul.innerHTML='<li class="tw-none">No match yet. Try a nearby town or <a href="/car-meets">see all areas</a>.</li>';}
+      else ul.innerHTML=shown.map(function(x,k){return '<li role="option" id="${id}-o'+k+'" data-k="'+k+'" aria-selected="false"><span class="tw-t">'+hi(x.t,i.value)+'</span><span class="tw-s">'+esc(x.c)+'</span><span class="tw-b'+(x.l?' live':'')+'">'+(x.c==='County'?'County page':x.l?'Town page':'Nearby meets')+'</span></li>';}).join('');
+      ul.hidden=false;i.setAttribute('aria-expanded','true');}
+    function close(){ul.hidden=true;i.setAttribute('aria-expanded','false');i.removeAttribute('aria-activedescendant');cur=-1;}
+    function setCur(k){var o=ul.querySelectorAll('[role=option]');if(!o.length)return;cur=(k+o.length)%o.length;o.forEach(function(e,j){e.setAttribute('aria-selected',j===cur);});i.setAttribute('aria-activedescendant','${id}-o'+cur);o[cur].scrollIntoView({block:'nearest'});}
+    function go(x){if(!x)return;i.value=x.t;close();location.href=x.h;}
+    i.addEventListener('input',function(){msg.textContent='';draw();});
+    i.addEventListener('focus',draw);
+    i.addEventListener('keydown',function(e){if(e.key==='ArrowDown'){e.preventDefault();if(ul.hidden)draw();setCur(cur+1);}else if(e.key==='ArrowUp'){e.preventDefault();setCur(cur-1);}else if(e.key==='Escape'){close();}else if(e.key==='Enter'&&cur>=0){e.preventDefault();go(shown[cur]);}});
+    ul.addEventListener('mousedown',function(e){var li=e.target.closest('[role=option]');if(li){e.preventDefault();go(shown[+li.dataset.k]);}});
+    document.addEventListener('click',function(e){if(!f.contains(e.target))close();});
+    f.addEventListener('submit',function(e){e.preventDefault();var q=norm(i.value);if(!q){msg.textContent='Type a town name.';i.focus();return;}
+      var exact=D.filter(function(x){return norm(x.t)===q;})[0],m=exact||match(i.value)[0];
+      if(m&&(exact||norm(m.t).indexOf(q)===0))go(m);else{close();msg.innerHTML='We don\\'t have a page for that town yet. Try the nearest town, or <a href="/car-meets">browse all areas</a>.';}});
+    if(f.classList.contains('tw-hub')){var t=new URLSearchParams(location.search).get('town');if(t){i.value=t;f.requestSubmit?f.requestSubmit():f.dispatchEvent(new Event('submit',{cancelable:true}));f.scrollIntoView({block:'center'});}}
+  })();</script></form>`;
+}
+
 // "Car meets near you": town search plus links to every live location page. Used on the homepage and the events page.
 export const placesQ = () => q("pages?select=path,title,county,town,content&page_type=eq.location&status=eq.published&order=path").catch(() => []);
-export function nearYou(places = []) {
+export function townItems(places = []) {
   const hub = places.find((p) => !p.county);
-  const towns = [...new Set([...(hub?.content?.norfolk_towns || []), ...(hub?.content?.suffolk_towns || []), ...places.filter((p) => p.town).map((p) => p.town)])].sort();
+  const pageFor = (county, town) => places.find((p) => p.county === county && (town ? p.town === town : !p.town));
+  const list = [];
+  for (const [county, towns] of [["Norfolk", hub?.content?.norfolk_towns || []], ["Suffolk", hub?.content?.suffolk_towns || []]]) for (const t of towns) {
+    const tp = pageFor(county, t), cp = pageFor(county, null);
+    list.push({ t, c: county, h: tp ? tp.path : cp ? cp.path + "#events" : "/car-meets", live: !!tp });
+  }
+  for (const p of places.filter((p) => p.town && !list.some((x) => x.t === p.town))) list.push({ t: p.town, c: p.county, h: p.path, live: true });
+  for (const p of places.filter((p) => p.county && !p.town)) list.push({ t: p.county, c: "County", h: p.path, live: true });
+  return list.sort((a, b) => a.t.localeCompare(b.t));
+}
+export function nearYou(places = []) {
   const links = places.filter((p) => p.county).sort((a, b) => (a.town ? 1 : 0) - (b.town ? 1 : 0) || (a.town || a.county).localeCompare(b.town || b.county));
   return `<div class="near"><div class="near-t"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s7-7.5 7-13a7 7 0 0 0-14 0c0 5.5 7 13 7 13z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="9" r="2.5" fill="currentColor"/></svg><div><strong>Car meets near you</strong><span>Meets, venues, drives and local businesses by town.</span></div></div>
-<form class="near-f" action="/car-meets" method="get" role="search"><label for="near-town" class="sr">Your town</label><input id="near-town" name="town" list="near-towns" placeholder="Your town, e.g. Norwich" autocomplete="off"><button class="btn red" type="submit">Find meets</button><datalist id="near-towns">${towns.map((t) => `<option value="${E(t)}"></option>`).join("")}</datalist></form>
+${townSearch(townItems(places), { cls: "near-f" })}
 <div class="near-l">${links.map((p) => `<a href="${E(p.path)}">${E(p.town || p.county)}</a>`).join("")}<a href="/car-meets">All areas ${ARROW}</a></div></div>`;
 }
 

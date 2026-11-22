@@ -1,6 +1,6 @@
 // Renders content pages (location pages for now) from site.pages, inside the homepage's header and footer.
 import TEMPLATE from "./home-template.html";
-import { E, img, utm, ARROW, q, eventCard, bizCard } from "./home.js";
+import { E, img, utm, ARROW, q, eventCard, bizCard, townSearch } from "./home.js";
 
 const SITE = "https://www.carsandcoffee.uk";
 const CLUB = "https://club.carsandcoffee.uk";
@@ -65,14 +65,9 @@ function townsFeature(c, events, placePages) {
       <div class="tf-tiles">${tiles}</div></div>`;
   };
   const panels = counties.map(panel).join("");
-  const options = all.map((x) => `<option value="${E(x.t)}"></option>`).join("");
-  const map = JSON.stringify(Object.fromEntries(all.map((x) => [x.t.toLowerCase().replace(/[’']/g, ""), x.href])));
   return `<section class="tf" aria-labelledby="tf-h"><div class="wrap">
     <div class="tf-head"><div><span class="eyebrow">Car meets near you</span><h2 id="tf-h">Find meets by town</h2><p>Pick your town to see upcoming meets, regular venues, drives and local businesses.</p></div>
-      <form class="tf-search" role="search" onsubmit="event.preventDefault();var m=${E(map)},v=this.town.value.trim().toLowerCase().replace(/[’']/g,''),h=m[v]||m[Object.keys(m).find(function(k){return v&&k.indexOf(v)===0})];var msg=this.querySelector('.tf-msg');if(h){location.href=h;}else{msg.textContent=v?'We don\\'t have a page for that town yet. Try the nearest town or county.':'Type a town name.';}">
-        <label for="tf-town">Your town</label><div class="tf-row"><input id="tf-town" name="town" list="tf-towns" placeholder="e.g. Norwich" autocomplete="off"><button class="btn red" type="submit">Go</button></div>
-        <datalist id="tf-towns">${options}</datalist><p class="tf-msg" role="status"></p></form>
-        <script>(function(){var t=new URLSearchParams(location.search).get('town');if(!t)return;var f=document.querySelector('.tf-search');f.town.value=t;f.onsubmit({preventDefault:function(){}});document.querySelector('.tf').scrollIntoView();})();</script></div>
+      <div class="tf-search">${townSearch(all.map((x) => ({ t: x.t, c: x.county, h: x.href, live: x.live })).concat(placePages.filter((x) => x.county && !x.town).map((x) => ({ t: x.county, c: "County", h: x.path, live: true }))).sort((a, b) => a.t.localeCompare(b.t)), { label: "Your town", hideLabel: false, placeholder: "Start typing, e.g. Norwich", button: "Go", cls: "tw-hub" })}</div></div>
     <div class="tf-grid">${panels}</div>
     ${c.coming_soon ? `<div class="tf-next"><strong>Coming next:</strong> ${E(c.coming_soon)} <span class="tf-pills"><span>Cambridgeshire</span><span>Essex</span></span></div>` : ""}
   </div></section>`;
