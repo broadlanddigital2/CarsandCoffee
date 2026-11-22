@@ -1,6 +1,6 @@
 // Renders content pages (location pages for now) from site.pages, inside the homepage's header and footer.
 import TEMPLATE from "./home-template.html";
-import { E, img, utm, ARROW, q, eventCard, bizCard, townSearch } from "./home.js";
+import { E, img, utm, ARROW, q, eventCard, bizCard, townSearch, SVC_ICON, SVC_DEFAULT } from "./home.js";
 
 const SITE = "https://www.carsandcoffee.uk";
 const CLUB = "https://club.carsandcoffee.uk";
@@ -56,17 +56,17 @@ function townsFeature(c, events, placePages) {
       const tp = pageFor(county, t), next = events.find((e) => e.county === county && e.town === t);
       const href = tp ? tp.path : cp ? `${cp.path}#events` : "#events";
       all.push({ t, county, href, live: !!tp });
-      return `<a class="tt${tp ? " live" : ""}" href="${E(href)}"><strong>${E(t)}</strong><span>${next ? `Next: ${short(next.starts_at)}` : tp ? "Meets nearby" : "Coming soon"}</span>${tp ? `<i aria-hidden="true">${ARROW}</i>` : ""}</a>`;
+      return `<a class="tt${tp ? " live" : ""}" href="${E(href)}"><strong>${E(t)}</strong><span>${next ? `Next: ${short(next.starts_at)}` : tp ? "Local hub" : "Coming soon"}</span>${tp ? `<i aria-hidden="true">${ARROW}</i>` : ""}</a>`;
     }).join("");
     return `<div class="tf-county" id="${slug(county)}">
       <div class="tf-top"><img src="${E(img(cp?.hero_image_path || COUNTY_PHOTO[county]))}" alt="" loading="lazy"><div class="tf-top-in">
         <h3>${E(county)}</h3><p>${countyEvents.length ? `${countyEvents.length} upcoming meet${countyEvents.length === 1 ? "" : "s"}` : "Meets coming soon"} · ${towns.length} towns</p>
-        ${cp ? `<a class="btn red small" href="${E(cp.path)}">Car meets in ${E(county)} ${ARROW}</a>` : `<span class="tf-soon">County page coming soon</span>`}</div></div>
+        ${cp ? `<a class="btn red small" href="${E(cp.path)}">Cars in ${E(county)} ${ARROW}</a>` : `<span class="tf-soon">County page coming soon</span>`}</div></div>
       <div class="tf-tiles">${tiles}</div></div>`;
   };
   const panels = counties.map(panel).join("");
   return `<section class="tf" aria-labelledby="tf-h"><div class="wrap">
-    <div class="tf-head"><div><span class="eyebrow">Car meets near you</span><h2 id="tf-h">Find meets by town</h2><p>Pick your town to see upcoming meets, regular venues, drives and local businesses.</p></div>
+    <div class="tf-head"><div><span class="eyebrow">Your local car hub</span><h2 id="tf-h">Find your town</h2><p>Pick your town for upcoming meets, trusted garages and detailers, the best drives and local clubs.</p></div>
       <div class="tf-search">${townSearch(all.map((x) => ({ t: x.t, c: x.county, h: x.href, live: x.live })).concat(placePages.filter((x) => x.county && !x.town).map((x) => ({ t: x.county, c: "County", h: x.path, live: true }))).sort((a, b) => a.t.localeCompare(b.t)), { label: "Your town", hideLabel: false, placeholder: "Start typing, e.g. Norwich", button: "Go", cls: "tw-hub" })}</div></div>
     <div class="tf-grid">${panels}</div>
     ${c.coming_soon ? `<div class="tf-next"><strong>Coming next:</strong> ${E(c.coming_soon)} <span class="tf-pills"><span>Cambridgeshire</span><span>Essex</span></span></div>` : ""}
@@ -161,69 +161,98 @@ export async function loadPage(path) {
   return rows[0] || null;
 }
 
+// Local hub: services tiles that filter the business list below
+function servicesSection(place, services, listings, county) {
+  const match = (l, s) => (l.services || []).some((x) => { const a = x.toLowerCase(), b = s.name.toLowerCase(); return a === b || a.startsWith(b.split(" ")[0]) || b.startsWith(a.split(" ")[0]); });
+  const tiles = services.map((s) => { const n = listings.filter((l) => match(l, s)).length;
+    return `<button type="button" class="svc-t${n ? "" : " none"}" data-svc="${E(s.name)}" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">${SVC_ICON[s.slug] || SVC_DEFAULT}</svg><strong>${E(s.name)}</strong><span>${n ? `${n} local business${n === 1 ? "" : "es"}` : "Coming soon"}</span></button>`; }).join("");
+  const cards = listings.map((l) => bizCard(l).replace('<article class="biz"', `<article class="biz" data-svcs="${E((l.services || []).join("|"))}"`)).join("");
+  return `<section class="lp-sec svc-sec" id="services"><div class="wrap">
+    <div class="svc-head"><div><h2>Local car services in ${E(place)}</h2><p class="lp-lead">Garages, detailers, restorers, tuners and more in and around ${E(place)}, checked by our team. Pick a service to filter.</p></div>
+      <a class="btn ghost" href="/directory/list-your-business">List your business</a></div>
+    <div class="svc-grid" role="group" aria-label="Filter businesses by service">${tiles}</div>
+    <div id="businesses" class="svc-results">
+      <div class="svc-bar"><h3 id="svc-title">Trusted local businesses</h3><button type="button" class="svc-clear" hidden>Show all</button></div>
+      ${listings.length ? `<div class="bizs">${cards}</div><p class="svc-empty" hidden>No ${E(place)} businesses for that service yet. <a href="/directory/list-your-business">Know a good one? Tell us.</a></p>` : `<p class="lp-empty">We're checking local businesses for ${E(place)}. Know a good one? <a href="/directory/list-your-business">Tell us</a>.</p>`}
+      <div class="btns" style="margin-top:18px"><a class="btn ghost" href="/directory/region/${slug(county)}">Browse the ${E(county)} directory</a></div>
+    </div>
+    <script>(function(){var s=document.getElementById('services');if(!s)return;var tiles=s.querySelectorAll('.svc-t'),cards=s.querySelectorAll('.biz[data-svcs]'),clr=s.querySelector('.svc-clear'),t=s.querySelector('#svc-title'),empty=s.querySelector('.svc-empty');
+      function m(c,name){var b=name.toLowerCase();return c.getAttribute('data-svcs').toLowerCase().split('|').some(function(a){return a&&(a===b||a.indexOf(b.split(' ')[0])===0||b.indexOf(a.split(' ')[0])===0);});}
+      function apply(name){var n=0;tiles.forEach(function(x){x.setAttribute('aria-pressed',String(x.dataset.svc===name));});cards.forEach(function(c){var ok=!name||m(c,name);c.hidden=!ok;if(ok)n++;});clr.hidden=!name;t.textContent=name?name+' near ${E(place).replace(/'/g, "\\'")}':'Trusted local businesses';if(empty)empty.hidden=!!n;}
+      tiles.forEach(function(x){x.onclick=function(){var on=x.getAttribute('aria-pressed')==='true';apply(on?'':x.dataset.svc);if(!on)document.getElementById('businesses').scrollIntoView({behavior:'smooth',block:'start'});};});clr.onclick=function(){apply('');};})();</script>
+  </div></section>`;
+}
+
 export async function renderLocation(p) {
   const c = p.content || {};
   const now = new Date().toISOString();
   const isHub = !p.county, isTown = !!p.town;
   const place = p.town || p.county || "East Anglia";
-  const [eventsAll, listings, children, parentRows, siblings, partners, placePages] = await Promise.all([
+  const [eventsAll, listingsAll, children, parentRows, siblings, partners, placePages, services] = await Promise.all([
     q(`events?select=*,venue_info:venues(*)&ends_at=gte.${now}&order=starts_at&limit=12`),
-    q(`directory_listings?select=slug,name,services,town,county,image_path,image_alt,featured,featured_until,address_line,postcode,lat,lng,approximate${isHub ? "" : `&county=eq.${enc(p.county)}`}&order=featured.desc,name&limit=${isHub ? 30 : 6}`),
+    q(`directory_listings?select=slug,name,services,town,county,image_path,image_alt,featured,featured_until,address_line,postcode,lat,lng,approximate${isHub ? "" : `&county=eq.${enc(p.county)}`}&order=featured.desc,name&limit=${isHub ? 30 : 40}`),
     q(`pages?select=path,title,town,county,hero_image_path,intro,content&parent_id=eq.${p.id}&status=eq.published&order=title`),
     p.parent_id ? q(`pages?select=path,title,county,town&id=eq.${p.parent_id}`) : Promise.resolve([]),
     p.parent_id && isTown ? q(`pages?select=path,title,town,hero_image_path,intro&parent_id=eq.${p.parent_id}&status=eq.published&id=neq.${p.id}&order=title&limit=6`) : Promise.resolve([]),
     q("partners?select=slug,name,page_path,logo_path,logo_dark_path&order=sort"),
-    isHub ? q("pages?select=path,town,county,hero_image_path&page_type=eq.location&status=eq.published&county=not.is.null") : Promise.resolve([]),
+    q("pages?select=path,town,county,hero_image_path&page_type=eq.location&status=eq.published&county=not.is.null"),
+    q("directory_services?select=name,slug&order=sort").catch(() => []),
   ]);
   const parent = parentRows[0];
+  // businesses: this town first, then the rest of the county
+  const listings = isTown ? [...listingsAll.filter((l) => l.town === p.town), ...listingsAll.filter((l) => l.town !== p.town)] : listingsAll;
   // events: this town first, then the rest of the county, then everything (hub)
   let events = isHub ? eventsAll : eventsAll.filter((e) => e.county === p.county);
   if (isTown) events = [...events.filter((e) => e.town === p.town), ...events.filter((e) => e.town !== p.town)];
   const nearbyNote = !isHub && !events.length;
   if (nearbyNote) events = eventsAll;
   events = events.slice(0, 6);
+  const countyPath = (county) => (placePages || []).find((x) => x.county === county && !x.town)?.path || `/${slug(county)}`;
 
-  const crumbs = [["Home", "/"], ["Car meets", "/car-meets"]];
-  if (parent && parent.path !== "/car-meets") crumbs.push([parent.county || parent.title, parent.path]);
-  if (!isHub) crumbs.push([p.town || p.county, p.path]); else crumbs.pop(), crumbs.push(["Car meets", "/car-meets"]);
+  const crumbs = [["Home", "/"], ["Near you", "/car-meets"]];
+  if (isHub) crumbs.pop(), crumbs.push(["Near you", "/car-meets"]);
+  else { if (isTown) crumbs.push([p.county, parent?.path || countyPath(p.county)]); crumbs.push([p.town || p.county, p.path]); }
 
   const hero = `<section class="phero">${p.hero_image_path ? `<img class="bg" src="${E(img(p.hero_image_path))}" alt="${E(p.hero_image_alt || "")}">` : `<img class="bg" src="/homepage/hero.webp" alt="">`}
     <div class="wrap">${c.label ? `<span class="eyebrow">${E(c.label)}</span>` : ""}<h1>${E(p.h1 || p.title)}</h1>${p.intro ? `<p>${E(p.intro)}</p>` : ""}
-    <div class="btns"><a class="btn red" href="#events">Upcoming meets ${ARROW}</a><a class="btn ghost" style="color:#fff;border-color:#fff" href="${CLUB}/apply">Join the community</a></div></div></section>`;
+    <div class="btns"><a class="btn red" href="#events">Upcoming meets ${ARROW}</a>${isHub ? `<a class="btn ghost" style="color:#fff;border-color:#fff" href="${CLUB}/apply">Join the community</a>` : `<a class="btn ghost" style="color:#fff;border-color:#fff" href="#services">Find a local business</a>`}</div></div></section>`;
 
   const parts = [crumbsHTML(crumbs), hero];
+  if (!isHub) {
+    const nav = [["Meets", "#events"], ["Local services", "#services"], ["Map", "#map"], c.scene?.length ? ["Car scene", "#scene"] : null, c.drives?.length ? ["Drives", "#drives"] : null, ["Clubs", "#clubs"], c.faqs?.length ? ["FAQs", "#faqs"] : null].filter(Boolean);
+    parts.push(`<nav class="hubnav" aria-label="On this page"><div class="wrap">${nav.map(([l, h]) => `<a href="${h}">${E(l)}</a>`).join("")}</div></nav>`);
+  }
   if (c.stats?.length) parts.push(sec("At a glance", `<div class="lp-stats">${c.stats.map(([n, l]) => `<div class="lp-stat"><strong>${E(n)}</strong><span>${E(l)}</span></div>`).join("")}</div>`));
 
   if (isHub) parts.push(townsFeature(c, eventsAll, placePages || []));
 
-  parts.push(sec(isHub ? "Next meets" : `Upcoming events in and near ${E(place)}`, events.length ? `${nearbyNote ? `<p class="lp-lead">Nothing in ${E(place)} just yet. Here are the nearest upcoming meets.</p>` : ""}<div class="evs">${events.map(eventCard).join("")}</div><div class="btns" style="margin-top:18px"><a class="btn red" href="/events">See all events ${ARROW}</a></div>` : `<p class="lp-empty">No meets scheduled yet. Join the newsletter to hear first.</p>`, { id: "events" }));
+  parts.push(sec(isHub ? "Next meets" : `Car meets in and near ${E(place)}`, events.length ? `${nearbyNote ? `<p class="lp-lead">Nothing in ${E(place)} just yet. Here are the nearest upcoming meets.</p>` : ""}<div class="evs">${events.map(eventCard).join("")}</div><div class="btns" style="margin-top:18px"><a class="btn red" href="/events">See all events ${ARROW}</a></div>` : `<p class="lp-empty">No meets scheduled yet. Join the newsletter to hear first.</p>`, { id: "events" }));
 
   if (!isHub) {
+    parts.push(servicesSection(place, services || [], listings, p.county));
+    parts.push(mapSection(place, events, listings));
     if (c.scene?.length) {
       const interests = (c.interests || []).map((n) => [n, INTEREST_LINKS[n] ? `/cars/${INTEREST_LINKS[n]}` : "/cars"]);
       parts.push(sec(`The ${E(place)} car scene`, `<div class="lp-split"><div class="lp-prose">${c.scene.map((x) => `<p>${E(x)}</p>`).join("")}</div>
-        <div class="lp-panel">${interests.length ? `<h3>Popular here</h3>${chips(interests)}` : ""}<h3>Useful guides</h3>${chips([["Your first car meet", "/guides/your-first-car-meet"], ["Before you buy a classic", "/guides/before-you-buy-a-classic"], ["Photographing cars at a meet", "/guides/photographing-cars-at-a-meet"]])}</div></div>`));
+        <div class="lp-panel">${interests.length ? `<h3>Popular here</h3>${chips(interests)}` : ""}<h3>Useful guides</h3>${chips([["Your first car meet", "/guides/your-first-car-meet"], ["Before you buy a classic", "/guides/before-you-buy-a-classic"], ["Photographing cars at a meet", "/guides/photographing-cars-at-a-meet"]])}</div></div>`, { id: "scene" }));
     }
-    if (c.drives?.length) parts.push(sec(`Best drives from ${E(place)}`, `<div class="lp-drives">${c.drives.map((d) => card({ image: d.image, title: d.title, text: d.text, small: d.distance })).join("")}</div>`, { lead: "Favourite routes for a weekend run. Drive to the conditions and respect the villages you pass through." }));
+    if (c.drives?.length) parts.push(sec(`Best drives from ${E(place)}`, `<div class="lp-drives">${c.drives.map((d) => card({ image: d.image, title: d.title, text: d.text, small: d.distance })).join("")}</div>`, { id: "drives", lead: "Favourite routes for a weekend run. Drive to the conditions and respect the villages you pass through." }));
     parts.push(whatToExpect(place));
     parts.push(sec(`Clubs and hubs near ${E(place)}`, `<div class="lp-cards">${[
-      card({ href: `${CLUB}/hubs/${slug(p.county)}`, image: "homepage/com-1.webp", small: "Club hub", title: `${p.county} hub`, text: `Meets, drives and car news across ${p.county}.` }),
+      card({ href: `${CLUB}/hubs/${slug(p.county)}`, image: "homepage/com-1.webp", small: "Club hub", title: `${p.county} hub`, text: `Meets, drives, recommendations and car news across ${p.county}.` }),
       card({ href: `${CLUB}/hubs/classic-cars`, image: "homepage/gal-aston.webp", small: "Club hub", title: "Classic cars", text: "Ownership, restoration and runs." }),
       card({ href: `${CLUB}/hubs/track-days`, image: "homepage/rcg.webp", small: "Club hub", title: "Track days", text: "Snetterton dates, set-up and lap times." })].join("")}</div>
-      <div class="btns" style="margin-top:18px"><a class="btn red" href="${CLUB}/apply">Join the Cars and Coffee club ${ARROW}</a></div>`));
-    parts.push(mapSection(place, events, listings));
-    parts.push(sec("Trusted local businesses", listings.length ? `<div class="bizs">${listings.map(bizCard).join("")}</div>` : `<p class="lp-empty">We're checking local businesses for ${E(place)}. Know a good one? Tell us.</p>`,
-      { lead: `Restorers, detailers, wrap shops and garages in and around ${E(place)}, checked by our team.` }).replace("</div></section>", `<div class="btns" style="margin-top:18px"><a class="btn ghost" href="/directory/region/${slug(place)}">Browse the ${E(place)} directory</a><a class="btn ghost" href="/directory/list-your-business">List your business</a></div></div></section>`));
+      <div class="btns" style="margin-top:18px"><a class="btn red" href="${CLUB}/apply">Join the Cars and Coffee club ${ARROW}</a></div>`, { id: "clubs" }));
     const towns = isTown ? siblings : children;
     const townsHTML = towns.length ? `<div class="lp-cards">${towns.map((x) => card({ href: x.path, image: x.hero_image_path || "homepage/ev-breakfast.webp", title: x.town || x.title, text: x.intro ? x.intro.split(". ")[0] + "." : "" })).join("")}</div>` : "";
     const more = (c.more_places || []).filter((n) => !towns.some((x) => x.town === n));
-    if (townsHTML || more.length) parts.push(sec(isTown ? "Nearby towns" : `Car meets by town in ${E(p.county)}`, townsHTML + (more.length ? `<h3 style="margin-top:22px">More places</h3>${chips(more.map((n) => [n, `/car-meets/${slug(p.county)}/${slug(n)}`]))}` : "")));
-    if (c.getting_there?.car || c.getting_there?.no_car) parts.push(sec(`Getting to meets in ${E(place)}`, `<div class="lp-split eq"><div class="lp-panel"><h3>By car</h3><p>${E(c.getting_there.car || "")}</p></div><div class="lp-panel"><h3>Without a car</h3><p>${E(c.getting_there.no_car || "")}</p></div></div>`));
+    if (townsHTML || more.length) parts.push(sec(isTown ? "Nearby towns" : `Towns in ${E(p.county)}`, townsHTML + (more.length ? `<h3 style="margin-top:22px">More places</h3>${chips(more.map((n) => [n, `${countyPath(p.county)}/${slug(n)}`]))}` : "")));
+    if (c.getting_there?.car || c.getting_there?.no_car) parts.push(sec(`Getting around ${E(place)}`, `<div class="lp-split eq"><div class="lp-panel"><h3>By car</h3><p>${E(c.getting_there.car || "")}</p></div><div class="lp-panel"><h3>Without a car</h3><p>${E(c.getting_there.no_car || "")}</p></div></div>`));
   } else {
     parts.push(mapSection("Norfolk and Suffolk", events, listings));
     parts.push(howItWorks());
   }
-  if (c.faqs?.length) parts.push(sec("Frequently asked questions", faqHTML(c.faqs)));
+  if (c.faqs?.length) parts.push(sec("Frequently asked questions", faqHTML(c.faqs), { id: "faqs" }));
   if (p.body_md) parts.push(sec("", `<div class="lp-prose">${p.body_md.split(/\n\s*\n/).map((x) => `<p>${E(x.trim())}</p>`).join("")}</div>`));
   parts.push(newsletterHTML());
 
@@ -234,6 +263,7 @@ export async function renderLocation(p) {
       about: { "@type": "Place", name: place, address: { "@type": "PostalAddress", addressRegion: p.county || "East Anglia", addressLocality: p.town || undefined, addressCountry: "GB" } },
       mainEntity: { "@type": "ItemList", itemListElement: events.map((e, i) => ({ "@type": "ListItem", position: i + 1, url: `${SITE}/events/${e.slug}`, name: e.title })) } },
   ];
+  if (!isHub && listings.length) ld.push({ "@context": "https://schema.org", "@type": "ItemList", name: `Car services in and near ${place}`, itemListElement: listings.slice(0, 20).map((l, i) => ({ "@type": "ListItem", position: i + 1, url: `${SITE}/directory/${l.slug}`, name: l.name })) });
   const vs = venuesOf(events);
   if (vs.length) ld.push({ "@context": "https://schema.org", "@type": "ItemList", name: `Car meet venues in and near ${place}`, itemListElement: vs.map((v, i) => ({ "@type": "ListItem", position: i + 1,
     item: { "@type": "Place", name: v.name, address: { "@type": "PostalAddress", streetAddress: v.address_line || undefined, addressLocality: v.town || undefined, postalCode: v.postcode || undefined, addressRegion: v.county || undefined, addressCountry: "GB" },

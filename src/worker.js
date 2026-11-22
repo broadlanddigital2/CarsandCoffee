@@ -18,7 +18,10 @@ export default {
     if ((url.pathname === "/" || url.pathname === "/index.html") && (request.method === "GET" || request.method === "HEAD")) {
       return homepage(request, env, ctx, url);
     }
-    if (/^\/car-meets(\/[a-z0-9-]+){0,2}\/?$/.test(url.pathname) && (request.method === "GET" || request.method === "HEAD")) {
+    // Local hubs moved from /car-meets/<county>/<town> to /<county>/<town>
+    const moved = url.pathname.match(/^\/car-meets\/([a-z0-9-]+(?:\/[a-z0-9-]+)?)\/?$/);
+    if (moved) return Response.redirect(`${url.origin}/${moved[1]}${url.search}`, 301);
+    if ((/^\/car-meets\/?$/.test(url.pathname) || /^\/(norfolk|suffolk|cambridgeshire|essex)(\/[a-z0-9-]+)?\/?$/.test(url.pathname)) && (request.method === "GET" || request.method === "HEAD")) {
       return contentPage(request, env, ctx, url);
     }
     if (/^\/(events|news|guides)(\/[a-z0-9-]+(\.ics)?)?\/?$/.test(url.pathname) && (request.method === "GET" || request.method === "HEAD")) {

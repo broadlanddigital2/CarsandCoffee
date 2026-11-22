@@ -602,6 +602,24 @@ body:has(.mbar.show) .hb{bottom:84px}
 .hb-foot{margin:0;padding:6px 12px 8px;font-size:11px;color:var(--soft);text-align:center;border-top:1px solid var(--line)}
 @media (max-width:520px){.hb{right:12px;bottom:12px}.hb-fab span{display:none}.hb-fab{padding:14px}.hb.on{left:12px;right:12px}.hb-panel{width:100%;height:calc(100dvh - 90px)}}
 @media print{.hb,.srch{display:none}}
+/* local hub */
+.hubnav{position:sticky;top:96px;z-index:19;background:var(--paper);border-bottom:1px solid var(--line)}
+.hubnav .wrap{display:flex;gap:6px;overflow-x:auto;padding-top:10px;padding-bottom:10px;scrollbar-width:none}.hubnav .wrap::-webkit-scrollbar{display:none}
+.hubnav a{flex:0 0 auto;font-weight:700;font-size:14px;color:var(--ink);text-decoration:none;padding:7px 14px;border-radius:999px;border:1px solid var(--line);background:var(--bg)}.hubnav a:hover{border-color:var(--red);color:var(--red)}
+.lp-sec[id],#businesses{scroll-margin-top:150px}
+.svc-head{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;flex-wrap:wrap;margin-bottom:18px}.svc-head .lp-lead{margin-bottom:0}
+.svc-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:28px}
+.svc-t{display:grid;grid-template-columns:auto 1fr;grid-template-areas:"i n" "i c";column-gap:12px;align-items:center;text-align:left;font:inherit;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:14px 16px;cursor:pointer;color:var(--ink);transition:border-color .15s,transform .15s}
+.svc-t svg{grid-area:i;width:34px;height:34px;padding:7px;border-radius:10px;background:rgba(192,13,13,.08);color:var(--red)}
+.svc-t strong{grid-area:n;font-size:16px}.svc-t span{grid-area:c;font-size:13px;color:var(--soft)}
+.svc-t:hover{border-color:var(--red);transform:translateY(-2px)}.svc-t[aria-pressed=true]{background:var(--esp);border-color:var(--esp);color:#fff}.svc-t[aria-pressed=true] span{color:#d9c9b8}.svc-t[aria-pressed=true] svg{background:var(--red);color:#fff}
+.svc-t.none{opacity:.6}
+.svc-bar{display:flex;align-items:center;gap:14px;margin-bottom:14px}.svc-bar h3{margin:0;font-size:20px}
+.svc-clear{font:inherit;font-size:14px;font-weight:700;background:none;border:0;color:var(--red);text-decoration:underline;cursor:pointer}.svc-clear[hidden]{display:none}
+.svc-results .biz[hidden]{display:none}.svc-empty{color:var(--soft)}
+@media (max-width:980px){.svc-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:600px){.hubnav{top:78px}}
+@media (max-width:420px){.svc-grid{grid-template-columns:1fr}}
 @media (max-width:980px){.ep-grid,.guide-grid{grid-template-columns:1fr;gap:28px}.ep-card,.guide-toc{position:static}.ep-card{order:-1}.news-grid{grid-template-columns:1fr 1fr}.news-lead{grid-template-columns:1fr}.ep-venue{grid-template-columns:1fr}}
 @media (max-width:640px){.news-grid,.ep-two{grid-template-columns:1fr}.ep-first{flex-direction:column;align-items:flex-start}.news-lead img{min-height:200px}.ep-lead{font-size:19px}}
 @media (max-width:860px){.lp-stats{grid-template-columns:1fr 1fr}.lp-split,.lp-split.eq{grid-template-columns:1fr}.lp-drives,.lp-cards{grid-template-columns:1fr}.phero{min-height:380px}}
@@ -798,7 +816,7 @@ body:has(.mbar.show) .hb{bottom:84px}
 <div class="wrap">
 <div class="fgrid">
 {{LOGO}}
-<div><h3>Events</h3><ul><li><a href="/events">Upcoming events</a></li><li><a href="/car-meets">Car meets near you</a></li><li><a href="/car-meets/norfolk">Car meets in Norfolk</a></li><li><a href="/guides/your-first-car-meet">Your first car meet</a></li><li><a href="/events/host">Host an event</a></li></ul></div>
+<div><h3>Events</h3><ul><li><a href="/events">Upcoming events</a></li><li><a href="/car-meets">Car meets near you</a></li><li><a href="/norfolk">Cars in Norfolk</a></li><li><a href="/guides/your-first-car-meet">Your first car meet</a></li><li><a href="/events/host">Host an event</a></li></ul></div>
 <div><h3>News</h3><ul><li><a href="/news">Latest stories</a></li><li><a href="/news/features">Features</a></li><li><a href="/news/wec">WEC and endurance</a></li><li><a href="/news/technical">Technical</a></li></ul></div>
 <div><h3>Community</h3><ul><li><a href="https://club.carsandcoffee.uk/apply">Join the community</a></li><li><a href="https://club.carsandcoffee.uk/recommend">Recommend a mate</a></li><li><a href="https://club.carsandcoffee.uk/hubs">Series hubs</a></li><li><a href="/community-guidelines">Community guidelines</a></li></ul></div>
 <div><h3>Shop</h3><ul><li><a href="/shop/apparel">Apparel</a></li><li><a href="/shop/accessories">Accessories</a></li><li><a href="/shop/tickets">Event tickets</a></li><li><a href="/shop/gift-cards">Gift cards</a></li></ul></div>

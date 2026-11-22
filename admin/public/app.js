@@ -305,12 +305,12 @@ const TYPE_HELP = {
   audience: "A group of people, e.g. New drivers, Families, Car clubs.", guide: "A how-to or explainer article.",
   landing: "A focused page for a Google Ads campaign, with one call to action.", standard: "Any other page, e.g. About or Advertise.",
 };
-const PATH_PREFIX = { location: "/car-meets/", sector: "/cars/", audience: "/for/", guide: "/guides/", landing: "/go/", standard: "/" };
+const PATH_PREFIX = { location: "/", sector: "/cars/", audience: "/for/", guide: "/guides/", landing: "/go/", standard: "/" };
 
 route("/pages", async () => {
   const type = qs().get("type") || "", status = qs().get("status") || "", q = (qs().get("q") || "").trim();
   crumbs([["Marketing", "/marketing"], [type === "landing" ? "Ad landing pages" : type === "location" ? "Location pages" : "All SEO pages"]]);
-  let query = site().from("pages").select("id,title,path,page_type,status,seo_score,focus_keyword,town,county,updated_at").order("updated_at", { ascending: false }).limit(500);
+  let query = site().from("pages").select("*").order("updated_at", { ascending: false }).limit(500);
   if (type) query = query.eq("page_type", type);
   if (status) query = query.eq("status", status);
   const { data, error } = await query; if (error) throw error;
@@ -323,7 +323,7 @@ route("/pages", async () => {
       <div class="col-md-3"><select class="form-select" name="status"><option value="">Any status</option>${["draft", "review", "published", "archived"].map((s) => `<option value="${s}" ${s === status ? "selected" : ""}>${{ draft: "Draft", review: "In review", published: "Live", archived: "Archived" }[s]}</option>`).join("")}</select></div>
       <div class="col-md-3"><button class="btn btn-outline-secondary w-100">Filter</button></div></form></div>
     ${rows.length ? `<div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>Page</th><th>Type</th><th>Focus keyword</th><th>SEO</th><th>Status</th><th>Updated</th><th class="text-end">Actions</th></tr></thead><tbody>
-      ${rows.map((p) => `<tr><td><a class="rowlink" href="/pages/${p.id}" data-link>${esc(p.title)}</a><div class="small text-body-secondary">${esc(p.path)}</div></td><td>${labelType(p.page_type)}</td><td class="small">${esc(p.focus_keyword || "–")}</td><td>${scoreBadge(p.seo_score)}</td><td>${statusBadge(p.status)}</td><td class="small text-body-secondary">${ago(p.updated_at)}</td>
+      ${rows.map((p) => `<tr><td><a class="rowlink" href="/pages/${p.id}" data-link>${esc(p.title)}</a><div class="small text-body-secondary">${esc(p.path)}</div></td><td>${labelType(p.page_type)}</td><td class="small">${esc(p.focus_keyword || "–")}</td><td>${scoreBadge(scoreOf("pages", p).score)}</td><td>${statusBadge(p.status)}</td><td class="small text-body-secondary">${ago(p.updated_at)}</td>
         <td class="text-end text-nowrap"><a class="btn btn-sm btn-primary" href="/pages/${p.id}" data-link>Edit</a> ${p.status === "published" ? `<a class="btn btn-sm btn-outline-secondary" href="${SITE}${esc(p.path)}" target="_blank" rel="noopener">View</a>` : `<span class="btn btn-sm btn-outline-secondary disabled" title="Not live yet">View</span>`}</td></tr>`).join("")}
     </tbody></table></div>` : `<div class="empty">No pages here yet.${type ? ` ${esc(TYPE_HELP[type])}` : ""} <a href="/pages/new${type ? "?type=" + type : ""}" data-link>Create one</a>.</div>`}</div>`;
   $("#filt").onsubmit = (e) => { e.preventDefault(); const f = new FormData(e.target); const p = new URLSearchParams(); if (type) p.set("type", type); if (f.get("q")) p.set("q", f.get("q")); if (f.get("status")) p.set("status", f.get("status")); go("/pages" + (p.toString() ? "?" + p : "")); };
@@ -363,7 +363,7 @@ route("/pages/:id", async ({ id }) => {
         <div class="row g-3">
           <div class="col-md-5"><label class="form-label" for="page_type">Page type</label><select class="form-select" id="page_type">${TYPES.map((t) => `<option value="${t}" ${t === p.page_type ? "selected" : ""}>${labelType(t)}</option>`).join("")}</select><div class="form-text" id="typehelp">${esc(TYPE_HELP[p.page_type])}</div></div>
           <div class="col-md-7"><label class="form-label" for="title">Page name</label><input class="form-control" id="title" required maxlength="120" value="${esc(p.title || "")}" placeholder="e.g. Car meets in Norwich"></div>
-          <div class="col-12"><label class="form-label" for="path">Page address</label><div class="input-group"><span class="input-group-text">carsandcoffee.uk</span><input class="form-control" id="path" required value="${esc(p.path || "")}" placeholder="/car-meets/norfolk/norwich"></div><div class="form-text">Lower-case letters, numbers and hyphens. Changing the address of a live page breaks old links.</div></div>
+          <div class="col-12"><label class="form-label" for="path">Page address</label><div class="input-group"><span class="input-group-text">carsandcoffee.uk</span><input class="form-control" id="path" required value="${esc(p.path || "")}" placeholder="/norfolk/norwich"></div><div class="form-text">Lower-case letters, numbers and hyphens. Changing the address of a live page breaks old links.</div></div>
           <div class="col-md-6 loc-only"><label class="form-label" for="county">County</label><select class="form-select" id="county"><option value="">Choose…</option>${["Norfolk", "Suffolk", "Cambridgeshire", "Essex"].map((c) => `<option ${c === p.county ? "selected" : ""}>${c}</option>`).join("")}</select></div>
           <div class="col-md-6 loc-only"><label class="form-label" for="town">Town or area</label><input class="form-control" id="town" value="${esc(p.town || "")}" placeholder="e.g. Norwich"></div>
           <div class="col-12"><label class="form-label" for="h1">Main heading (H1)</label><input class="form-control" id="h1" maxlength="120" value="${esc(p.h1 || "")}" placeholder="Leave blank to use the page name"></div>
@@ -507,7 +507,7 @@ route("/pages/:id", async ({ id }) => {
     if (e.target.id === "path") pathTouched = true;
     if (!pathTouched && ["title", "page_type", "town", "county"].includes(e.target.id)) {
       const d = collect();
-      const base = d.page_type === "location" && d.county ? `/car-meets/${slugify(d.county)}/${slugify(d.town || d.title.replace(/^(car meets|cars and coffee)\s+(in\s+)?/i, ""))}` : (PATH_PREFIX[d.page_type] || "/") + slugify(d.title);
+      const base = d.page_type === "location" && d.county ? (d.town ? `/${slugify(d.county)}/${slugify(d.town)}` : `/${slugify(d.county)}`) : (PATH_PREFIX[d.page_type] || "/") + slugify(d.title);
       $("#path").value = base.replace(/\/+$/, "") || "/";
     }
     refresh();

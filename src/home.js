@@ -11,7 +11,7 @@ const TZ = "Europe/London";
 export const EVENT_TYPES = { meet: "Meet", race: "Race night", tour: "Tour", garage: "Garage night", watch: "Watch party", track: "Track day", show: "Show" };
 export const TICKET = { free_rsvp: "Free · RSVP", selling_fast: "Selling fast", on_sale: "On sale", sold_out: "Sold out" };
 export const ARROW = '<svg class="ar" viewBox="0 0 20 12" aria-hidden="true"><path d="M0 6h17M12 1l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
-const SVC_ICON = {
+export const SVC_ICON = {
   restoration: '<path d="M14 6a4 4 0 0 0-5 5l-6 6 3 3 6-6a4 4 0 0 0 5-5l-2 2-2-1-1-2z"/>',
   servicing: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/>',
   tuning: '<path d="M4 16a8 8 0 1 1 16 0"/><path d="M12 16l4-5"/><circle cx="12" cy="16" r="1.5"/>',
@@ -21,7 +21,7 @@ const SVC_ICON = {
   tyres: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M12 3v5M12 16v5M3 12h5M16 12h5"/>',
   storage: '<path d="M3 10l9-6 9 6v10H3z"/><path d="M7 20v-6h10v6M7 17h10"/>',
 };
-const SVC_DEFAULT = '<circle cx="12" cy="12" r="8"/><path d="M8 12h8M12 8v8"/>';
+export const SVC_DEFAULT = '<circle cx="12" cy="12" r="8"/><path d="M8 12h8M12 8v8"/>';
 
 export const E = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 export const img = (p) => !p ? "" : /^https?:\/\//.test(p) || p.startsWith("/") ? p : "/" + p;
