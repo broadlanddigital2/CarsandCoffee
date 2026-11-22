@@ -620,6 +620,14 @@ const faqRow = (qq = "", a = "") => `<div class="border rounded p-2 mb-2" data-f
 
 // ---------- generic content editors ----------
 const F = (name, label, type = "text", extra = {}) => ({ name, label, type, ...extra });
+// Reference options; shop categories show their full path (Car parts › Engine › Turbos) so deep trees stay clear.
+async function refRows(f) {
+  if (f.table !== "product_categories") { const { data } = await site().from(f.table).select(`id,${f.show}`).order(f.show); return data || []; }
+  const { data } = await site().from("product_categories").select("id,name,parent_id,sort");
+  const rows = data || [], by = Object.fromEntries(rows.map((r) => [r.id, r]));
+  const path = (r) => { const out = []; const seen = new Set(); let x = r; while (x && !seen.has(x.id)) { seen.add(x.id); out.unshift(x.name); x = by[x.parent_id]; } return out.join(" › "); };
+  return rows.map((r) => ({ id: r.id, name: path(r) })).sort((a, b) => a.name.localeCompare(b.name));
+}
 const CONTENT = {
   homepage_blocks: { title: "Homepage blocks", pk: "key", order: ["position", true], list: ["title", "position", "enabled"], noCreate: true, noDelete: true,
     help: "Turn homepage sections on or off and change their order (lower numbers appear first). Schedule a block by setting start and end times.",
@@ -693,7 +701,7 @@ const CONTENT = {
       F("h_status", "Promotion and status", "heading"), F("badge", "Badge on the photo", "text", { ph: "Best seller, New…" }), F("featured", "Featured on the shop home", "bool", { short: "Featured" }), F("sort", "Order (lower first)", "number", { def: 100 }), F("units_sold_30d", "Sold in the last 30 days (homepage best sellers)", "number"), F("active", "On sale", "bool", { def: true }),
       F("h_seo", "Search engines", "heading", { note: "Optional. Left empty, the name and short description are used." }), F("meta_title", "Google title", "text", { ai: "meta_title" }), F("meta_description", "Google description", "textarea", { ai: "meta_description" })] },
   product_categories: { title: "Shop categories", order: ["sort", true], list: ["name", "parent_id", "sort", "active"], view: "/shop/category/",
-    help: "Top-level categories show as tiles on the shop home. Give a category a parent to make it a sub-category.",
+    help: "Categories can go as many levels deep as you need, e.g. Car parts › Engine › Turbos. Pick a parent to put a category inside another. Top-level categories show as tiles on the shop home, and the whole tree shows down the left of category pages.",
     fields: [F("name", "Category name", "text", { required: true }), F("slug", "Address (slug)", "slug", { from: "name" }), F("parent_id", "Parent category (leave empty for a top-level category)", "ref", { table: "product_categories", show: "name", short: "Parent", empty: "Top level" }),
       F("description", "Description (shown on the category page)", "textarea"), F("image_path", "Tile image (optional)", "image"), F("sort", "Order", "number", { def: 100 }), F("active", "Shown", "bool", { def: true }),
       F("meta_title", "Google title"), F("meta_description", "Google description", "textarea")] },
@@ -776,11 +784,12 @@ route("/content/:table", async ({ table }) => {
   if (table === "events" && when === "past") query = query.lt("ends_at", new Date().toISOString()).order("starts_at", { ascending: false });
   const { data: all, error } = await query;
   if (error) throw error;
+  if (table === "product_categories" && all) { const paths = Object.fromEntries((await refRows({ table: "product_categories" })).map((x) => [x.id, x.name])); all.forEach((r) => { r._path = paths[r.id]; r._name = r.name; r.name = paths[r.id] || r.name; }); all.sort((x, y) => String(x._path).localeCompare(String(y._path))); }
   const fmap = Object.fromEntries(c.fields.map((f) => [f.name, f]));
   const pk = c.pk || "id";
   const tg = TOGGLE[table];
   const cols = c.list.filter((k) => !tg || k !== tg.field);
-  for (const k of cols) { const f = fmap[k]; if (f?.type === "ref" && f.rows) { f._names = Object.fromEntries(f.rows().map((x) => [x.id, x[f.show]])); continue; } if (f?.type === "ref") { const { data: rr } = await site().from(f.table).select(`id,${f.show}`); f._names = Object.fromEntries((rr || []).map((x) => [x.id, x[f.show]])); } }
+  for (const k of cols) { const f = fmap[k]; if (f?.type === "ref" && f.rows) { f._names = Object.fromEntries(f.rows().map((x) => [x.id, x[f.show]])); continue; } if (f?.type === "ref") { const rr = await refRows(f); f._names = Object.fromEntries(rr.map((x) => [x.id, x[f.show]])); } }
   const data = (all || []).filter((r) => !search || cols.some((k) => String(r[k] ?? "").toLowerCase().includes(search)));
   const filterTab = (w, l) => `<a href="/content/events${w ? "?when=" + w : "?when=all"}" data-link class="${when === w || (w === "all" && !when) ? "on" : ""}">${l}</a>`;
   view.innerHTML = `<div class="page-head"><h1>${esc(c.title)}</h1><div class="d-flex gap-2">${c.csv ? `<button class="btn btn-outline-secondary" id="csv">Download CSV</button>` : ""}${c.noCreate ? "" : `<a class="btn btn-primary" href="/content/${table}/new" data-link>Add</a>`}</div></div>
@@ -817,6 +826,7 @@ route("/content/:table", async ({ table }) => {
       const r = (all || []).find((x) => String(x[pk]) === tr.dataset.pk); if (!r) return;
       const copy = { ...r };
       delete copy.id; delete copy.created_at; delete copy.updated_at;
+      if ("_path" in copy) { copy.name = copy._name; delete copy._path; delete copy._name; }
       const suffix = "-copy-" + Math.random().toString(36).slice(2, 6);
       if (copy.slug) copy.slug += suffix;
       if (pk !== "id" && copy[pk]) copy[pk] += suffix.replace(/-/g, "_");
@@ -841,7 +851,7 @@ route("/content/:table/:id", async ({ table, id }) => {
   if (!isNew) { const { data, error } = await site().from(c.table || table).select("*").eq(pk, c.idType === "int" ? Number(id) : decodeURIComponent(id)).maybeSingle(); if (error) throw error; if (!data) throw new Error("Not found"); row = data; }
   else c.fields.forEach((f) => { if (f.def !== undefined) row[f.name] = f.def; if (f.type === "select") row[f.name] = row[f.name] ?? f.options[0]; });
   const refs = {};
-  for (const f of c.fields.filter((f) => f.type === "ref")) { if (f.rows) { refs[f.name] = f.rows(); continue; } const { data } = await site().from(f.table).select(`id,${f.show}`).order(f.show); refs[f.name] = data || []; }
+  for (const f of c.fields.filter((f) => f.type === "ref")) { if (f.rows) { refs[f.name] = f.rows(); continue; } refs[f.name] = await refRows(f); }
   const titleKey = c.list[0];
   crumbs([[c.title, `/content/${table}`], [isNew ? "Add" : String(row[titleKey] ?? "Edit")]]);
   const input = (f) => {

@@ -34,8 +34,27 @@ export function productCard(p, shopsById = {}) {
 const grid = (list, byId, id) => list.length ? `<div class="prods shp-grid"${id ? ` id="${id}"` : ""}>${list.map((p) => productCard(p, byId)).join("")}</div>` : `<p class="lp-empty">No products here yet. Check back soon.</p>`;
 const byIdOf = (shops) => Object.fromEntries(shops.map((s) => [s.id, s]));
 
-// family of a category: itself plus children
-const family = (cats, id) => [id, ...cats.filter((c) => c.parent_id === id).map((c) => c.id)];
+// family of a category: itself plus every sub-category below it, at any depth
+const family = (cats, id, seen = new Set()) => { if (seen.has(id)) return []; seen.add(id); return [id, ...cats.filter((c) => c.parent_id === id).flatMap((c) => family(cats, c.id, seen))]; };
+// the chain from the top-level category down to this one
+const ancestors = (cats, c) => { const out = []; const seen = new Set(); let x = c; while (x && !seen.has(x.id)) { seen.add(x.id); out.unshift(x); x = x.parent_id ? cats.find((k) => k.id === x.parent_id) : null; } return out; };
+const catCrumbs = (cats, c) => ancestors(cats, c).map((x) => [x.name, `/shop/category/${x.slug}`]);
+// Left-hand category tree. Branches on the way to the current category start open; others can be opened.
+// counts: { categoryId: number of products in it and below }. Categories with nothing in them are left out when hideEmpty is set.
+function catTree(cats, { counts = {}, current = null, href = (c) => `/shop/category/${c.slug}`, allHref = "/shop", allLabel = "All products", hideEmpty = false, title = "Categories" } = {}) {
+  const onPath = new Set(current ? ancestors(cats, current).map((x) => x.id) : []);
+  const show = (c) => !hideEmpty || (counts[c.id] || 0) > 0;
+  const branch = (parentId, depth) => {
+    const kids = cats.filter((c) => (c.parent_id || null) === parentId && show(c));
+    if (!kids.length) return "";
+    return `<ul class="ct-l${depth}">${kids.map((c) => { const sub = depth < 8 ? branch(c.id, depth + 1) : ""; const here = current && c.id === current.id; const n = counts[c.id];
+      const a = `<a href="${E(href(c))}"${here ? ' aria-current="page"' : ""}><span>${E(c.name)}</span>${n ? `<small>${n}</small>` : ""}</a>`;
+      return `<li${onPath.has(c.id) ? ' class="on"' : ""}>${sub ? `<details${onPath.has(c.id) ? " open" : ""}><summary>${a}</summary>${sub}</details>` : a}</li>`; }).join("")}</ul>`;
+  };
+  const body = `<a class="ct-all" href="${E(allHref)}"${current ? "" : ' aria-current="page"'}>${E(allLabel)}</a>${branch(null, 0)}`;
+  return `<aside class="ct-side"><details class="ct-mob"><summary>${E(title)}${current ? `: ${E(current.name)}` : ""}</summary><nav class="ct-tree" aria-label="${E(title)}">${body}</nav></details><nav class="ct-tree ct-desk" aria-label="${E(title)}"><h2>${E(title)}</h2>${body}</nav></aside>`;
+}
+const countsOf = (cats, products) => { const out = {}; for (const p of products) { const c = cats.find((x) => x.id === p.category_id); for (const a of c ? ancestors(cats, c) : []) out[a.id] = (out[a.id] || 0) + 1; } return out; };
 
 // sort/filter bar, worked out in the browser
 function tools(list, shops, { showShop = true } = {}) {
@@ -93,17 +112,16 @@ export async function categoryPage(slug) {
   const [cats, shops, partners] = await Promise.all([catsQ(), shopsQ(), partnersQ()]);
   const c = cats.find((x) => x.slug === slug);
   if (!c) return null;
-  const parent = c.parent_id ? cats.find((x) => x.id === c.parent_id) : null;
   const kids = cats.filter((x) => x.parent_id === c.id);
   const ids = family(cats, c.id);
-  const products = sorter(await q(`products?select=${P}&category_id=in.(${ids.join(",")})&limit=500`));
+  const [products, allCats] = await Promise.all([q(`products?select=${P}&category_id=in.(${ids.join(",")})&limit=500`).then(sorter), q("products?select=category_id&limit=5000")]);
+  const counts = countsOf(cats, allCats);
   const byId = byIdOf(shops);
-  const crumbs = [["Home", "/"], ["Shop", "/shop"], ...(parent ? [[parent.name, `/shop/category/${parent.slug}`]] : []), [c.name, `/shop/category/${c.slug}`]];
-  const siblings = parent ? cats.filter((x) => x.parent_id === parent.id) : [];
-  const chips = kids.length ? kids : siblings;
-  const main = [crumbsHTML(crumbs), `<section class="lp-sec" style="border:0;padding-top:24px"><div class="wrap"><h1 class="shp-h1">${E(c.name)}</h1>${c.description ? `<p class="lp-lead">${E(c.description)}</p>` : ""}
-    ${chips.length ? `<div class="lp-chips">${parent ? `<a class="lp-chip" href="/shop/category/${E(parent.slug)}">All ${E(parent.name.toLowerCase())}</a>` : ""}${chips.map((k) => `<a class="lp-chip${k.id === c.id ? " on" : ""}" href="/shop/category/${E(k.slug)}">${E(k.name)}</a>`).join("")}</div>` : ""}
-    ${products.length ? tools(products, byId) : ""}${grid(products, byId, "pgrid")}</div></section>${toolsJS}`, sellCta].join("\n");
+  const crumbs = [["Home", "/"], ["Shop", "/shop"], ...catCrumbs(cats, c)];
+  const main = [crumbsHTML(crumbs), `<section class="lp-sec" style="border:0;padding-top:24px"><div class="wrap shp-layout">${catTree(cats, { counts, current: c })}
+    <div class="shp-col"><h1 class="shp-h1">${E(c.name)}</h1>${c.description ? `<p class="lp-lead">${E(c.description)}</p>` : ""}
+    ${kids.length ? `<div class="lp-chips">${kids.map((k) => `<a class="lp-chip" href="/shop/category/${E(k.slug)}">${E(k.name)}${counts[k.id] ? ` <small>(${counts[k.id]})</small>` : ""}</a>`).join("")}</div>` : ""}
+    ${products.length ? tools(products, byId) : ""}${grid(products, byId, "pgrid")}</div></div></section>${toolsJS}`, sellCta].join("\n");
   const itemList = { "@context": "https://schema.org", "@type": "ItemList", itemListElement: products.slice(0, 30).map((p, i) => ({ "@type": "ListItem", position: i + 1, url: `${SITE}/shop/${p.slug}` })) };
   return shell({ title: c.meta_title || `${c.name} | Cars and Coffee UK shop`, description: c.meta_description || c.description || `Shop ${c.name.toLowerCase()} from Cars and Coffee UK and trusted UK specialists.`, path: `/shop/category/${c.slug}`, ld: [ld(crumbs), itemList], partners, main });
 }
@@ -116,7 +134,7 @@ export async function productPage(slug) {
   const byId = byIdOf(shops);
   const shop = p.shop_id ? (await q(`shops?select=*&id=eq.${p.shop_id}&limit=1`))[0] : null;
   const cat = cats.find((c) => c.id === p.category_id), parent = cat?.parent_id ? cats.find((c) => c.id === cat.parent_id) : null;
-  const crumbs = [["Home", "/"], ["Shop", "/shop"], ...(parent ? [[parent.name, `/shop/category/${parent.slug}`]] : []), ...(cat ? [[cat.name, `/shop/category/${cat.slug}`]] : []), [p.name, `/shop/${p.slug}`]];
+  const crumbs = [["Home", "/"], ["Shop", "/shop"], ...(cat ? catCrumbs(cats, cat) : []), [p.name, `/shop/${p.slug}`]];
   const [more, related] = await Promise.all([
     p.shop_id ? q(`products?select=${P}&shop_id=eq.${p.shop_id}&id=neq.${p.id}&order=featured.desc,sort&limit=4`) : q(`products?select=${P}&shop_id=is.null&id=neq.${p.id}&limit=4`),
     cat ? q(`products?select=${P}&category_id=in.(${family(cats, parent ? parent.id : cat.id).join(",")})&id=neq.${p.id}&order=featured.desc&limit=8`) : Promise.resolve([])]);
@@ -170,24 +188,23 @@ export async function storefront(slug, catSlug) {
   if (!s) return null;
   const all = sorter(await q(`products?select=${P}&shop_id=eq.${s.id}&limit=500`));
   const used = new Set(all.map((p) => p.category_id));
-  const navCats = cats.filter((c) => used.has(c.id) || cats.some((k) => k.parent_id === c.id && used.has(k.id)));
-  const cur = catSlug ? navCats.find((c) => c.slug === catSlug) : null;
+  const counts = countsOf(cats, all);
+  const cur = catSlug ? cats.find((c) => c.slug === catSlug && counts[c.id]) : null;
   if (catSlug && !cur) return null;
   const list = cur ? all.filter((p) => family(cats, cur.id).includes(p.category_id)) : all;
   const byId = { [s.id]: s };
   const base = `/shops/${s.slug}`;
-  const crumbs = [["Home", "/"], ["Shop", "/shop"], ["Partner shops", "/shops"], [s.name, base], ...(cur ? [[cur.name, `${base}/${cur.slug}`]] : [])];
+  const crumbs = [["Home", "/"], ["Shop", "/shop"], ["Partner shops", "/shops"], [s.name, base], ...(cur ? ancestors(cats, cur).map((x) => [x.name, `${base}/${x.slug}`]) : [])];
   const socials = Object.entries(s.socials || {}).map(([k, v]) => [k, link(v)]).filter(([, v]) => v);
   const web = link(s.website);
-  const tops = navCats.filter((c) => !c.parent_id || !navCats.some((x) => x.id === c.parent_id));
-  const nav = `<nav class="shp-nav" aria-label="${E(s.name)} categories"><div class="wrap"><a href="${E(base)}"${cur ? "" : ' aria-current="page"'}>All products</a>${tops.map((c) => `<a href="${E(base)}/${E(c.slug)}"${cur?.id === c.id ? ' aria-current="page"' : ""}>${E(c.name)}</a>${navCats.filter((k) => k.parent_id === c.id).map((k) => `<a class="sub" href="${E(base)}/${E(k.slug)}"${cur?.id === k.id ? ' aria-current="page"' : ""}>${E(k.name)}</a>`).join("")}`).join("")}</div></nav>`;
+  const nav = catTree(cats, { counts, current: cur, href: (c) => `${base}/${c.slug}`, allHref: base, allLabel: `All ${s.name} products`, hideEmpty: true, title: `${s.name} categories` });
   const feat = !cur ? all.filter((p) => p.featured).slice(0, 4) : [];
   const main = [crumbsHTML(crumbs),
     `<section class="shp-front"${s.banner_path ? ` style="background-image:linear-gradient(90deg,rgba(18,10,7,.92),rgba(18,10,7,.6)),url('${E(img(s.banner_path))}')"` : ""}><div class="wrap shp-front-in">${logoHTML(s, "shp-logo lg")}<div><span class="eyebrow">Partner shop</span><h1>${E(s.name)}${cur ? `: ${E(cur.name)}` : ""}</h1>${s.tagline ? `<p>${E(s.tagline)}</p>` : ""}
       <p class="shp-meta">${s.town ? `<span>📍 ${E([s.town, s.county].filter(Boolean).join(", "))}</span>` : ""}${web ? `<a href="${E(web)}" rel="noopener" target="_blank">Website ↗</a>` : ""}${socials.map(([k, v]) => `<a href="${E(v)}" rel="noopener" target="_blank">${E(k[0].toUpperCase() + k.slice(1))} ↗</a>`).join("")}${s.directory_listing_id ? `<a href="/directory?q=${encodeURIComponent(s.name)}">In our directory</a>` : ""}</p></div></div></section>`,
-    nav,
-    feat.length && all.length > 4 ? `<section class="lp-sec" style="border:0"><div class="wrap"><h2>Featured</h2>${grid(feat, byId)}</div></section>` : "",
-    `<section class="lp-sec"${feat.length && all.length > 4 ? "" : ' style="border:0"'}><div class="wrap"><h2>${cur ? E(cur.name) : "All products"}</h2>${list.length ? tools(list, byId, { showShop: false }) : ""}${grid(list, byId, "pgrid")}</div></section>${toolsJS}`,
+    `<section class="lp-sec" style="border:0"><div class="wrap shp-layout">${nav}<div class="shp-col">
+      ${feat.length && all.length > 4 ? `<h2>Featured</h2>${grid(feat, byId)}<div style="height:36px"></div>` : ""}
+      <h2>${cur ? E(cur.name) : "All products"}</h2>${list.length ? tools(list, byId, { showShop: false }) : ""}${grid(list, byId, "pgrid")}</div></div></section>${toolsJS}`,
     !cur && s.about_html ? `<section class="lp-sec"><div class="wrap shp-about"><h2>About ${E(s.name)}</h2><div class="art-body">${sanitize(s.about_html)}</div><p><a class="btn ghost" href="/contact?topic=shop&about=${encodeURIComponent(s.name)}">Contact the shop ${ARROW}</a></p></div></section>` : ""].join("\n");
   const storeLd = { "@context": "https://schema.org", "@type": "Store", name: s.name, url: SITE + base, description: s.tagline || undefined, logo: s.logo_path ? SITE + img(s.logo_path) : undefined, address: s.town ? { "@type": "PostalAddress", addressLocality: s.town, addressRegion: s.county || undefined, addressCountry: "GB" } : undefined, sameAs: [web, ...socials.map(([, v]) => v)].filter(Boolean) };
   return shell({ title: s.meta_title && !cur ? s.meta_title : `${cur ? `${cur.name} from ` : ""}${s.name} | Cars and Coffee UK shop`, description: s.meta_description || s.tagline || `Shop ${s.name} on Cars and Coffee UK.`, path: cur ? `${base}/${cur.slug}` : base, image: s.banner_path || s.logo_path, ld: [ld(crumbs), storeLd], partners, main });
