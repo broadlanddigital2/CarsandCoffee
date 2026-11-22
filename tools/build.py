@@ -70,11 +70,25 @@ shop_html = "".join(f'''<article class="prod"><div class="ph"><img src="{img(im)
 <h3><a href="/shop/{s}">{E(n)}</a></h3><p class="price"><b>{money(p)}</b>{f' <span>Members {money(mp)}</span>' if mp else ''}</p>
 <button class="add" type="button" data-name="{E(n)}">Add to basket</button></article>''' for s, n, p, mp, b, im, alt in PRODUCTS)
 gallery_html = "".join(f'<a class="g g{i}" href="/galleries/{s}"><img src="{img(im)}" alt="{E(alt)}" loading="lazy"><span>{E(t)}</span></a>' for i, (s, t, im, alt) in enumerate(GALLERY))
-dir_html = "".join(f'''<article class="biz"><a href="/directory/{s}"><img src="{img(im)}" alt="{E(alt)}" width="600" height="212" loading="lazy">
-<h3>{E(n)}</h3><p class="svc">{" · ".join(sv)}</p><p class="meta">{E(town)} <span class="more">View business {ARROW}</span></p></a></article>''' for s, n, sv, town, im, alt in DIRECTORY)
 slug = lambda x: x.lower().replace(" and ", "-").replace(" ", "-")
+SVC_ICON = {
+ "Restoration": '<path d="M14 6a4 4 0 0 0-5 5l-6 6 3 3 6-6a4 4 0 0 0 5-5l-2 2-2-1-1-2z"/>',
+ "Servicing": '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/>',
+ "Tuning": '<path d="M4 16a8 8 0 1 1 16 0"/><path d="M12 16l4-5"/><circle cx="12" cy="16" r="1.5"/>',
+ "Bodywork": '<path d="M3 15l2-5 4-2h6l4 4 2 1v2H3z"/><circle cx="7" cy="16" r="2"/><circle cx="17" cy="16" r="2"/>',
+ "Wraps and graphics": '<path d="M4 20l4-1L19 8l-3-3L5 16z"/><path d="M14 7l3 3"/>',
+ "Detailing": '<path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z"/><path d="M18 15l.8 2.2L21 18l-2.2.8L18 21l-.8-2.2L15 18l2.2-.8z"/>',
+ "Tyres": '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M12 3v5M12 16v5M3 12h5M16 12h5"/>',
+ "Storage": '<path d="M3 10l9-6 9 6v10H3z"/><path d="M7 20v-6h10v6M7 17h10"/>',
+}
+dir_html = "".join(f'''<article class="biz"><a href="/directory/{s}"><div class="ph"><img src="{img(im)}" alt="{E(alt)}" width="600" height="300" loading="lazy"><span class="tag feat-tag">Featured</span></div>
+<div class="bizb"><h3>{E(n)}</h3><p class="svc">{" · ".join(sv)}</p>
+<p class="meta"><span class="loc"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s7-7.5 7-13a7 7 0 0 0-14 0c0 5.5 7 13 7 13z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="9" r="2.5" fill="currentColor"/></svg>{E(town)}</span>
+<span class="ver"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5 9-10" fill="none" stroke="currentColor" stroke-width="2.6"/></svg>Checked by us</span></p>
+<span class="more">View business {ARROW}</span></div></a></article>''' for s, n, sv, town, im, alt in DIRECTORY)
+svc_tiles = "".join(f'<a class="svct" href="/directory/service/{slug(x)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">{SVC_ICON[x]}</svg><span>{x}</span></a>' for x in SERVICES)
+svc_options = "".join(f'<option value="{slug(x)}">{x}</option>' for x in SERVICES)
 regions = "".join(f'<a href="/directory/region/{slug(r)}">{r}</a>' for r in REGIONS)
-services = "".join(f'<a href="/directory/service/{slug(s)}">{s}</a>' for s in SERVICES)
 faq_html = "".join(f'<details><summary>{E(q)}</summary><p>{E(a)}</p></details>' for q, a in FAQS)
 partners_strip = "".join(f'<a class="pl" href="{u}?utm_source=cac_home&amp;utm_medium=partner_strip&amp;utm_campaign={s}"><b>{E(n)}</b><small>{E(t)}</small></a>' for s, n, t, u in PARTNERS)
 stats_html = "".join(f'<li><b>{n}</b>{l}</li>' for n, l in STATS)
@@ -105,7 +119,7 @@ for k, v in {
     "BRANDLINE": img("brandline"), "EVENTS_LINK": link("View all events", "/events"), "CHIPS": chips, "EVENTS": events_html, "NEWS": news_html,
     "DREAM": partner_band("dream_garage", "ao"), "COMMUNITY": community_html, "LIVERY": partner_band("livery_of_week", "rcg"),
     "SHOP": shop_html, "LEMANS": partner_band("road_to_le_mans", "lmc"), "GALLERY": gallery_html, "DIRECTORY": dir_html,
-    "REGIONS": regions, "SERVICES": services, "SP_ADV": E(sp[0]), "SP_TITLE": E(sp[1]), "SP_BODY": E(sp[2]), "SP_IMG": img(sp[3]),
+    "REGIONS": regions, "SVC_TILES": svc_tiles, "SVC_OPTIONS": svc_options, "SP_ADV": E(sp[0]), "SP_TITLE": E(sp[1]), "SP_BODY": E(sp[2]), "SP_IMG": img(sp[3]),
     "SP_ALT": E(sp[4]), "SP_CTA": E(sp[5]), "SP_URL": sp[6], "WHY": img("whyjoin"), "STATS": stats_html,
     "PARTNERS": partners_strip, "FAQ": faq_html, "LD": json.dumps(ld, ensure_ascii=False).replace("</", "<\\/"),
 }.items():
@@ -143,7 +157,7 @@ seed.append("insert into cac.gallery_items (slug,title,image_path,image_alt,sort
 seed.append("insert into cac.directory_regions (name,slug,sort) values " + ",".join(f"({q(r)},{q(slug(r))},{i})" for i, r in enumerate(REGIONS)) + ";")
 seed.append("insert into cac.directory_services (name,slug,sort) values " + ",".join(f"({q(s)},{q(slug(s))},{i})" for i, s in enumerate(SERVICES)) + ";")
 seed.append("insert into cac.directory_listings (slug,name,services,town,region,image_path,image_alt,featured) values " +
-            ",".join(f"({q(b[0])},{q(b[1])},{q(b[2])},{q(b[3])},'East Anglia',{q(r2(b[4]))},{q(b[5])},true)" for b in DIRECTORY) + ";")
+            ",".join(f"({q(b[0])},{q(b[1])},{q(b[2])},{q(b[3])},{q('East Anglia')},{q(r2(b[4]))},{q(b[5])},true)" for b in DIRECTORY) + ";")
 seed.append("insert into cac.partners (slug,name,tagline,page_path,sort) values " + ",".join(f"({q(p[0])},{q(p[1])},{q(p[2])},{q(p[3])},{i})" for i, p in enumerate(PARTNERS)) + ";")
 for f in PARTNER_FEATURES:
     seed.append("insert into cac.partner_features (partner_id,block_key,title,body,extra,image_path,image_alt,cta_label,cta_url,cta2_label,cta2_url,countdown_to) "

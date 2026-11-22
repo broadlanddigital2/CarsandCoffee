@@ -64,6 +64,7 @@ GALLERY = [
 DIRECTORY = [
     ("norfolk-restorations", "Norfolk Restorations", ["Restoration", "Bodywork", "Paint"], "Norfolk", "dir-1", "Mechanic restoring a car in a workshop"),
     ("riverside-performance", "Riverside Performance", ["Servicing", "Tuning", "MOT"], "Suffolk", "dir-2", "Stacked tyres in a performance garage"),
+    ("coastline-detailing", "Coastline Detailing", ["Detailing", "Ceramic coating", "Paint correction"], "Norfolk", "gal-aston", "Gleaming silver classic car after a full detail"),
 ]
 REGIONS = ["East Anglia", "South East", "London", "Midlands", "North", "Wales", "Scotland"]
 SERVICES = ["Restoration", "Servicing", "Tuning", "Bodywork", "Wraps and graphics", "Detailing", "Tyres", "Storage"]

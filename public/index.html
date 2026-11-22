@@ -170,19 +170,42 @@ a:hover .ar{transform:translateX(3px)}
 .g span{position:absolute;left:0;right:0;bottom:0;padding:24px 12px 10px;color:#fff;font-weight:700;font-size:14px;background:linear-gradient(transparent,rgba(0,0,0,.7))}
 .g0{grid-row:1/3}
 
-/* directory */
-.dir{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);gap:22px;align-items:start}
-.dir>div p{color:var(--soft)}
-.biz img{width:100%;aspect-ratio:300/106;object-fit:cover}
-.biz h3{margin:14px 16px 4px;font-size:22px}
-.svc{margin:0 16px 6px;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--soft)}
-.biz .meta{display:flex;justify-content:space-between;align-items:center;margin:0 16px 16px;color:var(--ink);font-weight:600}
-.biz .more{font-size:13px;color:var(--red2);border:0}
-.dirlinks{display:flex;gap:18px 28px;flex-wrap:wrap;align-items:center;margin-top:24px;padding-top:18px;border-top:1px solid var(--line)}
-.dirlinks div{display:flex;gap:6px 14px;flex-wrap:wrap;align-items:center;font-size:14px}
-.dirlinks b{font-size:13px;text-transform:uppercase;letter-spacing:.04em}
-.dirlinks a{border-bottom:1px solid var(--line);padding:6px 0}
-.dirlinks a:hover{border-color:var(--red)}
+/* directory feature */
+.dirband{background:linear-gradient(180deg,#2a1912,#1a100c);color:var(--cream);padding:clamp(44px,6vw,80px) 0;position:relative;overflow:hidden}
+.dirband:before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 46px,rgba(255,255,255,.025) 46px 47px);pointer-events:none}
+.dirband .wrap{position:relative}
+.dirtop{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:36px;align-items:end}
+.dirband h2{color:#fff;font-size:clamp(38px,4.8vw,64px);line-height:.98}
+.dirsub{color:#d9c9b9;font-size:17px;max-width:46ch;margin:0}
+.dirsearch{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr) auto;gap:10px;background:var(--cream);color:#241712;padding:12px;border-radius:10px;box-shadow:0 18px 40px rgba(0,0,0,.35)}
+.dirsearch label{display:grid;gap:2px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#5e4c42;padding:4px 8px}
+.dirsearch select,.dirsearch input{font:500 16px Inter,sans-serif;color:#241712;border:1px solid #e0d1bf;border-radius:6px;min-height:46px;padding:8px 10px;background:#fff;width:100%}
+.dirsearch .btn{align-self:end;min-height:50px;margin:4px}
+.svcgrid{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:12px;margin:36px 0 44px}
+.svct{display:grid;justify-items:center;gap:10px;text-align:center;padding:18px 8px;border:1px solid rgba(255,255,255,.14);border-radius:8px;background:rgba(255,255,255,.04);font-weight:600;font-size:14px;line-height:1.25;transition:background .2s,border-color .2s}
+.svct svg{width:34px;height:34px;color:var(--amber)}
+.svct:hover{background:rgba(255,255,255,.1);border-color:var(--red)}
+.dirhead h3{font-size:26px;color:#fff;margin:0}
+.dirband .more{color:#fff}
+.bizs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px}
+.biz{background:var(--cream);color:#241712;border-radius:10px;overflow:hidden;border:0;transition:transform .2s}
+.biz:hover{transform:translateY(-3px)}
+.biz .ph img{aspect-ratio:2/1;width:100%;height:auto;object-fit:cover}
+.feat-tag{background:var(--amber)!important}
+.bizb{padding:16px 18px 18px}
+.biz h3{font-size:24px;margin:0 0 4px}
+.svc{margin:0 0 10px;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#7a6556}
+.biz .meta{display:flex;gap:16px;flex-wrap:wrap;color:#241712;font-weight:600;font-size:14px;margin:0 0 12px}
+.loc,.ver{display:inline-flex;gap:6px;align-items:center}
+.loc svg,.ver svg{width:16px;height:16px}.ver{color:#1f7a4d}
+.biz .more{color:#a00a0a;font-size:14px}
+.dirlinks{display:flex;gap:8px 12px;flex-wrap:wrap;align-items:center;margin-top:36px}
+.dirlinks b{font-size:13px;text-transform:uppercase;letter-spacing:.06em;margin-right:6px}
+.dirlinks a{border:1px solid rgba(255,255,255,.25);border-radius:99px;padding:8px 14px;font-size:14px;min-height:40px;display:inline-flex;align-items:center}
+.dirlinks a:hover{border-color:var(--amber);color:var(--amber)}
+.listcta{display:flex;justify-content:space-between;align-items:center;gap:20px 32px;flex-wrap:wrap;margin-top:36px;padding:24px 28px;border-radius:10px;background:var(--red);color:#fff}
+.listcta h3{font-size:28px;margin:0 0 4px;color:#fff}.listcta p{margin:0;max-width:56ch}
+.listcta .btn.red{background:#fff;color:#a00a0a}.listcta .btn.ghost{color:#fff}
 
 /* sponsored */
 .spon{position:relative;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);background:var(--paper);border-top:1px solid var(--line);border-bottom:1px solid var(--line);overflow:hidden}
@@ -253,8 +276,9 @@ footer{background:var(--esp);color:var(--cream);padding:48px 0 24px}
  .drawer.open{display:grid;position:absolute;top:96px;left:0;right:0;background:var(--paper);border-bottom:1px solid var(--line);padding:8px max(4vw,16px) 16px}
  .drawer a{padding:12px 0;border-bottom:1px solid var(--line);font-weight:600}
  .fgrid{grid-template-columns:repeat(3,minmax(0,1fr))}.fgrid>svg{grid-column:1/-1}
- .dir{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.dir>div:first-child{grid-column:1/-1}}
+ .svcgrid{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:860px){
+ .dirtop{grid-template-columns:minmax(0,1fr)}
  .strip{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.strip h2{grid-column:1/-1}
  .intro,.newsgrid,.faq,.why,.spon{grid-template-columns:minmax(0,1fr)}
  .feat a{grid-template-columns:minmax(0,1fr)}.feat .ph img{min-height:0;aspect-ratio:16/9}
@@ -277,7 +301,9 @@ footer{background:var(--esp);color:var(--cream);padding:48px 0 24px}
  .evs,.posts,.prods{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:14px;margin-right:calc(-1 * max(4vw,16px));padding-right:16px;padding-bottom:6px}
  .evs>*,.posts>*,.prods>*{flex:0 0 78%;scroll-snap-align:start}
  .prods>*{flex-basis:62%}
- .dir{grid-template-columns:minmax(0,1fr)}
+ .bizs{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:14px;margin-right:calc(-1 * max(4vw,16px));padding-right:16px}.bizs>*{flex:0 0 82%;scroll-snap-align:start}
+ .dirsearch{grid-template-columns:minmax(0,1fr)}.dirsearch .btn{width:calc(100% - 8px);justify-content:center}
+ .svcgrid{grid-template-columns:repeat(2,minmax(0,1fr))}.svct{grid-template-columns:auto 1fr;justify-items:start;text-align:left;align-items:center;padding:12px}.svct svg{width:26px;height:26px}
  .minis a{grid-template-columns:96px minmax(0,1fr)}.minis img{width:96px;height:64px}
  .strip{grid-template-columns:minmax(0,1fr)}.pl{border-left:0;border-top:1px solid var(--line)}
  .quick a{font-size:16px;gap:8px;padding:14px 8px}.quick a .ar{display:none}
@@ -441,16 +467,36 @@ footer{background:var(--esp);color:var(--cream);padding:48px 0 24px}
 </div>
 </section>
 
-<section class="band" style="padding-top:0" aria-labelledby="dir-h" id="directory">
+<section class="dirband" aria-labelledby="dir-h" id="directory">
 <div class="wrap">
-<div class="dir">
-<div><small>Business directory</small><h2 id="dir-h">Find trusted car businesses near you</h2><p>Specialist services, restoration experts, performance tuners and more, all in one place.</p>
-<div class="btns"><a class="btn red" href="/directory">Browse directory <svg class="ar" viewBox="0 0 20 12" aria-hidden="true"><path d="M0 6h17M12 1l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></a><a class="btn ghost" href="/directory/list-your-business">List your business</a></div></div>
-<article class="biz"><a href="/directory/norfolk-restorations"><img src="/homepage/dir-1.webp" alt="Mechanic restoring a car in a workshop" width="600" height="212" loading="lazy">
-<h3>Norfolk Restorations</h3><p class="svc">Restoration · Bodywork · Paint</p><p class="meta">Norfolk <span class="more">View business <svg class="ar" viewBox="0 0 20 12" aria-hidden="true"><path d="M0 6h17M12 1l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></span></p></a></article><article class="biz"><a href="/directory/riverside-performance"><img src="/homepage/dir-2.webp" alt="Stacked tyres in a performance garage" width="600" height="212" loading="lazy">
-<h3>Riverside Performance</h3><p class="svc">Servicing · Tuning · MOT</p><p class="meta">Suffolk <span class="more">View business <svg class="ar" viewBox="0 0 20 12" aria-hidden="true"><path d="M0 6h17M12 1l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></span></p></a></article>
+<div class="dirtop">
+<div><p class="plabel"><span class="badge">Directory</span> Garages, specialists and suppliers</p>
+<h2 id="dir-h">Find trusted car businesses near you</h2>
+<p class="dirsub">Restorers, tuners, detailers, wrap shops and garages recommended by the Cars and Coffee community. Every listing is checked by our team.</p></div>
+<form class="dirsearch" action="/directory" method="get" role="search" aria-label="Search the business directory">
+<label><span>What do you need?</span><select name="service"><option value="">All services</option><option value="restoration">Restoration</option><option value="servicing">Servicing</option><option value="tuning">Tuning</option><option value="bodywork">Bodywork</option><option value="wraps-graphics">Wraps and graphics</option><option value="detailing">Detailing</option><option value="tyres">Tyres</option><option value="storage">Storage</option></select></label>
+<label><span>Where?</span><input type="text" name="near" placeholder="Town or postcode" autocomplete="postal-code"></label>
+<button class="btn red" type="submit"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>Search</button>
+</form>
 </div>
-<div class="dirlinks"><div><b>By region</b><a href="/directory/region/east-anglia">East Anglia</a><a href="/directory/region/south-east">South East</a><a href="/directory/region/london">London</a><a href="/directory/region/midlands">Midlands</a><a href="/directory/region/north">North</a><a href="/directory/region/wales">Wales</a><a href="/directory/region/scotland">Scotland</a></div><div><b>Services</b><a href="/directory/service/restoration">Restoration</a><a href="/directory/service/servicing">Servicing</a><a href="/directory/service/tuning">Tuning</a><a href="/directory/service/bodywork">Bodywork</a><a href="/directory/service/wraps-graphics">Wraps and graphics</a><a href="/directory/service/detailing">Detailing</a><a href="/directory/service/tyres">Tyres</a><a href="/directory/service/storage">Storage</a></div></div>
+<nav class="svcgrid" aria-label="Browse by service"><a class="svct" href="/directory/service/restoration"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M14 6a4 4 0 0 0-5 5l-6 6 3 3 6-6a4 4 0 0 0 5-5l-2 2-2-1-1-2z"/></svg><span>Restoration</span></a><a class="svct" href="/directory/service/servicing"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/></svg><span>Servicing</span></a><a class="svct" href="/directory/service/tuning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 16a8 8 0 1 1 16 0"/><path d="M12 16l4-5"/><circle cx="12" cy="16" r="1.5"/></svg><span>Tuning</span></a><a class="svct" href="/directory/service/bodywork"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M3 15l2-5 4-2h6l4 4 2 1v2H3z"/><circle cx="7" cy="16" r="2"/><circle cx="17" cy="16" r="2"/></svg><span>Bodywork</span></a><a class="svct" href="/directory/service/wraps-graphics"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 20l4-1L19 8l-3-3L5 16z"/><path d="M14 7l3 3"/></svg><span>Wraps and graphics</span></a><a class="svct" href="/directory/service/detailing"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z"/><path d="M18 15l.8 2.2L21 18l-2.2.8L18 21l-.8-2.2L15 18l2.2-.8z"/></svg><span>Detailing</span></a><a class="svct" href="/directory/service/tyres"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M12 3v5M12 16v5M3 12h5M16 12h5"/></svg><span>Tyres</span></a><a class="svct" href="/directory/service/storage"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M3 10l9-6 9 6v10H3z"/><path d="M7 20v-6h10v6M7 17h10"/></svg><span>Storage</span></a></nav>
+<div class="head dirhead"><h3>Featured businesses</h3><a class="more" href="/directory">Browse the full directory <svg class="ar" viewBox="0 0 20 12" aria-hidden="true"><path d="M0 6h17M12 1l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></a></div>
+<div class="bizs"><article class="biz"><a href="/directory/norfolk-restorations"><div class="ph"><img src="/homepage/dir-1.webp" alt="Mechanic restoring a car in a workshop" width="600" height="300" loading="lazy"><span class="tag feat-tag">Featured</span></div>
+<div class="bizb"><h3>Norfolk Restorations</h3><p class="svc">Restoration · Bodywork · Paint</p>
+<p class="meta"><span class="loc"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s7-7.5 7-13a7 7 0 0 0-14 0c0 5.5 7 13 7 13z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="9" r="2.5" fill="currentColor"/></svg>Norfolk</span>
+<span class="ver"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5 9-10" fill="none" stroke="currentColor" stroke-width="2.6"/></svg>Checked by us</span></p>
+<span class="more">View business <svg class="ar" viewBox="0 0 20 12" aria-hidden="true"><path d="M0 6h17M12 1l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></span></div></a></article><article class="biz"><a href="/directory/riverside-performance"><div class="ph"><img src="/homepage/dir-2.webp" alt="Stacked tyres in a performance garage" width="600" height="300" loading="lazy"><span class="tag feat-tag">Featured</span></div>
+<div class="bizb"><h3>Riverside Performance</h3><p class="svc">Servicing · Tuning · MOT</p>
+<p class="meta"><span class="loc"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s7-7.5 7-13a7 7 0 0 0-14 0c0 5.5 7 13 7 13z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="9" r="2.5" fill="currentColor"/></svg>Suffolk</span>
+<span class="ver"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5 9-10" fill="none" stroke="currentColor" stroke-width="2.6"/></svg>Checked by us</span></p>
+<span class="more">View business <svg class="ar" viewBox="0 0 20 12" aria-hidden="true"><path d="M0 6h17M12 1l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></span></div></a></article><article class="biz"><a href="/directory/coastline-detailing"><div class="ph"><img src="/homepage/gal-aston.webp" alt="Gleaming silver classic car after a full detail" width="600" height="300" loading="lazy"><span class="tag feat-tag">Featured</span></div>
+<div class="bizb"><h3>Coastline Detailing</h3><p class="svc">Detailing · Ceramic coating · Paint correction</p>
+<p class="meta"><span class="loc"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s7-7.5 7-13a7 7 0 0 0-14 0c0 5.5 7 13 7 13z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="9" r="2.5" fill="currentColor"/></svg>Norfolk</span>
+<span class="ver"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5 9-10" fill="none" stroke="currentColor" stroke-width="2.6"/></svg>Checked by us</span></p>
+<span class="more">View business <svg class="ar" viewBox="0 0 20 12" aria-hidden="true"><path d="M0 6h17M12 1l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></span></div></a></article></div>
+<div class="dirlinks"><b>Browse by region</b><a href="/directory/region/east-anglia">East Anglia</a><a href="/directory/region/south-east">South East</a><a href="/directory/region/london">London</a><a href="/directory/region/midlands">Midlands</a><a href="/directory/region/north">North</a><a href="/directory/region/wales">Wales</a><a href="/directory/region/scotland">Scotland</a></div>
+<div class="listcta"><div><h3>Run a car business?</h3><p>Get in front of thousands of local enthusiasts. Basic listings are free; featured spots put you on this homepage.</p></div>
+<div class="btns"><a class="btn red" href="/directory/list-your-business">List your business free <svg class="ar" viewBox="0 0 20 12" aria-hidden="true"><path d="M0 6h17M12 1l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></a><a class="btn ghost" href="/advertise#directory">Get featured</a></div></div>
 </div>
 </section>
 
