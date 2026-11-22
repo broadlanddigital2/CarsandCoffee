@@ -8,6 +8,7 @@ import { loadPage, renderLocation } from "./pages.js";
 import { loadContent, renderContent, sitemap } from "./content.js";
 import { handleAssist } from "./assist.js";
 import { renderStandard, carsIndex } from "./standard.js";
+import { shopApi } from "./shop.js";
 
 const FRESH_SECONDS = 60;       // how long a rendered homepage is reused
 const STALE_SECONDS = 86400;    // how long the last good copy is kept as a fallback
@@ -28,6 +29,9 @@ export default {
     }
     if ((/^\/(events|news|guides|galleries|search)(\/[a-z0-9-]+(\.ics)?)?\/?$/.test(url.pathname) || url.pathname === "/cars" || /^\/directory(\/[a-z0-9-]+){0,2}\/?$/.test(url.pathname) || /^\/shops?(\/[a-z0-9-]+){0,2}\/?$/.test(url.pathname) || url.pathname === "/basket") && (request.method === "GET" || request.method === "HEAD")) {
       return contentPage(request, env, ctx, url, true);
+    }
+    if ((url.pathname === "/api/shop-menu" || url.pathname === "/api/shop-search") && request.method === "GET") {
+      try { return await shopApi(url.pathname, url); } catch { return new Response('{"error":"unavailable"}', { status: 503, headers: { "Content-Type": "application/json" } }); }
     }
     if (url.pathname.startsWith("/api/")) return handleAssist(request, env, url);
     if (url.pathname === "/sitemap.xml") {

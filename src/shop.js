@@ -245,7 +245,7 @@ export async function basketPage() {
           <label class="hb-hp" aria-hidden="true">Leave this blank<input name="cc_hp" tabindex="-1" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"></label>
           <button class="btn red" type="submit">Send order request ${ARROW}</button><p class="ct-msg" role="status"></p>
           <p class="ct-small">We share your details only with the sellers in your basket so they can reply. See our <a href="/privacy">privacy policy</a>.</p></form></aside></div></div></section>
-  <script>(function(){var B=window.CCB;if(!B)return;var gbp=function(p){return '£'+(p/100).toFixed(2).replace('.00','');},esc=function(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});};
+  <script>document.addEventListener('DOMContentLoaded',function(){var B=window.CCB;if(!B)return;var gbp=function(p){return '£'+(p/100).toFixed(2).replace('.00','');},esc=function(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});};
     function G(f,n){var a=f.querySelectorAll('[name="'+n+'"]');for(var i=0;i<a.length;i++){var v=(a[i].value||'').trim();if(v)return v;}return '';}
     function draw(){var items=B.get(),box=document.getElementById('bsk'),full=document.getElementById('bsk-full');
       if(!items.length){box.innerHTML=document.getElementById('bsk-empty').innerHTML;box.hidden=false;full.hidden=true;return;}
@@ -267,7 +267,7 @@ export async function basketPage() {
       try{var r=await fetch('/api/enquiry',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:G(f,'name'),email:G(f,'email'),topic:'shop',message:msg,cc_hp:G(f,'cc_hp'),page:'/basket'})});var j=await r.json().catch(function(){return{};});
         if(!r.ok)throw new Error(j.error||'Sorry, that didn\\'t send. Please try again.');B.clear();document.getElementById('bsk-full').innerHTML='<div class="ct-sent"><h3>Thanks, your order request is on its way.</h3><p>The seller'+(lines.length>1?'s':'')+' will email you to confirm stock, delivery and payment, usually within a day or two.</p><p><a class="btn ghost" href="/shop">Back to the shop</a></p></div>';}
       catch(err){m.textContent=err.message;m.className='ct-msg bad';b.disabled=false;}});
-    draw();})();</script>`].join("\n");
+    draw();});</script>`].join("\n");
   return shell({ title: "Your basket | Cars and Coffee UK shop", description: "Your Cars and Coffee UK shop basket.", path: "/basket", noindex: true, ld: ld(crumbs), partners, main });
 }
 
@@ -276,4 +276,37 @@ export async function shopSitemap() {
   const now = new Date().toISOString();
   return [["/shop", now, "daily", "0.8"], ["/shops", now, "weekly", "0.6"], ["/shop/sell", now, "monthly", "0.4"], ...cats.map((c) => [`/shop/category/${c.slug}`, now, "weekly", "0.6"]),
     ...shops.map((s) => [`/shops/${s.slug}`, s.updated_at, "weekly", "0.6"]), ...prods.map((p) => [`/shop/${p.slug}`, p.updated_at, "weekly", "0.6"])];
+}
+
+// ---------- JSON for the header mega menu and the as-you-type shop search ----------
+export async function shopApi(path, url) {
+  const json = (o, maxAge = 300) => new Response(JSON.stringify(o), { headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": `public, max-age=${maxAge}` } });
+  if (path === "/api/shop-menu") {
+    const [cats, shops, counts] = await Promise.all([catsQ(), shopsQ(), q("products?select=category_id&limit=5000").catch(() => [])]);
+    const n = countsOf(cats, counts);
+    const kids = (id) => cats.filter((c) => c.parent_id === id);
+    const fs = shops.find((s) => s.featured);
+    return json({
+      cats: cats.filter((c) => !c.parent_id).map((c) => ({ name: c.name, href: `/shop/category/${c.slug}`, n: n[c.id] || 0, kids: kids(c.id).slice(0, 7).map((k) => ({ name: k.name, href: `/shop/category/${k.slug}`, n: n[k.id] || 0 })), more: kids(c.id).length > 7 })),
+      shops: shops.slice(0, 6).map((s) => ({ name: s.name, href: `/shops/${s.slug}` })),
+      featured: fs ? { name: fs.name, tagline: fs.tagline || "", href: `/shops/${fs.slug}`, logo: fs.logo_path ? img(fs.logo_path) : "", initials: initials(fs.name) } : null,
+    });
+  }
+  if (path === "/api/shop-search") {
+    const term = String(url.searchParams.get("q") || "").replace(/[^\p{L}\p{N}\s'-]/gu, " ").trim().slice(0, 60);
+    if (term.length < 2) return json({ products: [], cats: [], shops: [] }, 60);
+    const words = term.toLowerCase().split(/\s+/).filter(Boolean).slice(0, 5);
+    const like = (w) => `*${encodeURIComponent(w)}*`;
+    const filter = `and=(${words.map((w) => `or(name.ilike.${like(w)},summary.ilike.${like(w)},brand.ilike.${like(w)},sku.ilike.${like(w)})`).join(",")})`;
+    const [prods, cats, shops] = await Promise.all([
+      q(`products?select=slug,name,price_pence,compare_at_pence,image_path,shop_id,stock_status&${filter}&order=featured.desc,units_sold_30d.desc&limit=8`).catch(() => []),
+      catsQ(), shopsQ()]);
+    const byId = byIdOf(shops), has = (s) => words.every((w) => String(s || "").toLowerCase().includes(w));
+    return json({
+      products: prods.map((p) => ({ name: p.name, href: `/shop/${p.slug}`, price: money(p.price_pence), was: p.compare_at_pence > p.price_pence ? money(p.compare_at_pence) : "", img: p.image_path ? img(p.image_path) : "", seller: p.shop_id ? byId[p.shop_id]?.name || "" : "Cars and Coffee UK", out: p.stock_status === "out" })),
+      cats: cats.filter((c) => has(c.name)).slice(0, 5).map((c) => ({ name: ancestors(cats, c).map((x) => x.name).join(" › "), href: `/shop/category/${c.slug}` })),
+      shops: shops.filter((s) => has(s.name)).slice(0, 3).map((s) => ({ name: s.name, href: `/shops/${s.slug}` })),
+    }, 60);
+  }
+  return null;
 }
