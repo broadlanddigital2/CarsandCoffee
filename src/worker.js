@@ -25,7 +25,7 @@ export default {
     if ((/^\/car-meets\/?$/.test(url.pathname) || /^\/(norfolk|suffolk|cambridgeshire|essex)(\/[a-z0-9-]+)?\/?$/.test(url.pathname)) && (request.method === "GET" || request.method === "HEAD")) {
       return contentPage(request, env, ctx, url);
     }
-    if ((/^\/(events|news|guides|galleries|search)(\/[a-z0-9-]+(\.ics)?)?\/?$/.test(url.pathname) || url.pathname === "/cars") && (request.method === "GET" || request.method === "HEAD")) {
+    if ((/^\/(events|news|guides|galleries|search)(\/[a-z0-9-]+(\.ics)?)?\/?$/.test(url.pathname) || url.pathname === "/cars" || /^\/directory(\/[a-z0-9-]+){0,2}\/?$/.test(url.pathname)) && (request.method === "GET" || request.method === "HEAD")) {
       return contentPage(request, env, ctx, url, true);
     }
     if (url.pathname.startsWith("/api/")) return handleAssist(request, env, url);
@@ -45,6 +45,10 @@ export default {
 async function contentPage(request, env, ctx, url, rich = false, maybe = false) {
   const path = url.pathname.replace(/\/+$/, "") || "/";
   if (path !== url.pathname) return Response.redirect(url.origin + path + url.search, 301);
+  if (path === "/directory" && url.search) {
+    const out = await renderContent({ kind: "directory", params: Object.fromEntries(url.searchParams) });
+    return withHeaders(new Response(out, { headers: { "Content-Type": "text/html; charset=utf-8" } }), "NOCACHE");
+  }
   if (path === "/search") {
     const out = await renderContent({ kind: "search", q: url.searchParams.get("q") || "" });
     return withHeaders(new Response(out, { headers: { "Content-Type": "text/html; charset=utf-8" } }), "NOCACHE");
@@ -60,6 +64,7 @@ async function contentPage(request, env, ctx, url, rich = false, maybe = false) 
       const what = await loadContent(path);
       const out = what && (await renderContent(what));
       if (!out) return env.ASSETS.fetch(new Request(new URL("/__missing__", url), request));
+      if (out.redirect) return Response.redirect(url.origin + out.redirect, 301);
       res = typeof out === "string" ? new Response(out, { headers: { "Content-Type": "text/html; charset=utf-8" } })
         : new Response(out.ics, { headers: { "Content-Type": "text/calendar; charset=utf-8", "Content-Disposition": `attachment; filename="${out.filename}"` } });
     } else {

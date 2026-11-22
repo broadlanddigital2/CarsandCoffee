@@ -19,6 +19,7 @@ export async function handleAssist(request, env, url) {
   if (url.pathname === "/api/search" && request.method === "GET") return search(url);
   if (url.pathname === "/api/ask" && request.method === "POST") return ask(request, env);
   if (url.pathname === "/api/enquiry" && request.method === "POST") return enquiry(request);
+  if (url.pathname === "/api/listing" && request.method === "POST") return listing(request);
   return json({ error: "Not found" }, 404);
 }
 
@@ -125,5 +126,20 @@ async function enquiry(request) {
   if (r.ok) return json({ ok: true });
   let msg = "Sorry, that didn't send. Please try again.";
   try { const e = await r.json(); if (e && e.message && !/permission|function|schema/i.test(e.message)) msg = e.message; } catch {}
+  return json({ error: msg }, 400);
+}
+
+// ---------- directory submissions ----------
+async function listing(request) {
+  let b; try { b = await request.json(); } catch { return json({ error: "Bad request" }, 400); }
+  if (b.company) return json({ ok: true }); // honeypot
+  if (await limited(request, "lst", 3)) return json({ error: "Please wait a minute before sending another listing." }, 429);
+  const clip = (v, n) => String(v ?? "").slice(0, n);
+  const p = { name: clip(b.name, 120), services: (Array.isArray(b.services) ? b.services : []).slice(0, 12).map((s) => clip(s, 40)), town: clip(b.town, 80), county: clip(b.county, 40), address: clip(b.address, 200), postcode: clip(b.postcode, 10),
+    website: clip(b.website, 200), phone: clip(b.phone, 40), public_email: clip(b.public_email, 200), summary: clip(b.summary, 600), contact_name: clip(b.contact_name, 120), contact_email: clip(b.contact_email, 200), notes: clip(b.notes, 1000) };
+  const r = await fetch(`${SB_URL}/rest/v1/rpc/submit_listing`, { method: "POST", headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, "Content-Type": "application/json", "Content-Profile": "site" }, body: JSON.stringify({ p }) });
+  if (r.ok) return json({ ok: true });
+  let msg = "Sorry, that didn't send. Please try again.";
+  try { const e = await r.json(); if (e && e.message && !/permission|function|schema|violates/i.test(e.message)) msg = e.message; } catch {}
   return json({ error: msg }, 400);
 }

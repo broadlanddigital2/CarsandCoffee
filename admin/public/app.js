@@ -278,11 +278,13 @@ const SEO_KINDS = {
   events: { label: "Event", path: (r) => `/events/${r.slug}`, type: "standard", intro: (r) => r.summary, h1: (r) => r.title },
   articles: { label: "News", path: (r) => `/news/${r.slug}`, type: "standard", intro: (r) => r.excerpt, h1: (r) => r.title },
   guides: { label: "Guide", path: (r) => `/guides/${r.slug}`, type: "guide", intro: (r) => r.intro, h1: (r) => r.title },
+  directory_listings: { label: "Business", path: (r) => `/directory/${r.slug}`, type: "standard", intro: (r) => r.summary, h1: (r) => r.name },
 };
 function contentScoreInput(kind, r) {
   const k = SEO_KINDS[kind];
   const html = r.body_html || "";
-  return { page_type: k.type, title: r.title, h1: k.h1(r), meta_title: r.meta_title || `${r.title} | Cars and Coffee UK`, meta_description: r.meta_description || "", focus_keyword: r.focus_keyword || "",
+  const ttl = r.title || r.name;
+  return { page_type: k.type, title: ttl, h1: k.h1(r), meta_title: r.meta_title || `${ttl} | Cars and Coffee UK`, meta_description: r.meta_description || "", focus_keyword: r.focus_keyword || "",
     path: k.path(r), intro: k.intro(r) || "", body_md: [htmlHeadings(html), htmlText(html), htmlLinks(html), (r.gallery || []).length || r.image_path ? "![photo](x)" : ""].filter(Boolean).join("\n\n"),
     hero_image_path: r.image_path, hero_image_alt: r.image_alt, og_image_path: r.image_path };
 }
@@ -292,17 +294,19 @@ const scoreOf = (kind, r) => { try { return kind === "pages" ? analyse(r.page_ty
 route("/marketing", async () => {
   crumbs([["Marketing"], ["SEO overview"]]);
   const now = new Date().toISOString();
-  const [pg, ev, ar, gu] = await Promise.all([
+  const [pg, ev, ar, gu, di] = await Promise.all([
     site().from("pages").select("*").limit(500),
     site().from("events").select("id,slug,title,summary,body_html,meta_title,meta_description,focus_keyword,image_path,image_alt,published,ends_at").limit(500),
     site().from("articles").select("id,slug,title,excerpt,body_html,meta_title,meta_description,focus_keyword,image_path,image_alt,gallery,status").limit(500),
     site().from("guides").select("id,slug,title,intro,body_html,meta_title,meta_description,focus_keyword,image_path,image_alt,status").limit(200),
+    site().from("directory_listings").select("id,slug,name,summary,body_html,meta_title,meta_description,focus_keyword,image_path,image_alt,gallery,status").limit(500),
   ]);
   for (const r of [pg, ev, ar, gu]) if (r.error) throw r.error;
   const rows = [
     ...(pg.data || []).filter((p) => p.status !== "archived").map((p) => ({ kind: p.page_type === "location" ? "Location" : labelType(p.page_type), title: p.title, path: p.path, kw: p.focus_keyword, live: p.status === "published", noindex: p.noindex, edit: `/pages/${p.id}`, r: scoreOf("pages", p) })),
     ...(ev.data || []).filter((e) => e.ends_at >= now).map((e) => ({ kind: "Event", title: e.title, path: `/events/${e.slug}`, kw: e.focus_keyword, live: e.published, edit: `/content/events/${e.id}#seo`, r: scoreOf("events", e) })),
     ...(ar.data || []).map((a) => ({ kind: "News", title: a.title, path: `/news/${a.slug}`, kw: a.focus_keyword, live: a.status === "published", edit: `/content/articles/${a.id}#seo`, r: scoreOf("articles", a) })),
+    ...(di.data || []).filter((x) => x.status !== "rejected").map((x) => ({ kind: "Business", title: x.name, path: `/directory/${x.slug}`, kw: x.focus_keyword, live: x.status === "published", edit: `/content/directory_listings/${x.id}#seo`, r: scoreOf("directory_listings", x) })),
     ...(gu.data || []).map((g) => ({ kind: "Guide", title: g.title, path: `/guides/${g.slug}`, kw: g.focus_keyword, live: g.status === "published", edit: `/content/guides/${g.id}#seo`, r: scoreOf("guides", g) })),
   ];
   const kindF = qs().get("kind") || "", sort = qs().get("sort") || "score";
@@ -633,10 +637,16 @@ const CONTENT = {
     fields: [F("partner_id", "Partner", "ref", { table: "partners", show: "name", required: true }), F("block_key", "Homepage block", "select", { options: ["detail_of_month", "livery_of_week", "race_night"] }), F("title", "Title", "text", { required: true }),
       F("body", "Text", "textarea"), F("extra", "Extra line"), F("image_path", "Image", "image"), F("image_alt", "Image description"), F("cta_label", "Button 1 text"), F("cta_url", "Button 1 link"),
       F("cta2_label", "Button 2 text"), F("cta2_url", "Button 2 link"), F("countdown_to", "Countdown to", "datetime"), F("starts_at", "Show from", "datetime"), F("ends_at", "Show until", "datetime"), F("active", "Active", "bool", { def: true })] },
-  directory_listings: { title: "Directory", order: ["created_at", false], list: ["name", "town", "status", "featured"],
-    fields: [F("name", "Business name", "text", { required: true }), F("slug", "Slug", "slug", { from: "name" }), F("services", "Services (comma separated)", "array"), F("address_line", "Street address (shown publicly)"), F("town", "Town"), F("county", "County", "select", { options: ["Norfolk", "Suffolk", "Cambridgeshire", "Essex"] }), F("postcode", "Postcode", "postcode"), F("lat", "Latitude", "number", { step: "any" }), F("lng", "Longitude", "number", { step: "any" }), F("approximate", "Map pin is only approximate", "bool"), F("region", "Region"),
-      F("website", "Website"), F("image_path", "Image", "image"), F("image_alt", "Image description"), F("featured", "Featured on the homepage", "bool"), F("featured_until", "Featured until", "date"),
-      F("status", "Status", "select", { options: ["pending", "published", "rejected"] })] },
+  directory_listings: { title: "Directory", order: ["created_at", false], list: ["name", "town", "status", "featured"], view: "/directory/", seo: true,
+    help: "Businesses in the directory. New submissions from the website arrive as Pending: check them, add details, then set Status to Published.",
+    fields: [F("h_basics", "The business", "heading"), F("name", "Business name", "text", { required: true }), F("slug", "Slug", "slug", { from: "name" }), F("services", "Services (comma separated)", "array"),
+      F("summary", "Short summary (shown on cards and in Google)", "textarea", { ai: "summary" }), F("body_html", "About the business", "rich", { ai: "body" }),
+      F("image_path", "Main photo", "image"), F("image_alt", "Photo description"), F("logo_path", "Logo", "image"), F("gallery", "More photos", "gallery"),
+      F("h_contact", "Contact and location", "heading"), F("website", "Website"), F("phone", "Public phone"), F("email", "Public email"), F("instagram", "Instagram (handle or link)"), F("facebook", "Facebook (page name or link)"),
+      F("opening_hours", "Opening hours (one line each, e.g. Mon to Fri 8:00 to 17:30)", "lines"),
+      F("address_line", "Street address (shown publicly)"), F("town", "Town"), F("county", "County", "select", { options: ["Norfolk", "Suffolk", "Cambridgeshire", "Essex"] }), F("postcode", "Postcode", "postcode"), F("lat", "Latitude", "number", { step: "any" }), F("lng", "Longitude", "number", { step: "any" }), F("approximate", "Map pin is only approximate", "bool"), F("region", "Region"),
+      F("h_status", "Status and promotion", "heading"), F("status", "Status", "select", { options: ["pending", "published", "rejected"] }), F("checked_at", "Checked on", "date"), F("featured", "Featured", "bool"), F("featured_until", "Featured until", "date"),
+      F("h_seo", "Search engines", "heading", { note: "Optional. Left empty, the name and summary are used." }), F("focus_keyword", "Focus keyword", "text", { ph: "e.g. car detailing norwich" }), F("meta_title", "Google title", "text", { ai: "meta_title" }), F("meta_description", "Google description", "textarea", { ai: "meta_description" })] },
   sponsored_slots: { title: "Sponsored slots", order: ["starts_at", false], list: ["advertiser", "title", "starts_at", "ends_at", "status"],
     fields: [F("advertiser", "Advertiser", "text", { required: true }), F("title", "Headline", "text", { required: true }), F("body", "Text", "textarea"), F("image_path", "Image", "image"), F("image_alt", "Image description"),
       F("cta_label", "Button text"), F("cta_url", "Button link"), F("starts_at", "Starts", "datetime", { required: true }), F("ends_at", "Ends", "datetime", { required: true }),
@@ -697,6 +707,7 @@ route("/content/:table", async ({ table }) => {
   crumbs([[c.title]]);
   const when = qs().get("when") || (table === "events" ? "upcoming" : ""), search = (qs().get("q") || "").trim().toLowerCase();
   let query = site().from(table).select("*").order(c.order[0], { ascending: c.order[1] }).limit(1000);
+  if (table === "directory_listings") query = site().from(table).select("*").order("status", { ascending: true }).order("created_at", { ascending: false }).limit(1000);
   if (table === "events" && when === "upcoming") query = query.gte("ends_at", new Date().toISOString());
   if (table === "events" && when === "past") query = query.lt("ends_at", new Date().toISOString()).order("starts_at", { ascending: false });
   const { data: all, error } = await query;
@@ -808,14 +819,19 @@ route("/content/:table/:id", async ({ table, id }) => {
   if (slugF) $("#f_" + slugF.name).addEventListener("input", (e) => (e.target.dataset.touched = "1"));
   $("#cf").addEventListener("input", () => (dirty = true));
   wireImageInputs($("#cf"));
-  const kindLabel = { events: "event page", articles: "news article", guides: "practical guide" }[table] || "page";
+  const kindLabel = { events: "event page", articles: "news article", guides: "practical guide", directory_listings: "business directory listing (write about the business in the third person, only from the facts given)" }[table] || "page";
   const contentCtx = () => { const v = (n) => { const el = $("#f_" + n); return el ? el.value : ""; }; const body = $("#f_body_html_area");
     const facts = table === "events" ? [`Title: ${v("title")}`, `Type: ${v("event_type")}`, v("starts_at") && `Starts: ${new Date(v("starts_at")).toLocaleString("en-GB", { dateStyle: "full", timeStyle: "short" })}`, v("ends_at") && `Ends: ${new Date(v("ends_at")).toLocaleTimeString("en-GB", { timeStyle: "short" })}`, `Venue: ${v("venue")}`, v("town") && `Town: ${v("town")}`, v("county") && `County: ${v("county")}`,
       `Price: ${Number(v("price_pence")) ? "£" + (Number(v("price_pence")) / 100).toFixed(2) : "Free"}`, v("schedule") && `On the day: ${v("schedule").replace(/\n/g, "; ")}`, v("what_to_bring") && `What to bring: ${v("what_to_bring").replace(/\n/g, "; ")}`, v("accessibility") && `Access: ${v("accessibility")}`].filter(Boolean).join("\n") : "";
-    return { kind: kindLabel, title: v("title"), focus_keyword: v("focus_keyword"), place: v("town") || v("county"), county: v("county"), intro: v("summary") || v("excerpt") || v("intro"), facts, existing: body ? htmlText(body.innerHTML).slice(0, 3000) : "", words: table === "guides" ? 900 : table === "events" ? 250 : 450,
-      url: table === "events" ? `/events/${v("slug")}` : table === "articles" ? `/news/${v("slug")}` : table === "guides" ? `/guides/${v("slug")}` : "" }; };
+    const dirFacts = table === "directory_listings" ? [`Business: ${v("name")}`, v("services") && `Services: ${v("services")}`, v("town") && `Town: ${v("town")}`, v("county") && `County: ${v("county")}`, v("website") && `Website: ${v("website")}`, v("opening_hours") && `Opening hours: ${v("opening_hours").replace(/\n/g, "; ")}`].filter(Boolean).join("\n") : "";
+    return { kind: kindLabel, title: v("title") || v("name"), focus_keyword: v("focus_keyword"), place: v("town") || v("county"), county: v("county"), intro: v("summary") || v("excerpt") || v("intro"), facts: facts || dirFacts, existing: body ? htmlText(body.innerHTML).slice(0, 3000) : "", words: table === "guides" ? 900 : table === "events" ? 250 : 450,
+      url: table === "directory_listings" ? `/directory/${v("slug")}` : table === "events" ? `/events/${v("slug")}` : table === "articles" ? `/news/${v("slug")}` : table === "guides" ? `/guides/${v("slug")}` : "" }; };
   wireRich($("#cf"), { upload: uploadSiteImage, onChange: () => (dirty = true), ai: async (field, brief) => (await aiCall(field, contentCtx(), brief)).html });
   wireAiSuggest($("#cf"), contentCtx);
+  if (table === "directory_listings" && !isNew) {
+    const { data: subs } = await site().from("directory_submissions").select("*").eq("listing_id", row.id).order("created_at", { ascending: false });
+    if (subs && subs.length) $("#cf .card").insertAdjacentHTML("beforebegin", `<div class="alert alert-warning"><strong>Submitted from the website</strong> ${fmtDate(subs[0].created_at, true)} by ${esc(subs[0].contact_name)} · <a href="mailto:${esc(subs[0].contact_email)}?subject=${encodeURIComponent("Your Cars and Coffee directory listing")}">${esc(subs[0].contact_email)}</a>${subs[0].contact_phone ? ` · ${esc(subs[0].contact_phone)}` : ""}${subs[0].notes ? `<div class="small mt-1">Note: ${esc(subs[0].notes)}</div>` : ""}<div class="small mt-1">Only the team can see this. ${row.status === "pending" ? "Check the details, then set Status to Published." : ""}</div></div>`);
+  }
   wireGallery($("#cf"));
   if (SEO_KINDS[table]) {
     const cur = () => { const r = { ...row }; for (const f of c.fields) { const el = $("#f_" + f.name); if (!el) continue;
