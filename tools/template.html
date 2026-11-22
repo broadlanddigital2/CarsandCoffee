@@ -828,7 +828,7 @@ body:has(.mbar.show) .hb{bottom:84px}
 .shp-backlink{display:inline-block;color:#f6ece0;font-weight:700;font-size:14px;text-decoration:none;margin-bottom:10px;opacity:.9}.shp-backlink:hover{opacity:1;text-decoration:underline}
 .mm-t{display:inline-flex;align-items:center;gap:5px}.mm-t svg{width:10px;height:6px;transition:transform .2s}.mm-t[aria-expanded=true] svg{transform:rotate(180deg)}
 .top{position:sticky}.mm{position:absolute;left:0;right:0;top:100%;background:var(--bg);border-top:1px solid var(--line);border-bottom:1px solid var(--line);box-shadow:0 24px 40px rgba(18,10,7,.18);z-index:60}
-.top .mm .mm-in{display:grid;grid-template-columns:minmax(0,1fr) 300px;align-items:start;gap:36px;height:auto;padding-top:28px;padding-bottom:30px}
+.top .mm .im-in .mm-cats{grid-template-columns:repeat(3,minmax(0,1fr))}.top .mm .mm-in{display:grid;grid-template-columns:minmax(0,1fr) 300px;align-items:start;gap:36px;height:auto;padding-top:28px;padding-bottom:30px}
 .mm-cats{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:24px 28px;align-content:start}
 .mm-col h3{margin:0 0 8px;font:800 15px/1.3 Inter,sans-serif;text-transform:none;letter-spacing:0}.mm-col h3 a{color:var(--ink);text-decoration:none}.mm-col h3 a:hover{color:var(--red)}
 .mm-col ul{list-style:none;margin:0;padding:0}.mm-col li a{display:block;padding:4px 0;color:var(--soft);text-decoration:none;font-size:14px}.mm-col li a:hover{color:var(--ink);text-decoration:underline}.mm-col .mm-more a{color:var(--red);font-weight:700}
@@ -884,7 +884,7 @@ body:has(.mbar.show) .hb{bottom:84px}
 <header class="top">
 <div class="wrap">
 <a href="/" aria-label="Cars and Coffee UK home">{{LOGO}}</a>
-<nav class="nav" aria-label="Main"><a href="/events">Events</a><a href="/news">News</a><a href="https://club.carsandcoffee.uk/">Community</a><a href="/shop" class="mm-t" id="mm-t" aria-haspopup="true" aria-expanded="false" aria-controls="mm">Shop<svg viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></a><a href="/directory">Directory</a><a href="/partners">Partners</a><a href="/advertise">Advertise</a></nav>
+<nav class="nav" aria-label="Main"><a href="/events">Events</a><a href="/news">News</a><a href="/cars" class="mm-t" id="im-t" aria-haspopup="true" aria-expanded="false" aria-controls="im">Interests<svg viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></a><a href="https://club.carsandcoffee.uk/">Community</a><a href="/shop" class="mm-t" id="mm-t" aria-haspopup="true" aria-expanded="false" aria-controls="mm">Shop<svg viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></a><a href="/directory">Directory</a><a href="/partners">Partners</a><a href="/advertise">Advertise</a></nav>
 <div class="tools">
 <button class="ico search" type="button" id="srch-open" aria-label="Search the site" aria-haspopup="dialog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg></button>
 <a class="ico bag" href="/basket" aria-label="Basket"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 8h14l-1 13H6zM9 8V6a3 3 0 0 1 6 0v2"/></svg><span class="bag-n" hidden>0</span></a>
@@ -892,6 +892,7 @@ body:has(.mbar.show) .hb{bottom:84px}
 <a class="btn red" href="https://club.carsandcoffee.uk/apply">Join</a>
 <button class="ico burger" type="button" aria-expanded="false" aria-controls="drawer" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
 </div></div>
+<div class="mm" id="im" hidden><div class="wrap mm-in im-in"><div class="mm-cats" id="im-cols"><p class="mm-load">Loading…</p></div><aside class="mm-side"><a class="mm-fs" href="/cars"><span class="mono">★</span><span><small>Explore</small><strong>All car interests</strong><span>Services, things to do and car types</span></span></a><p class="small" style="margin:0"><a href="/car-meets">Find your local car hub ›</a></p><p class="small" style="margin:0"><a href="/directory">Search the business directory ›</a></p></aside></div></div>
 <div class="mm" id="mm" hidden><div class="wrap mm-in"><div class="mm-cats" id="mm-cats"><p class="mm-load">Loading the shop…</p></div><aside class="mm-side" id="mm-side"></aside></div></div>
 <nav class="drawer" id="drawer" aria-label="Mobile"><a href="/events">Events</a><a href="/news">News</a><a href="/cars">Interests</a><a href="https://club.carsandcoffee.uk/">Community</a><a href="/shop">Shop</a><a href="/directory">Directory</a><a href="/partners">Partners</a><a href="/advertise">Advertise</a><a href="/search">Search</a><a href="https://club.carsandcoffee.uk/sign-in">Sign in</a></nav>
 </header>
@@ -1358,6 +1359,18 @@ document.addEventListener('click',e=>{const a=e.target.closest('a[href]');if(!a)
       else if(e.key==='Enter'&&idx>=0){e.preventDefault();location.href=as[idx].href;}else if(e.key==='Escape')hide();});
     document.addEventListener('click',function(e){if(!f.contains(e.target))hide();});});
 })();
+</script>
+<script>
+// Interests mega menu (desktop): services, things to do and car types
+(function(){var t=document.getElementById('im-t'),mm=document.getElementById('im');if(!t||!mm)return;var loaded=false,timer;
+  var esc=function(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});};
+  function load(){if(loaded)return;loaded=true;fetch('/api/interests-menu').then(function(r){return r.json();}).then(function(d){
+    document.getElementById('im-cols').innerHTML=(d.groups||[]).map(function(g){return '<div class="mm-col"><h3><a href="/cars#'+esc(g.key)+'">'+esc(g.name)+'</a></h3><ul>'+g.items.map(function(x){return '<li><a href="'+esc(x.href)+'">'+esc(x.name)+'</a></li>';}).join('')+'<li class="mm-more"><a href="/cars#'+esc(g.key)+'">All '+esc(g.name.toLowerCase())+' ›</a></li></ul></div>';}).join('')||'<p class="mm-load">Coming soon.</p>';}).catch(function(){loaded=false;});}
+  function open(){clearTimeout(timer);var o=document.getElementById('mm');if(o){o.hidden=true;}load();mm.hidden=false;t.setAttribute('aria-expanded','true');}
+  function close(){timer=setTimeout(function(){mm.hidden=true;t.setAttribute('aria-expanded','false');},180);}
+  t.addEventListener('mouseenter',open);t.addEventListener('mouseleave',close);mm.addEventListener('mouseenter',function(){clearTimeout(timer);});mm.addEventListener('mouseleave',close);t.addEventListener('focus',load);
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!mm.hidden){mm.hidden=true;t.setAttribute('aria-expanded','false');}});
+  var st=document.getElementById('mm-t');if(st)st.addEventListener('mouseenter',function(){mm.hidden=true;t.setAttribute('aria-expanded','false');});})();
 </script>
 </body>
 </html>

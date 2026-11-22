@@ -34,6 +34,14 @@ export default {
     if ((/^\/(events|news|guides|galleries|search)(\/[a-z0-9-]+(\.ics)?)?\/?$/.test(url.pathname) || url.pathname === "/cars" || /^\/directory(\/[a-z0-9-]+){0,2}\/?$/.test(url.pathname) || /^\/shops?(\/[a-z0-9-]+){0,2}\/?$/.test(url.pathname) || url.pathname === "/basket" || url.pathname === "/checkout") && (request.method === "GET" || request.method === "HEAD")) {
       return contentPage(request, env, ctx, url, true);
     }
+    if (url.pathname === "/api/interests-menu" && request.method === "GET") {
+      try {
+        const rows = await q("pages?select=path,title,content&page_type=eq.sector&status=eq.published&order=title");
+        const G = [["services", "Car services"], ["activities", "Things to do"], ["types", "Car types"]];
+        const groups = G.map(([key, name]) => ({ key, name, items: rows.filter((r) => (r.content?.group || "types") === key).slice(0, 10).map((r) => ({ name: r.title, href: r.path })) })).filter((g) => g.items.length);
+        return new Response(JSON.stringify({ groups }), { headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "public, max-age=300" } });
+      } catch { return new Response('{"groups":[]}', { status: 503, headers: { "Content-Type": "application/json" } }); }
+    }
     if ((url.pathname === "/api/shop-menu" || url.pathname === "/api/shop-search") && request.method === "GET") {
       try { return await shopApi(url.pathname, url); } catch { return new Response('{"error":"unavailable"}', { status: 503, headers: { "Content-Type": "application/json" } }); }
     }
