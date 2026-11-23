@@ -57,7 +57,20 @@ export async function renderSector(p) {
     add("options", "Options", band("options", c.options_title || "Options", `<div class="sx-grid">${c.options.map(([h, t]) => textCard(h, t, ol ? `<a class="sx-more" href="${E(ol[1])}">${E(ol[0])} ${ARROW}</a>` : "")).join("")}</div>`));
   }
   if (c.steps?.length) add("process", "", band("process", c.steps_title || "How it works", `<ol class="sx-steps">${c.steps.map(([h, t]) => `<li><strong>${E(h)}</strong>${E(t)}</li>`).join("")}</ol>`));
-  if (c.cost?.length) add("cost", "", band("cost", c.cost_title || "What affects the cost?", `<div class="sx-grid">${c.cost.map((t) => `<div class="sx-card"><div class="pad"><strong>${E(t)}</strong></div></div>`).join("")}</div>`));
+  if (c.cost?.length) {
+    const title = c.cost_title || "What affects the cost?";
+    const check = (c.cost_style || (/need|bring|take|pack/i.test(title) ? "check" : "factor")) === "check";
+    const lead = c.cost_lead || (check ? "Pack these before you set off, and check the organiser's own list for anything extra. Tick them off as you go." : "Every job is different. These are the things that most often change the price, so mention them when you ask for a quote.");
+    const tick = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    const items = c.cost.map((t, i) => check
+      ? `<li><label class="sx-ck"><input type="checkbox" data-i="${i}"><span class="sx-ck-box">${tick}</span><span class="sx-ck-t">${E(t)}</span></label></li>`
+      : `<li><span class="sx-ck-n">${String(i + 1).padStart(2, "0")}</span><span class="sx-ck-t">${E(t)}</span></li>`).join("");
+    const script = check ? `<script>(function(){var b=document.getElementById('cost'),k='sx-pack:'+location.pathname,s={};try{s=JSON.parse(localStorage.getItem(k)||'{}')}catch(e){}var cb=b.querySelectorAll('.sx-ck input'),o=b.querySelector('.sx-ck-prog');function u(){var n=0;cb.forEach(function(x){if(x.checked)n++;});o.querySelector('b').textContent=n;o.querySelector('i').style.width=(100*n/cb.length)+'%';o.classList.toggle('done',n===cb.length);}cb.forEach(function(x){x.checked=!!s[x.dataset.i];x.addEventListener('change',function(){s[x.dataset.i]=x.checked;try{localStorage.setItem(k,JSON.stringify(s))}catch(e){}u();});});u();})();</script>` : "";
+    add("cost", "", `<section class="sx-band sx-cost${check ? " is-check" : ""}" id="cost"><div class="wrap sx-cost-in">
+      <div class="sx-cost-head"><span class="sx-kicker">${check ? "Checklist" : "Good to know"}</span><h2>${E(title)}</h2><p>${E(lead)}</p>
+        ${check ? `<div class="sx-ck-prog" aria-live="polite"><span><b>0</b> of ${c.cost.length} ready</span><em><i></i></em></div>` : ""}</div>
+      <ul class="sx-ck-list">${items}</ul></div>${script}</section>`);
+  }
 
   add("events", "Events", band("events", "Upcoming events", events.length ? `<div class="evs">${events.map(eventCard).join("")}</div><p class="sx-after"><a class="sx-more" href="/events">View all events ${ARROW}</a></p>` : empty("No matching events coming up just yet.", `<a class="btn red small" href="/events">Browse all events</a>`)));
 
