@@ -27,6 +27,14 @@ export async function trackedRedirect(url, ctx) {
   const token = url.pathname.split("/")[2] || "", to = url.searchParams.get("u") || "";
   let dest = "https://carsandcoffee.uk/";
   try { const u = new URL(to); if (/^(carsandcoffee\.uk|club\.carsandcoffee\.uk|admin\.carsandcoffee\.uk)$/.test(u.hostname) && u.protocol === "https:") dest = u.href; } catch {}
-  if (UUID.test(token)) ctx.waitUntil(rpc("email_click", { p_token: token }).catch(() => {}));
+  if (UUID.test(token)) ctx.waitUntil(rpc("email_click", { p_token: token, p_url: dest }).catch(() => {}));
   return Response.redirect(dest, 302);
+}
+
+// /o/<token>.gif: a 1x1 transparent image that records an (approximate) open
+const GIF = Uint8Array.from(atob("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"), (c) => c.charCodeAt(0));
+export function openPixel(url, ctx) {
+  const token = (url.pathname.split("/")[2] || "").replace(/\.gif$/, "");
+  if (UUID.test(token)) ctx.waitUntil(rpc("email_open", { p_token: token }).catch(() => {}));
+  return new Response(GIF, { headers: { "Content-Type": "image/gif", "Cache-Control": "no-store, no-cache, must-revalidate, private", "X-Robots-Tag": "noindex" } });
 }

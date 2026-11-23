@@ -5,6 +5,7 @@
 // Secrets (Supabase → Edge Functions → Secrets): MARKETING_SMTP_USER (e.g. hello@carsandcoffee.uk), MARKETING_SMTP_PASS (an app password for that mailbox),
 // optional MARKETING_SMTP_HOST (default smtp.consensusmedia.co.uk), MARKETING_FOOTER (your business name and postal address for the footer).
 import nodemailer from "npm:nodemailer@6.9.16";
+import { ImapFlow } from "npm:imapflow@1.0.164";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 
 const SITE = "https://carsandcoffee.uk";
@@ -94,7 +95,7 @@ a{color:${RED}}</style></head>
   </td></tr>
 </table>
 <!--[if mso]></td></tr></table><![endif]-->
-</td></tr></table></body></html>`;
+</td></tr></table><img src="${SITE}/o/${r.token}.gif" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0"></body></html>`;
 
   // plain-text version for mail apps that don't show HTML
   const strip = (h: string) => h.replace(/<br\s*\/?>/gi, "\n").replace(/<li[^>]*>/gi, "• ").replace(/<\/(p|h\d|li|div|ul)>/gi, "\n\n").replace(/<a [^>]*href="([^"]+)"[^>]*>([^<]*)<\/a>/gi, "$2 ($1)").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&rarr;/g, "→").replace(/&middot;/g, "·").replace(/\n{3,}/g, "\n\n").trim();
@@ -122,6 +123,10 @@ async function handle(req: Request): Promise<Response> {
 
   let rows: R[] = [], token = "", isTest = false;
   const body = await req.json().catch(() => ({}));
+  if (body.bounces) {
+    token = req.headers.get("x-outbox-token") ?? "";
+    return reply(await checkBounces(db, token, user, pass));
+  }
   if (body.test || body.preview) {
     // test send from admin: the caller must be on the team
     const jwt = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
@@ -148,7 +153,7 @@ async function handle(req: Request): Promise<Response> {
   const transport = nodemailer.createTransport({ host: Deno.env.get("MARKETING_SMTP_HOST") || "smtp.consensusmedia.co.uk", port: 465, secure: true, auth: { user, pass }, pool: !isTest, maxConnections: 1, connectionTimeout: 15000, greetingTimeout: 15000, socketTimeout: 30000 });
   const results: { id: number; ok: boolean; error?: string }[] = [];
   for (const r of rows) {
-    let ok = false, err = "";
+    let ok = false, err = "", hard = false;
     try {
       const m = render(r);
       await transport.sendMail({
@@ -157,8 +162,13 @@ async function handle(req: Request): Promise<Response> {
         headers: { "List-Unsubscribe": `<${m.unsub}>, <mailto:${user}?subject=unsubscribe>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click", "X-CAC-Campaign": r.campaign.id },
       });
       ok = true;
-    } catch (e) { err = String((e as Error).message ?? e).slice(0, 500); }
-    if (!isTest) await db.schema("site").rpc("campaign_mark", { p_token: token, p_id: r.send_id, p_ok: ok, p_error: ok ? null : err });
+    } catch (e) {
+      err = String((e as Error).message ?? e).slice(0, 500);
+      // a permanent refusal of this recipient (5xx on RCPT, e.g. "user unknown") is a bounce; login or server errors are not
+      const code = Number((e as { responseCode?: number }).responseCode || 0), cmd = String((e as { command?: string }).command || "");
+      hard = code >= 500 && code < 600 && /RCPT/i.test(cmd);
+    }
+    if (!isTest) await db.schema("site").rpc("campaign_mark", { p_token: token, p_id: r.send_id, p_ok: ok, p_error: ok ? null : err, p_bounce: hard });
     results.push({ id: r.send_id, ok, ...(ok ? {} : { error: err }) });
     if (!isTest) await new Promise((res) => setTimeout(res, 1500)); // gentle pace: about 40 a minute at most
   }
@@ -169,4 +179,46 @@ async function handle(req: Request): Promise<Response> {
     return reply({ error: `The mailbox refused the test: ${results[0]?.error || "unknown error"}. Logging in to ${host}:465 as "${masked}" with a ${pass.length}-character password${/\s/.test(pass) ? " that contains a space" : ""}.` }, 502);
   }
   return reply({ sent: results.filter((x) => x.ok).length, failed: results.filter((x) => !x.ok).length, results });
+}
+
+// Reads bounce reports (delivery status notifications) that land in the sending mailbox and marks those recipients as bounced.
+// Hard bounces (5.x.x) are added to the suppression list so they're never emailed again. Processed reports are marked read and tagged.
+// deno-lint-ignore no-explicit-any
+async function checkBounces(db: any, token: string, user: string, pass: string) {
+  const { data: okTok } = await db.schema("site").rpc("email_bounce", { p_token: token, p_email: "nobody@invalid", p_reason: "token check", p_hard: false });
+  if (okTok === null) return { error: "not allowed" };
+  const client = new ImapFlow({ host: Deno.env.get("MARKETING_IMAP_HOST") || "imap.consensusmedia.co.uk", port: 993, secure: true, auth: { user, pass }, logger: false, socketTimeout: 30000 });
+  let found = 0, marked = 0;
+  try {
+    await client.connect();
+    const lock = await client.getMailboxLock("INBOX");
+    try {
+      const since = new Date(Date.now() - 8 * 864e5);
+      const uids = (await client.search({ since, unKeyword: "$CACBounce" }, { uid: true }).catch(async () => await client.search({ since }, { uid: true }))) || [];
+      for (const uid of (uids as number[]).slice(-200)) {
+        const msg = await client.fetchOne(String(uid), { source: true, envelope: true, flags: true }, { uid: true });
+        if (!msg || msg.flags?.has("$CACBounce")) continue;
+        const src = msg.source?.toString("utf8") || "";
+        const from = (msg.envelope?.from?.[0]?.address || "").toLowerCase(), subj = msg.envelope?.subject || "";
+        const isDsn = /multipart\/report/i.test(src) && /report-type=["']?delivery-status/i.test(src) || /^(mailer-daemon|postmaster)@/.test(from) || /undeliver|delivery (status|failure|has failed)|returned mail|failure notice/i.test(subj);
+        if (!isDsn) continue;
+        found++;
+        const rcpts = new Set<string>();
+        for (const m of src.matchAll(/^(?:Final-Recipient|Original-Recipient):\s*rfc822;\s*<?([^\s>]+@[^\s>]+)>?/gim)) rcpts.add(m[1].toLowerCase());
+        for (const m of src.matchAll(/^X-Failed-Recipients:\s*(.+)$/gim)) m[1].split(",").forEach((x) => x.trim() && rcpts.add(x.trim().toLowerCase()));
+        const status = (src.match(/^Status:\s*([245]\.\d{1,3}\.\d{1,3})/im) || [])[1] || "";
+        const diag = ((src.match(/^Diagnostic-Code:\s*(?:smtp;)?\s*(.+(?:\r?\n[ \t].+)*)/im) || [])[1] || subj).replace(/\s+/g, " ").trim();
+        const hard = !status.startsWith("4");
+        for (const em of rcpts) {
+          if (em === user) continue;
+          const { data: n } = await db.schema("site").rpc("email_bounce", { p_token: token, p_email: em, p_reason: (status ? status + " " : "") + diag, p_hard: hard });
+          marked += Number(n || 0);
+        }
+        await client.messageFlagsAdd(String(uid), ["\\Seen", "$CACBounce"], { uid: true }).catch(() => {});
+      }
+    } finally { lock.release(); }
+  } catch (e) {
+    return { error: "Couldn't check the mailbox for bounces: " + String((e as Error).message ?? e).slice(0, 200), found, marked };
+  } finally { try { await client.logout(); } catch { /* ignore */ } }
+  return { found, marked };
 }

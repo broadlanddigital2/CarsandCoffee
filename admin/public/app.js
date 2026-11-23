@@ -1267,6 +1267,10 @@ async function listingLookupExtras(row) {
 }
 
 // ---------- email marketing (team only) ----------
+// campaign results from email_sends rows. "Delivered" = accepted and not bounced; rates are out of delivered.
+const campStats = (r) => { const has = (k) => r.filter((x) => x[k]).length;
+  return { total: r.length, delivered: r.filter((x) => x.status === "sent").length, queued: r.filter((x) => ["queued", "sending"].includes(x.status)).length, failed: r.filter((x) => x.status === "failed").length,
+    opened: r.filter((x) => x.status === "sent" && x.opened_at).length, clicked: r.filter((x) => x.status === "sent" && x.clicked_at).length, claimed: has("claimed_at"), bounced: r.filter((x) => x.status === "bounced").length, unsub: has("unsubscribed_at") }; };
 const CAMP_KINDS = { newsletter: ["Newsletter", "People who signed up for the newsletter (they ticked the consent box)."],
   business_outreach: ["Claim your listing (businesses)", "Unclaimed limited companies we imported, that have an outreach email saved and haven't been emailed in the last 60 days. Each one is invited to manage their listing: signing in with that email claims it."],
   businesses: ["Business owners", "Businesses that manage their own listing (signed-in owners)."] };
@@ -1274,13 +1278,14 @@ const CAMP_STATUS = { draft: ["Draft", "text-bg-secondary"], sending: ["Sending"
 const OUTREACH_BODY = `<p>Hi {{first_name}},</p><p>We've added <strong>{{business}}</strong> to the Cars and Coffee UK directory, where car enthusiasts across Norfolk and Suffolk find garages, detailers and specialists they can trust.</p><p>Your listing is basic for now. Claim it free to add your photos, services and prices, opening times and contact details. Enquiries come straight to you, and you can reply to reviews and see how many people view your page.</p><p><a href="{{listing_url}}">See your listing</a></p><p>Thanks,<br>The Cars and Coffee UK team</p>`;
 route("/email", async () => {
   crumbs([["Email marketing"]]);
-  const [{ data: camps, error }, { data: stats }] = await Promise.all([site().from("email_campaigns").select("*").order("created_at", { ascending: false }), site().from("email_sends").select("campaign_id,status,clicked_at,unsubscribed_at").limit(50000)]);
+  const [{ data: camps, error }, { data: stats }] = await Promise.all([site().from("email_campaigns").select("*").order("created_at", { ascending: false }), site().from("email_sends").select("campaign_id,status,opened_at,clicked_at,unsubscribed_at,bounced_at,claimed_at").limit(50000)]);
   if (error) throw error;
-  const st = (id) => { const r = (stats || []).filter((x) => x.campaign_id === id); return { total: r.length, sent: r.filter((x) => x.status === "sent").length, queued: r.filter((x) => ["queued", "sending"].includes(x.status)).length, clicks: r.filter((x) => x.clicked_at).length, unsub: r.filter((x) => x.unsubscribed_at).length }; };
+  const st = (id) => campStats((stats || []).filter((x) => x.campaign_id === id));
+  const pc = (v, of) => (of ? `${v} <span class="small text-body-secondary">${Math.round((v / of) * 100)}%</span>` : "–");
   view.innerHTML = `<div class="page-head"><h1>Email marketing</h1><div class="d-flex gap-2"><a class="btn btn-outline-primary" href="/email/new?kind=business_outreach" data-link>New business outreach</a><a class="btn btn-primary" href="/email/new" data-link>New newsletter</a></div></div>
     <p class="text-body-secondary">Branded emails sent from your TrekMail mailbox, a few at a time so they arrive in inboxes rather than spam. Every email has an unsubscribe link, and anyone who unsubscribes is never emailed again.</p>
-    <div class="card">${(camps || []).length ? `<div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>Campaign</th><th>Audience</th><th>Status</th><th>Sent</th><th>Clicked</th><th>Unsubscribed</th></tr></thead><tbody>
-      ${camps.map((c) => { const x = st(c.id), b = CAMP_STATUS[c.status]; return `<tr><td><a class="rowlink" href="/email/${c.id}" data-link>${esc(c.name)}</a><div class="small text-body-secondary">${esc(c.subject || "No subject yet")}</div></td><td class="small">${esc(CAMP_KINDS[c.kind][0])}</td><td><span class="badge ${b[1]}">${b[0]}</span></td><td>${x.sent}${x.queued ? ` <span class="small text-body-secondary">+${x.queued} to go</span>` : ""}</td><td>${x.sent ? `${x.clicks} <span class="small text-body-secondary">(${Math.round((x.clicks / x.sent) * 100)}%)</span>` : "–"}</td><td>${x.unsub || "–"}</td></tr>`; }).join("")}
+    <div class="card">${(camps || []).length ? `<div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>Campaign</th><th>Audience</th><th>Status</th><th>Delivered</th><th title="Approximate: some mail apps load images automatically">Opened ~</th><th>Clicked</th><th>Claimed</th><th>Bounced</th><th>Unsub.</th></tr></thead><tbody>
+      ${camps.map((c) => { const x = st(c.id), b = CAMP_STATUS[c.status]; return `<tr><td><a class="rowlink" href="/email/${c.id}" data-link>${esc(c.name)}</a><div class="small text-body-secondary">${esc(c.subject || "No subject yet")}</div></td><td class="small">${esc(CAMP_KINDS[c.kind][0])}</td><td><span class="badge ${b[1]}">${b[0]}</span></td><td>${x.delivered}${x.queued ? ` <span class="small text-body-secondary">+${x.queued} to go</span>` : ""}</td><td>${pc(x.opened, x.delivered)}</td><td>${pc(x.clicked, x.delivered)}</td><td>${c.kind === "business_outreach" ? pc(x.claimed, x.delivered) : "–"}</td><td>${x.bounced || "–"}</td><td>${x.unsub || "–"}</td></tr>`; }).join("")}
       </tbody></table></div>` : '<div class="empty">No campaigns yet. Start with a business outreach email or a newsletter.</div>'}</div>`;
 });
 route("/email/:id", async ({ id }) => {
@@ -1290,12 +1295,12 @@ route("/email/:id", async ({ id }) => {
   if (!isNew) { const { data, error } = await site().from("email_campaigns").select("*").eq("id", id).maybeSingle(); if (error) throw error; if (!data) throw new Error("Campaign not found"); c = data; }
   crumbs([["Email marketing", "/email"], [isNew ? "New campaign" : c.name]]);
   const locked = c.status === "sending" || c.status === "sent";
-  let count = null, sends = [];
-  if (!isNew) { const [{ data: aud }, { data: ss }] = await Promise.all([site().rpc("campaign_audience", { p_campaign: c.id }), site().from("email_sends").select("email,business,status,sent_at,clicked_at,unsubscribed_at,error").eq("campaign_id", c.id).order("id").limit(2000)]); count = (aud || []).length; sends = ss || []; }
+  let count = null, sends = [], clicks = [];
+  if (!isNew) { const [{ data: aud }, { data: ss }, { data: cl }] = await Promise.all([site().rpc("campaign_audience", { p_campaign: c.id }), site().from("email_sends").select("id,email,business,status,sent_at,opened_at,open_count,clicked_at,click_count,unsubscribed_at,bounced_at,bounce_reason,claimed_at,error").eq("campaign_id", c.id).order("id").limit(5000), site().from("email_clicks").select("send_id,url,created_at").eq("campaign_id", c.id).order("created_at", { ascending: false }).limit(5000)]); count = (aud || []).length; sends = ss || []; clicks = cl || []; }
   const n = (k) => sends.filter((x) => x.status === k).length;
   const fld = (idk, label, val, extra = "") => `<div class="mb-3"><label class="form-label" for="${idk}">${label}</label><input class="form-control" id="${idk}" value="${esc(val || "")}" ${locked ? "disabled" : ""} ${extra}></div>`;
   view.innerHTML = `<div class="page-head"><h1>${isNew ? "New campaign" : esc(c.name)}</h1>${!isNew ? `<span class="badge ${CAMP_STATUS[c.status][1]} fs-6">${CAMP_STATUS[c.status][0]}</span>` : ""}</div>
-    ${!isNew && sends.length ? `<div class="row g-3 mb-3">${[["Sent", n("sent")], ["Waiting to send", n("queued") + n("sending")], ["Failed", n("failed")], ["Clicked", sends.filter((x) => x.clicked_at).length], ["Unsubscribed", sends.filter((x) => x.unsubscribed_at).length]].map(([l, v]) => `<div class="col-6 col-md"><div class="card stat"><div class="card-body"><div class="value">${v}</div><div class="label">${l}</div></div></div></div>`).join("")}</div>` : ""}
+    ${!isNew && sends.length ? campResults(c, sends, clicks) : ""}
     <div class="row g-3"><div class="col-lg-7"><form id="ecf" class="card"><div class="card-body">
       ${fld("e_name", "Campaign name (only you see this)", c.name, "required")}
       <div class="mb-3"><label class="form-label" for="e_kind">Who it goes to</label><select class="form-select" id="e_kind" ${locked || !isNew ? "disabled" : ""}>${Object.entries(CAMP_KINDS).map(([k, v]) => `<option value="${k}" ${c.kind === k ? "selected" : ""}>${esc(v[0])}</option>`).join("")}</select><div class="form-text" id="e_kind_help">${esc(CAMP_KINDS[c.kind][1])}</div></div>
@@ -1311,7 +1316,7 @@ route("/email/:id", async ({ id }) => {
         ${!isNew && c.status === "draft" ? '<button class="btn btn-outline-danger ms-auto" type="button" id="e_del">Delete</button>' : ""}</div>
     </div></form></div>
     <div class="col-lg-5"><div class="card"><div class="card-header bg-white"><span class="fw-semibold">Preview</span> <span class="small text-body-secondary">· Subject: <span id="e_subj"></span></span></div><div class="card-body p-0"><iframe id="e_prev" title="Email preview" style="width:100%;height:820px;border:0;background:#efe6da"></iframe></div></div>
-      ${!isNew ? `<div class="card mt-3"><div class="card-header bg-white fw-semibold">Recipients ${count != null && c.status === "draft" ? `<span class="small fw-normal text-body-secondary">· ${count} will get this</span>` : ""}</div><div class="card-body small" style="max-height:340px;overflow:auto">${sends.length ? sends.slice(0, 300).map((x) => `<div class="d-flex justify-content-between border-bottom py-1"><span>${esc(x.business || x.email)}${x.business ? `<span class="text-body-secondary"> · ${esc(x.email)}</span>` : ""}</span><span>${x.unsubscribed_at ? "Unsubscribed" : x.clicked_at ? "Clicked" : esc(x.status)}</span></div>`).join("") : count ? "Recipients are added when you start sending." : c.kind === "business_outreach" ? "No businesses ready yet. Publish imported listings and save an outreach email on each (Find their details)." : "Nobody to send to yet."}</div></div>` : ""}</div></div>`;
+      ${!isNew && !sends.length ? `<div class="card mt-3"><div class="card-header bg-white fw-semibold">Recipients ${count != null ? `<span class="small fw-normal text-body-secondary">· ${count} will get this</span>` : ""}</div><div class="card-body small">${count ? "Recipients are added when you start sending. Results (opens, clicks, claims and bounces) appear above once it goes out." : c.kind === "business_outreach" ? "No businesses ready yet. Publish imported listings and save an outreach email on each (Find their details)." : "Nobody to send to yet."}</div></div>` : ""}</div></div>`;
   wireRich($("#ecf"), { upload: uploadSiteImage, onChange: () => { dirty = true; $("#ecf").dispatchEvent(new Event("input")); } });
   const val = () => ({ name: $("#e_name").value.trim(), kind: $("#e_kind").value, subject: $("#e_subject").value.trim(), preheader: $("#e_pre").value.trim() || null, heading: $("#e_heading").value.trim() || null,
     body_html: cleanHTML ? cleanHTML($("#e_body_area").innerHTML) : $("#e_body_area").innerHTML, cta_label: $("#e_cta").value.trim() || null, cta_url: $("#e_cta_url").value.trim() || null, from_name: $("#e_from").value.trim() || "Cars and Coffee UK",
@@ -1332,6 +1337,7 @@ route("/email/:id", async ({ id }) => {
       $("#e_prev").srcdoc = j.html; $("#e_subj").textContent = j.subject; }
     catch { prevLocal(); } }, 500); };
   prev();
+  wireCampResults(c, sends, clicks);
   $("#ecf").addEventListener("input", () => { dirty = true; prev(); });
   if ($("#e_kind")) $("#e_kind").onchange = () => ($("#e_kind_help").textContent = CAMP_KINDS[$("#e_kind").value][1]);
   const save = async () => { const v = val(); if (!v.name) { toast("Give the campaign a name", true); return null; }
@@ -1349,6 +1355,47 @@ route("/email/:id", async ({ id }) => {
   if ($("#e_dup")) $("#e_dup").onclick = async () => { const { id: _i, created_at, updated_at, started_at, finished_at, created_by, ...rest } = c; const { data, error } = await site().from("email_campaigns").insert({ ...rest, name: c.name + " (copy)", status: "draft" }).select("id").single(); if (error) return oops(error); go(`/email/${data.id}`); };
   if ($("#e_del")) $("#e_del").onclick = async () => { const b = $("#e_del"); if (!b.dataset.armed) { b.dataset.armed = 1; b.textContent = "Click again to delete"; return; } const { error } = await site().from("email_campaigns").delete().eq("id", c.id); if (error) return oops(error); toast("Deleted"); go("/email", true); };
 });
+
+// ---------- campaign results: stats, links clicked, recipients ----------
+const shortUrl = (u) => { try { const x = new URL(u); return (x.hostname.replace(/^www\./, "") + x.pathname).replace(/\/$/, "") || x.hostname; } catch { return u; } };
+const sendState = (x) => x.status === "bounced" ? ["Bounced", "text-bg-danger"] : x.unsubscribed_at ? ["Unsubscribed", "text-bg-dark"] : x.claimed_at ? ["Claimed", "text-bg-success"] : x.clicked_at ? ["Clicked", "text-bg-primary"] : x.opened_at ? ["Opened", "text-bg-info"]
+  : x.status === "sent" ? ["Delivered", "text-bg-light border"] : x.status === "failed" ? ["Failed", "text-bg-warning"] : x.status === "skipped" ? ["Skipped", "text-bg-light border"] : ["Waiting", "text-bg-light border"];
+function campResults(c, sends, clicks) {
+  const x = campStats(sends), out = c.kind === "business_outreach", rate = (v) => (x.delivered ? `${Math.round((v / x.delivered) * 100)}%` : "");
+  const cards = [["Delivered", x.delivered, x.queued ? `${x.queued} still to send` : x.total ? `of ${x.total}` : ""], ["Opened ~", x.opened, rate(x.opened), "Approximate. Apple Mail opens every email automatically, and people with images turned off never count."], ["Clicked", x.clicked, rate(x.clicked)],
+    ...(out ? [["Claimed", x.claimed, rate(x.claimed), "Recipients whose listing now has an owner."]] : []), ["Bounced", x.bounced, x.bounced ? "never emailed again" : ""], ["Unsubscribed", x.unsub, rate(x.unsub)], ...(x.failed ? [["Failed", x.failed, "after 3 tries"]] : [])];
+  const links = {}; for (const k of clicks) { const u = shortUrl(k.url); (links[u] ||= { n: 0, who: new Set() }).n++; links[u].who.add(k.send_id); }
+  const top = Object.entries(links).sort((a, b) => b[1].who.size - a[1].who.size).slice(0, 8);
+  const F = [["all", "All"], ["opened", "Opened"], ["clicked", "Clicked"], ...(out ? [["claimed", "Claimed"]] : []), ["notopened", "Not opened"], ["bounced", "Bounced"], ["unsub", "Unsubscribed"], ...(x.failed ? [["failed", "Failed"]] : [])];
+  return `<div class="row g-3 mb-3">${cards.map(([l, v, sub, tip]) => `<div class="col-6 col-md"><div class="card stat h-100"${tip ? ` title="${esc(tip)}"` : ""}><div class="card-body"><div class="value">${v}</div><div class="label">${l}</div>${sub ? `<div class="small text-body-secondary">${esc(sub)}</div>` : ""}</div></div></div>`).join("")}</div>
+    <div class="row g-3 mb-3"><div class="col-lg-4"><div class="card h-100"><div class="card-header bg-white fw-semibold">Links clicked</div><div class="card-body small">${top.length ? top.map(([u, v]) => `<div class="d-flex justify-content-between gap-2 border-bottom py-1"><span class="text-truncate" title="${esc(u)}">${esc(u)}</span><span class="text-nowrap">${v.who.size} ${v.who.size === 1 ? "person" : "people"}${v.n > v.who.size ? ` <span class="text-body-secondary">· ${v.n} clicks</span>` : ""}</span></div>`).join("") : '<span class="text-body-secondary">No clicks yet.</span>'}</div></div></div>
+    <div class="col-lg-8"><div class="card h-100"><div class="card-header bg-white d-flex flex-wrap align-items-center gap-2"><span class="fw-semibold me-auto">Recipients</span>
+      <div class="btn-group btn-group-sm flex-wrap" id="rc_f">${F.map(([k, l], i) => `<button type="button" class="btn btn-outline-secondary${i ? "" : " active"}" data-f="${k}">${l}</button>`).join("")}</div>
+      <input class="form-control form-control-sm" id="rc_q" placeholder="Search" style="max-width:160px"><button type="button" class="btn btn-sm btn-outline-secondary" id="rc_csv">Download CSV</button></div>
+      <div class="table-responsive" style="max-height:420px;overflow:auto"><table class="table table-sm align-middle mb-0 small"><thead class="sticky-top bg-white"><tr><th>Recipient</th><th>Status</th><th>Sent</th><th>Opened</th><th>Clicked</th>${out ? "<th>Claimed</th>" : ""}</tr></thead><tbody id="rc_rows"></tbody></table></div>
+      <div class="card-footer bg-white small text-body-secondary" id="rc_n"></div></div></div></div>`;
+}
+function wireCampResults(c, sends, clicks) {
+  if (!$("#rc_rows")) return;
+  const out = c.kind === "business_outreach", byId = {}; for (const k of clicks) (byId[k.send_id] ||= []).push(k);
+  let f = "all";
+  const test = { all: () => true, opened: (x) => x.opened_at, clicked: (x) => x.clicked_at, claimed: (x) => x.claimed_at, notopened: (x) => x.status === "sent" && !x.opened_at, bounced: (x) => x.status === "bounced", unsub: (x) => x.unsubscribed_at, failed: (x) => x.status === "failed" };
+  const list = () => { const q = $("#rc_q").value.trim().toLowerCase(); return sends.filter((x) => test[f](x) && (!q || `${x.email} ${x.business || ""}`.toLowerCase().includes(q))); };
+  const draw = () => { const rows = list();
+    $("#rc_rows").innerHTML = rows.slice(0, 500).map((x) => { const [l, cls] = sendState(x), why = x.status === "bounced" ? x.bounce_reason || x.error : x.status === "failed" ? x.error : "";
+      const links = (byId[x.id] || []).map((k) => shortUrl(k.url)); const uniq = [...new Set(links)];
+      return `<tr><td>${esc(x.business || x.email)}${x.business ? `<div class="text-body-secondary">${esc(x.email)}</div>` : ""}</td><td><span class="badge ${cls}"${why ? ` title="${esc(why)}"` : ""}>${l}</span>${why ? `<div class="text-body-secondary text-truncate" style="max-width:200px" title="${esc(why)}">${esc(why)}</div>` : ""}</td>
+        <td class="text-nowrap">${x.sent_at ? fmtDate(x.sent_at, true) : "–"}</td><td class="text-nowrap">${x.opened_at ? `${fmtDate(x.opened_at, true)}${x.open_count > 1 ? ` <span class="text-body-secondary">×${x.open_count}</span>` : ""}` : "–"}</td>
+        <td>${x.clicked_at ? `<span class="text-nowrap">${fmtDate(x.clicked_at, true)}${x.click_count > 1 ? ` <span class="text-body-secondary">×${x.click_count}</span>` : ""}</span>${uniq.length ? `<div class="text-body-secondary text-truncate" style="max-width:220px" title="${esc(uniq.join(", "))}">${esc(uniq.join(", "))}</div>` : ""}` : "–"}</td>
+        ${out ? `<td class="text-nowrap">${x.claimed_at ? fmtDate(x.claimed_at, true) : "–"}</td>` : ""}</tr>`; }).join("") || `<tr><td colspan="6" class="text-body-secondary py-3">Nobody here yet.</td></tr>`;
+    $("#rc_n").textContent = `${rows.length} ${rows.length === 1 ? "recipient" : "recipients"}${rows.length > 500 ? " (showing the first 500; the CSV has them all)" : ""}`; };
+  $("#rc_f").onclick = (e) => { const b = e.target.closest("[data-f]"); if (!b) return; f = b.dataset.f; $("#rc_f").querySelectorAll("button").forEach((x) => x.classList.toggle("active", x === b)); draw(); };
+  $("#rc_q").oninput = draw;
+  $("#rc_csv").onclick = () => { const head = ["email", "business", "status", "sent_at", "opened_at", "opens", "clicked_at", "clicks", "links", "claimed_at", "bounced_at", "bounce_reason", "unsubscribed_at"];
+    const csv = [head.join(","), ...list().map((x) => [x.email, x.business || "", sendState(x)[0], x.sent_at || "", x.opened_at || "", x.open_count || 0, x.clicked_at || "", x.click_count || 0, [...new Set((byId[x.id] || []).map((k) => k.url))].join(" "), x.claimed_at || "", x.bounced_at || "", x.bounce_reason || "", x.unsubscribed_at || ""].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","))].join("\n");
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); a.download = `${(c.name || "campaign").replace(/[^\w-]+/g, "-").toLowerCase()}-results.csv`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); };
+  draw();
+}
 
 // ---------- directory: import businesses from Companies House (team only) ----------
 const CH_GROUPS = { repair: "Garages and repairs", parts: "Parts and accessories", sales: "Car sales" };
