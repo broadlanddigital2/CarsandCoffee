@@ -59,7 +59,8 @@ Deno.serve(async (req) => {
 });
 
 async function handle(req: Request): Promise<Response> {
-  const user = Deno.env.get("MARKETING_SMTP_USER"), pass = Deno.env.get("MARKETING_SMTP_PASS");
+  const clean = (v: string | undefined) => (v || "").trim().replace(/^["']|["']$/g, "").trim();
+  const user = clean(Deno.env.get("MARKETING_SMTP_USER")).toLowerCase(), pass = clean(Deno.env.get("MARKETING_SMTP_PASS"));
   const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
   const cors = { "Access-Control-Allow-Origin": ADMIN, "Access-Control-Allow-Headers": "authorization, content-type, apikey, x-client-info", "Access-Control-Allow-Methods": "POST, OPTIONS" };
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
@@ -105,6 +106,10 @@ async function handle(req: Request): Promise<Response> {
     await new Promise((res) => setTimeout(res, 1500)); // gentle pace: about 40 a minute at most
   }
   try { await client.close(); } catch { /* already closed */ }
-  if (isTest && !results[0]?.ok) return reply({ error: "The mailbox refused the test: " + (results[0]?.error || "unknown error") }, 502);
+  if (isTest && !results[0]?.ok) {
+    const host = Deno.env.get("MARKETING_SMTP_HOST") || "smtp.consensusmedia.co.uk";
+    const masked = user.replace(/^(.{2}).*(@.*)$/, "$1…$2");
+    return reply({ error: `The mailbox refused the test: ${results[0]?.error || "unknown error"}. Logging in to ${host}:465 as "${masked}" with a ${pass.length}-character password${/\s/.test(pass) ? " that contains a space" : ""}.` }, 502);
+  }
   return reply({ sent: results.filter((x) => x.ok).length, failed: results.filter((x) => !x.ok).length, results });
 }
