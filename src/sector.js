@@ -69,7 +69,7 @@ export async function renderSector(p) {
     const chev = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
     add("options", "Options", `<section class="sx-band sx-opts" id="options"><div class="wrap">
       <div class="sx-opts-head"><h2>${E(c.options_title || "Options")}</h2><a class="btn red" href="${E(ol[1])}">${E(ol[0])} ${ARROW}</a></div>
-      <div class="sx-opt-grid">${c.options.map(([h, t], i) => `<a class="sx-opt" href="${E(ol[1])}"><span class="sx-opt-n">${String(i + 1).padStart(2, "0")}</span><span class="sx-opt-b"><strong>${E(h)}</strong><span>${E(t)}</span></span><span class="sx-opt-go">${chev}</span></a>`).join("")}</div>
+      <div class="sx-opt-grid">${c.options.map(([h, t]) => `<a class="sx-opt" href="${E(ol[1])}"><span class="sx-opt-n" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.2 4.2L19 7"/></svg></span><span class="sx-opt-b"><strong>${E(h)}</strong><span>${E(t)}</span></span><span class="sx-opt-go">${chev}</span></a>`).join("")}</div>
     </div></section>`);
   }
   if (c.steps?.length) add("process", "", band("process", c.steps_title || "How it works", `<ol class="sx-steps">${c.steps.map(([h, t]) => `<li><strong>${E(h)}</strong>${E(t)}</li>`).join("")}</ol>`));
