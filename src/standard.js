@@ -4,6 +4,7 @@ import { E, img, ARROW, q, eventCard, bizCard, fmt } from "./home.js";
 import { shell, crumbsHTML, newsletterHTML } from "./pages.js";
 import { sanitize } from "./sanitize.js";
 import { productCard } from "./shop.js";
+import { renderSector } from "./sector.js";
 
 const SITE = "https://carsandcoffee.uk";
 const CLUB = "https://club.carsandcoffee.uk";
@@ -13,6 +14,7 @@ const faqHTML = (faqs) => `<div class="lp-faq">${faqs.map(([qq, a]) => `<details
 
 export async function renderStandard(p) {
   const c = p.content || {};
+  if (c.template === "v2" && p.page_type === "sector") return renderSector(p);
   const kind = c.kind || (p.page_type === "sector" ? "interest" : p.page_type === "landing" ? "landing" : "page");
   const partners = await q("partners?select=slug,name,page_path,logo_path,logo_dark_path&order=sort").catch(() => []);
   const crumbs = [["Home", "/"]];
@@ -95,7 +97,7 @@ async function aboutExtras() {
 }
 
 // ---------- Interest pages (/cars/...) ----------
-async function interestExtras(p, c) {
+export async function interestData(p, c) {
   const now = new Date().toISOString();
   const words = (c.match || [p.title]).map((w) => String(w).toLowerCase().replace(/[^a-z0-9 ]/g, "")).filter(Boolean).slice(0, 5);
   const ors = (cols) => "or=(" + words.flatMap((w) => cols.map((col) => `${col}.ilike.*${enc(w)}*`)).join(",") + ")";
@@ -107,14 +109,14 @@ async function interestExtras(p, c) {
   ]);
   const card = (href, image, alt, small, title, text) => `<a class="news-card" href="${E(href)}">${image ? `<img src="${E(img(image))}" alt="${E(alt || "")}" loading="lazy" width="600" height="340">` : ""}<div class="pad"><small>${E(small)}</small><h3>${E(title)}</h3>${text ? `<p>${E(text)}</p>` : ""}<span class="more">Read more ${ARROW}</span></div></a>`;
   // shop products from the linked categories (and every sub-category below them)
-  let products = [], shopsById = {}, related = [], hubs = [], firstCat = null;
+  let products = [], shopsById = {}, related = [], hubs = [], towns = [], firstCat = null;
   try {
     const [cats, rel, hb] = await Promise.all([
       (c.shop || []).length ? q("product_categories?select=id,slug,name,parent_id") : Promise.resolve([]),
-      (c.related || []).length ? q(`pages?select=path,title,content&page_type=eq.sector&status=eq.published&path=in.(${c.related.map((s) => `"/cars/${enc(s)}"`).join(",")})`) : Promise.resolve([]),
-      q("pages?select=path,title,county,town&page_type=eq.location&status=eq.published&town=is.null&county=not.is.null&order=county")]);
+      (c.related || []).length ? q(`pages?select=path,title,content,hero_image_path,hero_image_alt&page_type=eq.sector&status=eq.published&path=in.(${c.related.map((s) => `"/cars/${enc(s)}"`).join(",")})`) : Promise.resolve([]),
+      q("pages?select=path,title,county,town&page_type=eq.location&status=eq.published&county=not.is.null&order=county,town.nullsfirst")]);
     related = (c.related || []).map((s) => rel.find((r) => r.path === `/cars/${s}`)).filter(Boolean);
-    hubs = hb;
+    hubs = hb.filter((h) => !h.town); towns = hb.filter((h) => h.town);
     if (cats.length) {
       const fam = (id, seen = new Set()) => (seen.has(id) ? [] : (seen.add(id), [id, ...cats.filter((x) => x.parent_id === id).flatMap((x) => fam(x.id, seen))]));
       const roots = c.shop.map((sl) => cats.find((x) => x.slug === sl)).filter(Boolean); firstCat = roots[0] || null;
@@ -126,6 +128,11 @@ async function interestExtras(p, c) {
       }
     }
   } catch {}
+  return { events, articles, guides, listings, products, shopsById, related, hubs, towns, firstCat, card };
+}
+
+async function interestExtras(p, c) {
+  const { events, articles, guides, listings, products, shopsById, related, hubs, firstCat, card } = await interestData(p, c);
   const out = [];
   out.push(`<section class="lp-sec"><div class="wrap"><h2>Upcoming events</h2>${events.length ? `<div class="evs">${events.map(eventCard).join("")}</div>` : `<p class="lp-empty">Nothing specific coming up yet. <a href="/events">See all events</a>.</p>`}</div></section>`);
   if (c.hub) out.push(`<section class="lp-sec"><div class="wrap ep-first"><div><strong>Talk ${E(p.title.toLowerCase())} with other enthusiasts.</strong> Join the ${E(p.title)} hub in the Cars and Coffee club.</div><a class="btn red small" href="${CLUB}/hubs/${E(c.hub)}">Open the hub</a></div></section>`);
