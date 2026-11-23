@@ -119,7 +119,11 @@ export async function renderSector(p) {
         catch(err){m.textContent=err.message;m.className='ct-msg bad';b.disabled=false;}});})();</script></div>`));
 
   nav.push(["newsletter", "Newsletter"]);
-  const jump = `<nav class="sx-jump" aria-label="On this page"><div class="wrap">${nav.map(([id, l]) => `<a href="#${id}">${E(l)}</a>`).join("")}<select aria-label="Jump to a section" onchange="if(this.value){var t=document.getElementById(this.value);if(t)t.scrollIntoView({behavior:'smooth'});this.value='';}"><option value="">Jump to…</option>${nav.map(([id, l]) => `<option value="${id}">${E(l)}</option>`).join("")}</select></div></nav>`;
+  const jump = `<nav class="sx-jump" aria-label="On this page"><div class="wrap">${nav.map(([id, l]) => `<a href="#${id}">${E(l)}</a>`).join("")}<select aria-label="Jump to a section" onchange="if(this.value){var t=document.getElementById(this.value);if(t)t.scrollIntoView({behavior:'smooth'});this.value='';}"><option value="">Jump to…</option>${nav.map(([id, l]) => `<option value="${id}">${E(l)}</option>`).join("")}</select></div></nav>
+    <script>(function(){var nav=document.querySelector('.sx-jump');if(!nav)return;var links=[].slice.call(nav.querySelectorAll('a[href^="#"]')),secs=links.map(function(a){return document.getElementById(a.getAttribute('href').slice(1));}),cur=null,tick=false;
+      function spy(){tick=false;var off=(nav.getBoundingClientRect().bottom||0)+40,on=-1;for(var i=0;i<secs.length;i++){if(secs[i]&&secs[i].getBoundingClientRect().top<=off)on=i;}
+        if(on>=0&&secs[on].getBoundingClientRect().bottom<off-40&&on===secs.length-1)on=-1;var a=on>=0?links[on]:null;if(a===cur)return;if(cur){cur.classList.remove('on');cur.removeAttribute('aria-current');}cur=a;if(a){a.classList.add('on');a.setAttribute('aria-current','location');}}
+      addEventListener('scroll',function(){if(!tick){tick=true;requestAnimationFrame(spy);}},{passive:true});addEventListener('resize',spy);spy();})();</script>`;
 
   const main = [`<div class="sx">`, crumbsHTML(crumbs), hero, jump, ...out, `</div>`, newsletterHTML()].join("\n");
 
