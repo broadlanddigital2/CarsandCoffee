@@ -46,10 +46,13 @@ async function loadMe(force = false) {
   const { data } = await sb.from("profiles").select("id,display_name,handle,status,role").eq("id", session.user.id).maybeSingle();
   state.profile = data;
   state.myShops = [];
-  if (!isTeam()) { const { data: ms } = await site().rpc("my_shops"); state.myShops = ms || []; }
+  state.myListings = [];
+  if (!isTeam()) { const [{ data: ms }, { data: ml }] = await Promise.all([site().rpc("my_shops"), site().rpc("my_listings")]); state.myShops = ms || []; state.myListings = ml || []; }
 }
-const isPartner = () => !isTeam() && state.myShops.length > 0;
-const PARTNER_OK = [/^\/$/, /^\/content\/my_products(\/[^/]+)?$/, /^\/content\/my_orders(\/[^/]+)?$/, /^\/content\/my_shop\/[^/]+$/];
+const isPartner = () => !isTeam() && (state.myShops.length > 0 || (state.myListings || []).length > 0);
+const hasShops = () => state.myShops.length > 0, hasBiz = () => (state.myListings || []).length > 0;
+const PARTNER_OK = [/^\/$/, /^\/content\/my_products(\/[^/]+)?$/, /^\/content\/my_orders(\/[^/]+)?$/, /^\/content\/my_shop\/[^/]+$/,
+  /^\/content\/my_listing\/[^/]+$/, /^\/content\/my_leads(\/[^/]+)?$/, /^\/content\/my_reviews(\/[^/]+)?$/];
 
 // ---------- routing ----------
 const routes = [];
@@ -58,7 +61,7 @@ const withMock = (p) => (MOCK ? p + (p.includes("?") ? "&" : "?") + "mock=" + MO
 function go(path, replace = false) { path = withMock(path); replace ? history.replaceState({ d: history.state?.d || 0 }, "", path) : history.pushState({ d: (history.state?.d || 0) + 1 }, "", path); render(); }
 document.addEventListener("click", (e) => {
   const a = e.target.closest("a[data-link]");
-  if (a && a.origin === location.origin && !e.metaKey && !e.ctrlKey && !e.shiftKey) { e.preventDefault(); closeSidebar(); go(a.pathname + a.search.replace(/[?&]mock=[^&]*/, "").replace(/^&/, "?")); }
+  if (a && a.origin === location.origin && !e.metaKey && !e.ctrlKey && !e.shiftKey) { e.preventDefault(); closeSidebar(); go(a.pathname + a.search.replace(/[?&]mock=[^&]*/, "").replace(/^&/, "?") + a.hash); }
 });
 window.addEventListener("popstate", render);
 const qs = () => new URLSearchParams(location.search);
@@ -87,8 +90,11 @@ const I = {
 const icon = (k) => `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[k]}</svg>`;
 function partnerNav() {
   const item = (href, ic, label) => `<li class="nav-item"><a class="nav-link" href="${href}" data-link>${icon(ic)}${label}</a></li>`;
-  return `${item("/", "dash", "My shop")}${item("/content/my_orders", "send", "My orders")}${item("/content/my_products", "star", "My products")}
-    <li class="nav-title">Shop page</li>${state.myShops.map((x) => item(`/content/my_shop/${x.id}`, "home", esc(x.name))).join("")}`;
+  const biz = hasBiz() ? `<li class="nav-title">My business</li>${state.myListings.map((x) => item(`/content/my_listing/${x.id}`, "dir", esc(x.name) + (state.myListings.length > 1 ? "" : " profile"))).join("")}
+    ${item("/content/my_leads", "mail", "Enquiries")}${item("/content/my_reviews", "star", "Reviews")}` : "";
+  const shop = hasShops() ? `<li class="nav-title">My shop</li>${item("/content/my_orders", "send", "My orders")}${item("/content/my_products", "star", "My products")}
+    ${state.myShops.map((x) => item(`/content/my_shop/${x.id}`, "home", esc(x.name) + " page")).join("")}` : "";
+  return `${item("/", "dash", "Dashboard")}${biz}${shop}`;
 }
 function navHTML() {
   const pend = state.stats?.pending_applications || 0;
@@ -145,7 +151,7 @@ $("#signout").onclick = async () => { await sb.auth.signOut(); await loadMe(true
 function crumbs(list) { $("#crumbs").innerHTML = list.map((c, i) => i < list.length - 1 && c[1] ? `<li class="breadcrumb-item"><a href="${c[1]}" data-link>${esc(c[0])}</a></li>` : `<li class="breadcrumb-item active" aria-current="page">${esc(c[0])}</li>`).join(""); document.title = list[list.length - 1][0] + " · Cars and Coffee Admin"; }
 function chrome(show) {
   $("#sidebar").hidden = !show; $("#topbar").hidden = !show; document.body.classList.toggle("has-sidebar", show);
-  if (show) { $("#sidenav").innerHTML = isPartner() ? partnerNav() : navHTML(); $("#whoami").textContent = `${state.profile?.display_name || state.session?.user?.email || ""} · ${isPartner() ? "shop manager" : state.profile?.role || ""}`; markNav(); }
+  if (show) { $("#sidenav").innerHTML = isPartner() ? partnerNav() : navHTML(); $("#whoami").textContent = `${state.profile?.display_name || state.session?.user?.email || ""} · ${isPartner() ? (hasBiz() ? "business owner" : "shop manager") : state.profile?.role || ""}`; markNav(); }
 }
 
 // Who's signed in is checked once, and again only when they sign in or out (not on every click).
@@ -202,13 +208,13 @@ function signInScreen() {
     e.preventDefault(); const em = $("#email").value.trim(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) { $("#msg").textContent = "Please enter a valid email address."; return; }
     const { data: invited } = await site().rpc("has_shop_invite", { p_email: em });
     const { error } = await sb.auth.signInWithOtp({ email: em, options: { shouldCreateUser: !!invited, emailRedirectTo: location.origin + "/auth/callback" } });
-    $("#msg").textContent = error ? "We couldn't send a link to that address. Only the team and invited shop managers can sign in here." : "Check your email for a sign-in link.";
+    $("#msg").textContent = error ? "We couldn't send a link to that address. Only the team, partner shops and businesses listed in our directory can sign in here. Use the email address you registered your business with." : "Check your email for a sign-in link.";
   };
 }
 function noAccess() {
   document.title = "No access · Cars and Coffee Admin";
   view.innerHTML = `<div class="signin-wrap"><div class="card signin-card"><div class="card-body p-4">
-    <h1 class="h4">This area is for the team and shop partners</h1><p>You're signed in as <strong>${esc(state.session.user.email)}</strong>, which isn't a team account or a partner shop manager. If you run a partner shop, ask the team to add this email address.</p>
+    <h1 class="h4">This area is for the team, partner shops and listed businesses</h1><p>You're signed in as <strong>${esc(state.session.user.email)}</strong>, which isn't linked to a business or shop. If you've listed your business, sign in with the email address you registered with. To list a business, <a href="${SITE}/directory/list-your-business">start here</a>.</p>
     <div class="d-flex gap-2"><a class="btn btn-primary" href="https://club.carsandcoffee.uk">Go to the club</a><button class="btn btn-outline-secondary" id="so">Sign out</button></div></div></div></div>`;
   $("#so").onclick = async () => { await sb.auth.signOut(); go("/", true); };
 }
@@ -746,6 +752,31 @@ const CONTENT = {
       F("website", "Website"), F("email", "Public email"), F("phone", "Public phone"), F("socials", "Social links (one per line, e.g. instagram: https://instagram.com/…)", "socials"),
       F("town", "Town"), F("county", "County", "select", { options: ["", "Norfolk", "Suffolk", "Cambridgeshire", "Essex"] }), F("status", "Status", "select", { options: ["draft", "live", "paused"] }),
       F("meta_title", "Google title"), F("meta_description", "Google description", "textarea")] },
+  my_listing: { title: "Business profile", table: "directory_listings", noAi: true, noCreate: true, noDelete: true, order: ["name", true], list: ["name"], view: "/directory/",
+    help: "Everything on your business page at carsandcoffee.uk/directory/… Each section only appears on your page once it has something in it. The more you add, the more you'll be found.",
+    fields: [F("h_basics", "Your business", "heading"), F("name", "Business name", "text", { required: true }), F("services", "Services (comma separated, e.g. Detailing, Ceramic coating)", "array"),
+      F("summary", "Short summary (one or two sentences, shown on cards and in Google)", "textarea"), F("body_html", "About your business (who you are, what you specialise in, why people choose you)", "rich"),
+      F("logo_path", "Logo", "image"), F("image_path", "Main photo (wide, shown at the top of your page)", "image"), F("image_alt", "Main photo description (for people who can't see it)"),
+      F("h_offer", "Services, products and prices", "heading", { note: "Add each service or product with a short description, an optional price (e.g. From £150) and a photo." }),
+      F("offerings", "Services and products", "offerings"),
+      F("h_media", "Photos and video", "heading", { note: "Show off your work. Add as many photos as you like and drag to reorder." }),
+      F("gallery", "Photo gallery", "gallery"), F("video_url", "Video (YouTube or Vimeo link)", "text", { ph: "https://www.youtube.com/watch?v=…" }),
+      F("h_contact", "Contact and location", "heading"), F("website", "Website"), F("phone", "Public phone"), F("show_phone", "Show the phone number (visitors click to reveal it)", "bool", { def: true }), F("email", "Public email"),
+      F("address_line", "Street address (shown publicly)"), F("town", "Town", "text", { required: true }), F("county", "County", "select", { options: ["Norfolk", "Suffolk", "Cambridgeshire", "Essex"] }), F("postcode", "Postcode", "postcode"),
+      F("lat", "Latitude (filled in by Look up)", "number", { step: "any" }), F("lng", "Longitude (filled in by Look up)", "number", { step: "any" }), F("approximate", "Only show my approximate area on the map", "bool"),
+      F("h_hours", "Opening times", "heading"), F("hours", "Opening times", "hours"), F("opening_hours", "Opening notes (optional, one per line, e.g. Closed bank holidays, Evenings by appointment)", "lines"),
+      F("h_social", "Social media", "heading"), F("instagram", "Instagram (handle or link)"), F("facebook", "Facebook (page name or link)"), F("youtube", "YouTube (channel handle or link)"), F("tiktok", "TikTok (handle or link)"), F("x_url", "X (handle or link)"), F("linkedin", "LinkedIn (company page or link)"),
+      F("h_leads", "Enquiries and reviews", "heading"), F("enquiries_enabled", "Show an enquiry form on my page", "bool", { def: true }), F("lead_email", "Send enquiries to", "mylead"), F("reviews_enabled", "Show reviews and let customers leave one", "bool", { def: true }),
+      F("h_seo", "Search engines (optional)", "heading", { note: "Left empty, your business name and summary are used." }), F("meta_title", "Google title"), F("meta_description", "Google description", "textarea")] },
+  my_leads: { title: "Enquiries", table: "directory_leads", noAi: true, noCreate: true, noDelete: true, order: ["created_at", false], list: ["name", "email", "created_at"],
+    filter: (qq) => qq.in("listing_id", (state.myListings || []).map((x) => x.id)),
+    help: "Messages people sent from the enquiry form on your business page. Reply to them by email.",
+    fields: [F("name", "From", "readonly"), F("email", "Email", "readonly"), F("phone", "Phone", "readonly"), F("created_at", "Sent", "readonly", { short: "Sent" }), F("message", "Message", "readonly_long")] },
+  my_reviews: { title: "Reviews", table: "directory_reviews", noAi: true, noCreate: true, noDelete: true, order: ["created_at", false], list: ["name", "rating", "status", "created_at"],
+    filter: (qq) => qq.in("listing_id", (state.myListings || []).map((x) => x.id)),
+    help: "Reviews of your business. Our team checks each review before it appears. Add a public reply to thank people or answer a concern: it shows under the review on your page.",
+    fields: [F("name", "From", "readonly"), F("rating", "Stars", "readonly"), F("status", "Status", "readonly"), F("created_at", "Received", "readonly", { short: "Received" }), F("body", "Review", "readonly_long"),
+      F("owner_reply", "Your public reply (optional)", "textarea", { ph: "Thanks for the kind words…" })] },
   gallery_items: { title: "Gallery", order: ["sort", true], list: ["title", "sort", "featured"],
     help: "Each gallery has its own page at /galleries/… The homepage shows the first five featured galleries.", view: "/galleries/",
     fields: [F("title", "Title", "text", { required: true }), F("slug", "Slug", "slug", { from: "title" }), F("description", "Short description (shown on the gallery page)", "textarea"), F("image_path", "Cover photo", "image", { required: true }), F("image_alt", "Cover photo description", "text", { required: true }),
@@ -878,6 +909,7 @@ route("/content/:table/:id", async ({ table, id }) => {
       case "gallery": return galleryField(id, v);
       case "offerings": return offeringsField(id, v);
       case "hours": return hoursField(id, v);
+      case "mylead": return `<input class="form-control" id="${id}" type="email" autocomplete="email" placeholder="e.g. enquiries@yourbusiness.co.uk" data-mylead><div class="form-text">Private: never shown on your page. Leave empty to send enquiries to the Cars and Coffee team, who'll pass them on.</div>`;
       case "lead": return `<input class="form-control" id="${id}" type="email" placeholder="e.g. enquiries@business.co.uk (leave empty to send enquiries to the team)" data-lead><div class="form-check mt-2"><input class="form-check-input" type="checkbox" id="${id}_copy" data-lead-copy><label class="form-check-label small" for="${id}_copy">Also send our team a copy of every enquiry</label></div>`;
       case "lines": return `<textarea class="form-control" id="${id}" rows="${Math.max(3, (v || []).length + 1)}">${esc((v || []).join("\n"))}</textarea>`;
       case "options": return `<textarea class="form-control" id="${id}" rows="3" placeholder="Size: S, M, L, XL">${esc((Array.isArray(v) ? v : []).map((o) => `${o.name}: ${(o.values || []).join(", ")}`).join("\n"))}</textarea>`;
@@ -921,7 +953,7 @@ route("/content/:table/:id", async ({ table, id }) => {
       url: table === "directory_listings" ? `/directory/${v("slug")}` : table === "events" ? `/events/${v("slug")}` : table === "articles" ? `/news/${v("slug")}` : table === "guides" ? `/guides/${v("slug")}` : "" }; };
   wireRich($("#cf"), { upload: uploadSiteImage, onChange: () => (dirty = true), ai: c.noAi ? null : async (field, brief) => (await aiCall(field, contentCtx(), brief)).html });
   wireAiSuggest($("#cf"), contentCtx);
-  if (table === "directory_listings") wireOfferings($("#cf"));
+  if (table === "directory_listings" || table === "my_listing") wireOfferings($("#cf"));
   if (table === "directory_listings" && !isNew) {
     const { data: ct } = await site().from("directory_contacts").select("lead_email,copy_team").eq("listing_id", row.id).maybeSingle();
     if (ct && $("[data-lead]")) { $("[data-lead]").value = ct.lead_email || ""; $("[data-lead-copy]").checked = !!ct.copy_team; }
@@ -933,6 +965,10 @@ route("/content/:table/:id", async ({ table, id }) => {
   if (table === "orders" && !isNew) await orderExtras(row);
   if (table === "my_orders" && !isNew) await myOrderExtras(row);
   if (table === "my_shop") state.uploadShop = row.id;
+  state.uploadListing = table === "my_listing" ? row.id : null;
+  if (table === "my_listing") await myListingExtras(row);
+  if (table === "my_reviews") myReviewExtras(row);
+  if (table === "directory_listings" && !isNew) await listingPeopleExtras(row);
   wireGallery($("#cf"));
   if (SEO_KINDS[table]) {
     const cur = () => { const r = { ...row }; for (const f of c.fields) { const el = $("#f_" + f.name); if (!el) continue;
@@ -966,7 +1002,7 @@ route("/content/:table/:id", async ({ table, id }) => {
     e.preventDefault();
     const out = {};
     for (const f of c.fields) {
-      if (f.type === "readonly" || f.type === "readonly_long" || f.type === "heading" || f.type === "lead") continue;
+      if (f.type === "readonly" || f.type === "readonly_long" || f.type === "heading" || f.type === "lead" || f.type === "mylead") continue;
       const el = $("#f_" + f.name); let v;
       if (f.type === "bool") v = el.checked;
       else if (f.type === "number") v = el.value === "" ? null : Number(el.value);
@@ -993,7 +1029,13 @@ route("/content/:table/:id", async ({ table, id }) => {
       const { error: ce } = await site().from("directory_contacts").upsert({ listing_id: res.data[pk], lead_email: le || null, copy_team: $("[data-lead-copy]").checked, updated_at: new Date().toISOString() }, { onConflict: "listing_id" });
       if (ce) return toast("Saved, but the enquiry email didn't save: " + ce.message, true);
     }
-    dirty = false; toast("Saved. Live on the website within a minute."); go(`/content/${table}`, true);
+    if (table === "my_listing" && $("[data-mylead]")) {
+      const { error: le } = await site().rpc("set_my_listing_lead", { p_listing: res.data[pk], p_email: $("[data-mylead]").value.trim() });
+      if (le) return toast("Saved, but the enquiry email didn't save: " + le.message, true);
+    }
+    dirty = false;
+    if (table === "my_listing") { toast(row.status === "published" ? "Saved. Your page updates within a minute." : "Saved. Your page goes live once our team has checked it."); await loadMe(true); chrome(true); go("/", true); return; }
+    toast("Saved. Live on the website within a minute."); go(`/content/${table}`, true);
   };
   if ($("#del")) { let armed = false; $("#del").onclick = async () => {
     if (!armed) { armed = true; $("#del").textContent = "Click again to delete for good"; $("#del").classList.replace("btn-outline-danger", "btn-danger"); return; }
@@ -1022,10 +1064,80 @@ async function myOrderExtras(row) {
 
 // ---------- partner dashboard ----------
 async function partnerDash() {
-  crumbs([["My shop"]]);
+  crumbs([["Dashboard"]]);
+  view.innerHTML = `<div class="page-head"><h1>Welcome${state.profile?.display_name ? ", " + esc(state.profile.display_name.split(" ")[0]) : ""}</h1></div><div id="bizdash"></div><div id="shopdash"></div>`;
+  if (hasBiz()) await bizDash($("#bizdash"));
+  if (hasShops()) await shopDash($("#shopdash"));
+}
+
+// ---------- business owners ----------
+const BIZ_CHECKS = [
+  ["summary", "A short summary", (l) => (l.summary || "").length >= 40],
+  ["body_html", "About your business (100+ words)", (l) => htmlText(l.body_html || "").split(/\s+/).filter(Boolean).length >= 100],
+  ["logo_path", "Your logo", (l) => !!l.logo_path],
+  ["image_path", "A main photo", (l) => !!l.image_path],
+  ["offerings", "At least 3 services or products", (l) => (l.offerings || []).length >= 3],
+  ["gallery", "At least 6 gallery photos", (l) => (l.gallery || []).length >= 6],
+  ["hours", "Opening times", (l) => l.hours && Object.keys(l.hours).length > 0],
+  ["phone", "A phone number or email", (l) => !!(l.phone || l.email)],
+  ["address_line", "Your address and map pin", (l) => !!(l.postcode && l.lat)],
+  ["instagram", "At least one social link", (l) => !!(l.instagram || l.facebook || l.youtube || l.tiktok || l.x_url || l.linkedin)],
+];
+async function bizDash(box) {
+  const ids = state.myListings.map((x) => x.id), since = new Date(Date.now() - 30 * 864e5).toISOString();
+  const [{ data: rows }, { data: ev }, { data: leads }, { data: revs }] = await Promise.all([
+    site().from("directory_listings").select("*").in("id", ids),
+    site().from("directory_events").select("listing_id,type").in("listing_id", ids).gte("created_at", since).limit(20000),
+    site().from("directory_leads").select("listing_id,created_at").in("listing_id", ids).order("created_at", { ascending: false }).limit(500),
+    site().from("directory_reviews").select("listing_id,rating,status,owner_reply").in("listing_id", ids).limit(1000)]);
+  box.innerHTML = (rows || []).map((l) => {
+    const done = BIZ_CHECKS.filter(([, , t]) => t(l)), pct = Math.round((done.length / BIZ_CHECKS.length) * 100);
+    const e = (ev || []).filter((x) => x.listing_id === l.id), cnt = (t) => e.filter((x) => x.type === t).length;
+    const myLeads = (leads || []).filter((x) => x.listing_id === l.id), r = (revs || []).filter((x) => x.listing_id === l.id), pub = r.filter((x) => x.status === "published");
+    const avg = pub.length ? (pub.reduce((a, x) => a + x.rating, 0) / pub.length).toFixed(1) : "–", unreplied = pub.filter((x) => !x.owner_reply).length;
+    const live = l.status === "published";
+    const stat = (v, label, href) => `<div class="col-6 col-md-3"><div class="card stat h-100"><div class="card-body">${href ? `<a href="${href}" data-link>` : ""}<div class="value">${v}</div><div class="label">${label}</div>${href ? "</a>" : ""}</div></div></div>`;
+    return `<div class="card mb-3"><div class="card-body">
+      <div class="d-flex flex-wrap justify-content-between gap-3 align-items-start">
+        <div class="d-flex gap-3 align-items-center">${l.logo_path ? `<img src="${esc(imgSrc(l.logo_path))}" alt="" style="width:64px;height:64px;object-fit:contain;border-radius:8px;border:1px solid var(--cui-border-color)">` : ""}
+          <div><h2 class="h4 mb-1">${esc(l.name)}</h2><p class="mb-0"><span class="badge ${live ? "text-bg-success" : l.status === "rejected" ? "text-bg-danger" : "text-bg-warning"}">${live ? "Live" : l.status === "rejected" ? "Not approved" : "Waiting for our team to check"}</span>${l.featured ? ' <span class="badge text-bg-primary">Featured</span>' : ""}${l.checked_at ? ' <span class="badge text-bg-light border">Checked by Cars and Coffee</span>' : ""}</p></div></div>
+        <div class="d-flex gap-2 flex-wrap"><a class="btn btn-primary" href="/content/my_listing/${l.id}" data-link>Edit your profile</a>${live ? `<a class="btn btn-outline-secondary" href="${SITE}/directory/${esc(l.slug)}" target="_blank" rel="noopener">View your page</a>` : ""}</div></div>
+      ${live ? "" : `<p class="small text-body-secondary mt-3 mb-0">${l.status === "rejected" ? "Our team couldn't approve this listing. Please <a href=\"" + SITE + "/contact?topic=directory\">contact us</a> if you have questions." : "Build your full profile now. It goes live once our team has checked it, usually within a few days."}</p>`}
+      <div class="row g-3 mt-1">${stat(cnt("views"), "Page views (30 days)")}${stat(cnt("website") + cnt("phone_reveal") + cnt("phone_call") + cnt("email") + cnt("directions") + cnt("social"), "Clicks to contact you (30 days)")}${stat(myLeads.length, "Enquiries", "/content/my_leads")}${stat(`${avg}${pub.length ? ` <small class="fs-6 text-body-secondary">from ${pub.length}</small>` : ""}`, `Review rating${unreplied ? ` · ${unreplied} to reply to` : ""}`, "/content/my_reviews")}</div>
+      <div class="mt-4"><div class="d-flex justify-content-between align-items-center mb-2"><h3 class="h6 mb-0">Profile strength</h3><strong>${pct}%</strong></div>
+        <div class="progress mb-3" role="progressbar" aria-label="Profile strength" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" style="height:10px"><div class="progress-bar ${pct >= 80 ? "bg-success" : pct >= 50 ? "bg-warning" : "bg-danger"}" style="width:${pct}%"></div></div>
+        <div class="row g-2">${BIZ_CHECKS.map(([k, label, t]) => `<div class="col-md-6"><a class="d-flex gap-2 align-items-center text-decoration-none ${t(l) ? "text-body-secondary" : "text-body"}" href="/content/my_listing/${l.id}#f_${k}" data-link><span class="badge rounded-pill ${t(l) ? "text-bg-success" : "text-bg-light border"}">${t(l) ? "✓" : "+"}</span>${esc(label)}</a></div>`).join("")}</div></div>
+    </div></div>`; }).join("") + `<p class="small text-body-secondary">Need help, or want a featured listing? <a href="${SITE}/contact?topic=directory">Contact the team</a>.</p>`;
+}
+async function myListingExtras(row) {
+  const { data: ld } = await site().rpc("my_listing_lead", { p_listing: row.id });
+  if ($("[data-mylead]")) $("[data-mylead]").value = (ld && ld[0] && ld[0].lead_email) || "";
+  const live = row.status === "published";
+  $("#cf .card").insertAdjacentHTML("beforebegin", `<div class="alert ${live ? "alert-success" : "alert-warning"} d-flex flex-wrap justify-content-between gap-2 align-items-center"><span>${live ? "Your page is live. Changes show within a minute of saving." : "Your page isn't live yet. Fill in as much as you can: it goes live once our team has checked it."}</span>${live ? `<a class="btn btn-sm btn-outline-secondary" href="${SITE}/directory/${esc(row.slug)}" target="_blank" rel="noopener">View your page</a>` : ""}</div>`);
+  if (location.hash) setTimeout(() => { const el = document.querySelector(location.hash); if (el) { el.scrollIntoView({ block: "center" }); el.focus?.(); } }, 150);
+}
+function myReviewExtras(row) {
+  const stars = "★★★★★".slice(0, row.rating) + "☆☆☆☆☆".slice(0, 5 - row.rating);
+  $("#cf .card").insertAdjacentHTML("beforebegin", `<div class="card mb-3"><div class="card-body"><div class="fs-4 text-warning">${stars}</div><p class="mb-1"><strong>${esc(row.name)}</strong> · ${fmtDate(row.created_at)} · <span class="badge ${row.status === "published" ? "text-bg-success" : "text-bg-secondary"}">${row.status === "published" ? "Shown on your page" : row.status === "pending" ? "Waiting for our team to check" : esc(row.status)}</span></p><p class="mb-0" style="white-space:pre-line">${esc(row.body)}</p></div></div>`);
+}
+async function listingPeopleExtras(row) {
+  const { data: people, error: pe } = await site().rpc("listing_people", { p_listing: row.id });
+  $("#cf .card").insertAdjacentHTML("afterend", `<div class="card mt-3" id="lpx"><div class="card-body">
+    <h2 class="h5">Business owners</h2><p class="small text-body-secondary">People who can sign in at admin.carsandcoffee.uk to build and edit this business's profile, read its enquiries and reply to reviews. Whoever submitted the listing is added automatically. They can't change the status, featured spots, slug or checked date.</p>
+    ${pe ? `<p class="text-danger small">${esc(pe.message)}</p>` : ""}
+    <ul class="list-group mb-3">${(people || []).map((x) => `<li class="list-group-item d-flex justify-content-between align-items-center"><span>${esc(x.email)} <span class="badge text-bg-light border">${esc(x.role)}</span> ${x.kind === "invite" ? '<span class="badge text-bg-warning">Not signed in yet</span>' : ""}</span><button type="button" class="btn btn-sm btn-outline-danger" data-lrm="${esc(x.kind)}:${esc(x.ref)}">Remove</button></li>`).join("") || '<li class="list-group-item text-body-secondary">No owners yet.</li>'}</ul>
+    <div class="input-group" style="max-width:560px"><input class="form-control" id="lp_email" type="email" placeholder="owner@business.co.uk"><select class="form-select" id="lp_role" style="max-width:130px"><option value="owner">Owner</option><option value="editor">Editor</option></select><button type="button" class="btn btn-outline-primary" id="lp_add">Add owner</button></div></div></div>`);
+  $("#lp_add").onclick = async () => { const em = $("#lp_email").value.trim().toLowerCase(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) return toast("Please enter a valid email", true);
+    const { error } = await site().from("listing_invites").insert({ listing_id: row.id, email: em, role: $("#lp_role").value }); if (error) return oops(error); toast("Added. They get access the first time they sign in with that address."); render(); };
+  for (const b of $$("[data-lrm]")) b.onclick = async () => { const [kind, ref] = b.dataset.lrm.split(":");
+    const { error } = kind === "invite" ? await site().from("listing_invites").delete().eq("id", ref) : await site().from("listing_members").delete().eq("listing_id", row.id).eq("user_id", ref);
+    if (error) return oops(error); toast("Removed"); render(); };
+}
+
+async function shopDash(box) {
   const { data: prods } = await site().from("products").select("shop_id,active,stock_status").in("shop_id", state.myShops.map((x) => x.id));
   const PLAN = { trial: ["Trial", "text-bg-info"], active: ["Active", "text-bg-success"], past_due: ["Payment overdue", "text-bg-warning"], cancelled: ["Cancelled", "text-bg-danger"] };
-  view.innerHTML = `<div class="page-head"><h1>Your shop${state.myShops.length > 1 ? "s" : ""}</h1><a class="btn btn-primary" href="/content/my_products/new" data-link>Add a product</a></div>
+  box.innerHTML = `<div class="d-flex justify-content-between align-items-center mt-4 mb-3"><h2 class="h4 mb-0">Your shop${state.myShops.length > 1 ? "s" : ""}</h2><a class="btn btn-primary" href="/content/my_products/new" data-link>Add a product</a></div>
     ${state.myShops.map((x) => { const mine = (prods || []).filter((p) => p.shop_id === x.id), on = mine.filter((p) => p.active).length, out = mine.filter((p) => p.stock_status === "out").length, pl = PLAN[x.plan_status] || [x.plan_status || "No plan", "text-bg-secondary"];
       const open = x.status === "live" && ["trial", "active"].includes(x.plan_status);
       return `<div class="card mb-3"><div class="card-body"><div class="d-flex flex-wrap justify-content-between gap-3 align-items-start"><div><h2 class="h4 mb-1">${esc(x.name)}</h2>
@@ -1193,8 +1305,9 @@ function wireGallery(root) {
 async function uploadSiteImage(file) {
   if (file.size > 5 * 1024 * 1024) throw new Error("That photo is over 5 MB. Please use a smaller one.");
   const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
-  const shopId = isPartner() ? ($("#f_shop_id")?.value || state.uploadShop || state.myShops[0]?.id) : null;
-  const path = `${shopId ? `shops/${shopId}` : "uploads"}/${new Date().toISOString().slice(0, 10)}/${Date.now()}-${slugify(file.name.replace(/\.[^.]+$/, "")) || "image"}.${ext}`;
+  const listingId = isPartner() && state.uploadListing ? state.uploadListing : null;
+  const shopId = isPartner() && !listingId ? ($("#f_shop_id")?.value || state.uploadShop || state.myShops[0]?.id) : null;
+  const path = `${listingId ? `listings/${listingId}` : shopId ? `shops/${shopId}` : "uploads"}/${new Date().toISOString().slice(0, 10)}/${Date.now()}-${slugify(file.name.replace(/\.[^.]+$/, "")) || "image"}.${ext}`;
   const { error } = await sb.storage.from("site-images").upload(path, file, { cacheControl: "31536000", upsert: false, contentType: file.type });
   if (error) throw error;
   return sb.storage.from("site-images").getPublicUrl(path).data.publicUrl;
@@ -1212,11 +1325,7 @@ function wireImageInputs(root) {
     const id = fi.dataset.upload, msg = $(`[data-upmsg="${id}"]`, root);
     if (file.size > 5 * 1024 * 1024) { msg.textContent = "That file is over 5 MB. Please use a smaller photo."; return; }
     msg.textContent = "Uploading…";
-    const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
-    const path = `uploads/${new Date().toISOString().slice(0, 10)}/${Date.now()}-${slugify(file.name.replace(/\.[^.]+$/, "")) || "image"}.${ext}`;
-    const { error } = await sb.storage.from("site-images").upload(path, file, { cacheControl: "31536000", upsert: false, contentType: file.type });
-    if (error) { msg.textContent = "Upload failed: " + error.message; return; }
-    const url = sb.storage.from("site-images").getPublicUrl(path).data.publicUrl;
+    let url; try { url = await uploadSiteImage(file); } catch (error) { msg.textContent = "Upload failed: " + error.message; return; }
     const input = $("#" + id, root); input.value = url; input.dispatchEvent(new Event("input", { bubbles: true }));
     fi.closest(".imgfield").querySelector(".imgprev").innerHTML = `<img src="${esc(url)}" alt="">`;
     msg.textContent = "Uploaded. Remember to save.";

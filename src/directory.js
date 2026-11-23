@@ -82,7 +82,7 @@ export async function businessPage(slug) {
     q(`directory_listings?select=${LIST}&slug=neq.${enc(slug)}${l.county ? `&county=eq.${enc(l.county)}` : ""}&limit=12`).catch(() => []),
     q("directory_services?select=name,slug&order=sort").catch(() => []),
     q(`pages?select=path,town,county&page_type=eq.location&status=eq.published&county=not.is.null`).catch(() => []),
-    l.reviews_enabled ? q(`directory_reviews?select=id,name,rating,body,source,created_at&listing_id=eq.${l.id}&order=created_at.desc&limit=50`).catch(() => []) : [],
+    l.reviews_enabled ? q(`directory_reviews?select=id,name,rating,body,source,created_at,owner_reply&listing_id=eq.${l.id}&order=created_at.desc&limit=50`).catch(() => []) : [],
   ]);
   const related = near.filter((x) => (x.services || []).some((s) => (l.services || []).includes(s))).concat(near).filter((x, i, a) => a.findIndex((y) => y.slug === x.slug) === i).slice(0, 3);
   const hub = hubs.find((h) => h.town && h.town === l.town) || hubs.find((h) => !h.town && h.county === l.county);
@@ -134,7 +134,7 @@ export async function businessPage(slug) {
       ${video ? `<div id="video" class="biz-sec"><h2>Video</h2>${video}</div>` : ""}
       ${l.reviews_enabled ? `<div id="reviews" class="biz-sec"><h2>Reviews</h2>
         ${reviews.length ? `<div class="rv-sum">${stars(avg)}<strong>${avg.toFixed(1)} out of 5</strong><span>${reviews.length} review${reviews.length === 1 ? "" : "s"}</span></div>
-          <ul class="rv-list">${reviews.map((r) => `<li>${stars(r.rating)}<p>${E(r.body)}</p><small>${E(r.name)} · ${new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric" }).format(new Date(r.created_at))}${r.source !== "website" ? ` · via ${E(r.source)}` : ""}</small></li>`).join("")}</ul>` : `<p class="lp-empty">No reviews yet. Used ${E(l.name)}? Be the first to review them.</p>`}
+          <ul class="rv-list">${reviews.map((r) => `<li>${stars(r.rating)}<p>${E(r.body)}</p><small>${E(r.name)} · ${new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric" }).format(new Date(r.created_at))}${r.source !== "website" ? ` · via ${E(r.source)}` : ""}</small>${r.owner_reply ? `<div class="rv-reply"><strong>Reply from ${E(l.name)}</strong><p>${E(r.owner_reply)}</p></div>` : ""}</li>`).join("")}</ul>` : `<p class="lp-empty">No reviews yet. Used ${E(l.name)}? Be the first to review them.</p>`}
         <details class="rv-write"><summary class="btn ghost small">Write a review</summary>
           <form class="ct-form" id="rvf" novalidate><div class="rv-stars" role="radiogroup" aria-label="Your rating">${[1, 2, 3, 4, 5].map((i) => `<label><input type="radio" name="rating" value="${i}"><span>★</span><b class="sr">${i} star${i > 1 ? "s" : ""}</b></label>`).join("")}</div>
             <div class="ct-row"><label>Your name (shown)<input name="name" autocomplete="name" maxlength="80" required></label><label>Email (not shown)<input name="email" type="email" autocomplete="email" maxlength="200" required></label></div>
@@ -264,7 +264,7 @@ export async function listYourBusiness() {
   const [services, partners] = await Promise.all([q("directory_services?select=name,slug&order=sort"), partnersQ()]);
   const crumbs = [["Home", "/"], ["Directory", "/directory"], ["List your business", "/directory/list-your-business"]];
   const main = [crumbsHTML(crumbs),
-    `<section class="lp-sec std-head"><div class="wrap"><span class="eyebrow red">Free listing</span><h1 class="page-h1">List your business</h1><p class="lp-lead">Get in front of car enthusiasts across Norfolk and Suffolk. Listing is free. We check every business before it goes live, usually within a few days.</p></div></section>`,
+    `<section class="lp-sec std-head"><div class="wrap"><span class="eyebrow red">Free listing</span><h1 class="page-h1">List your business</h1><p class="lp-lead">Get in front of car enthusiasts across Norfolk and Suffolk. Listing is free. Start with the basics below, then sign in to build your full business profile. We check every business before it goes live, usually within a few days.</p></div></section>`,
     `<section class="lp-sec"><div class="wrap ct-grid"><form class="ct-form" id="lyb" novalidate>
       <h2 style="margin:0">Your business</h2>
       <label>Business name<input name="name" autocomplete="organization" required maxlength="120"></label>
@@ -288,9 +288,10 @@ export async function listYourBusiness() {
       b.disabled=true;m.className='ct-msg';m.textContent='Sending…';
       var data={name:G(f,'name'),services:svcs,town:G(f,'town'),county:G(f,'county'),address:G(f,'address'),postcode:G(f,'postcode'),website:G(f,'website'),phone:G(f,'phone'),public_email:G(f,'public_email'),summary:G(f,'summary'),contact_name:G(f,'contact_name'),contact_email:G(f,'contact_email'),notes:G(f,'notes'),cc_hp:G(f,'cc_hp')};
       try{var r=await fetch('/api/listing',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});var j=await r.json().catch(function(){return{};});if(!r.ok)throw new Error(j.error||'Sorry, that didn\\'t send. Please try again.');
-        f.outerHTML='<div class="ct-sent"><h3>Thanks, we\\'ve got your listing.</h3><p>Our team will check it and email you when it\\'s live, usually within a few days.</p><p><a class="btn ghost small" href="/directory">Back to the directory</a></p></div>';window.scrollTo(0,0);}
+        f.outerHTML='<div class="ct-sent lyb-next"><h3>Thanks, your business is registered.</h3><p><strong>Next: build your full profile.</strong> Add your services and prices, photos, logo, opening times and social links, and choose where enquiries go. Our team checks every listing before it goes live, usually within a few days.</p><p><a class="btn red" href="https://admin.carsandcoffee.uk">Build your business profile</a></p><p class="ct-small">Sign in with Google or an email link using <strong>'+data.contact_email.replace(/[<>&"]/g,'')+'</strong>, the address you just registered with. We\\'ve emailed you the link too.</p></div>';window.scrollTo(0,0);}
       catch(err){m.textContent=err.message;m.className='ct-msg bad';b.disabled=false;}});})();</script>
-    <aside class="ct-side"><div class="lp-panel"><h3>Why list with us?</h3><ul class="ticks"><li>Free listing with your own business page</li><li>Shown on the local car hub for your town</li><li>Found by enthusiasts searching for your services</li><li>A "Checked by Cars and Coffee" badge</li></ul></div>
+    <aside class="ct-side"><div class="lp-panel"><h3>How it works</h3><ol class="lyb-steps"><li><strong>Register the basics</strong><span>Two minutes: your business, services and town.</span></li><li><strong>Build your profile</strong><span>Sign in to add services and prices, a photo gallery, your logo, opening times and social links.</span></li><li><strong>We check it</strong><span>Our team checks every business, usually within a few days.</span></li><li><strong>Get found</strong><span>Enquiries come straight to you, customers leave reviews you can reply to, and you can see how many people view your page.</span></li></ol></div>
+      <div class="lp-panel"><h3>Why list with us?</h3><ul class="ticks"><li>Free listing with your own business page</li><li>Shown on the local car hub for your town and on matching interest pages</li><li>Found by enthusiasts searching for your services</li><li>A "Checked by Cars and Coffee" badge</li></ul></div>
       <div class="lp-panel"><h3>Want more?</h3><p>Featured listings, sponsored slots and event partnerships put you in front of even more people.</p><a class="btn ghost small" href="/contact?topic=advertising">Ask about featured listings</a></div></aside></div></section>`].join("\n");
   return shell({ title: "List your car business free | Cars and Coffee UK", description: "List your garage, detailing, restoration, tuning or car business free in the Cars and Coffee directory for Norfolk and Suffolk.", path: "/directory/list-your-business", ld: [ld(crumbs)], main, partners });
 }

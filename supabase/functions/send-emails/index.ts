@@ -161,9 +161,23 @@ function render(t: string, d: Record<string, unknown>): { subject: string; html:
           ${quote(d.message)}
           <p><strong>Email:</strong> <a href="mailto:${esc(d.email)}">${esc(d.email)}</a>${s(d.phone) ? `<br><strong>Phone:</strong> ${esc(d.phone)}` : ""}</p>
           <p>Just press reply to answer them.</p>`,
-          `You're getting this because ${esc(s(d.business))} is listed in the Cars and Coffee UK directory. To change where enquiries go, contact us at ${SITE}/contact.`),
+          `You're getting this because ${esc(s(d.business))} is listed in the Cars and Coffee UK directory. To change where enquiries go, sign in to your business profile at https://admin.carsandcoffee.uk.`),
         text: `New enquiry for ${s(d.business)} from ${s(d.name)} <${s(d.email)}>${s(d.phone) ? `, ${s(d.phone)}` : ""}:\n\n${s(d.message)}\n\nJust reply to answer them. Listing: ${url}`,
         replyTo: s(d.email),
+      };
+    }
+    case "business_welcome": {
+      const url = "https://admin.carsandcoffee.uk";
+      return {
+        subject: `Next step: build the profile for ${s(d.business)}`,
+        html: layout(`Thanks for listing ${s(d.business)}. Now build your full business profile.`,
+          `<p>${hi(d.name)}</p>
+          <p>Thanks for listing <strong>${esc(d.business)}</strong> in the Cars and Coffee UK directory. Our team will check it before it goes live, usually within a few days.</p>
+          <p>While we check, you can build your full business profile: your services and prices, a photo gallery, your logo, opening times, social links and where enquiries should go. You can also reply to reviews and see how many people view your page.</p>
+          ${button(url, "Build your business profile")}
+          <p>Sign in with Google or an email link using <strong>${esc(d.email)}</strong>. That's the address you registered with, so it's already linked to your business.</p>`,
+          `You're getting this because you listed ${esc(s(d.business))} on Cars and Coffee UK. Questions? Reply to this email or visit ${SITE}/contact.`),
+        text: `Thanks for listing ${s(d.business)} on Cars and Coffee UK. Our team will check it before it goes live.\n\nBuild your full business profile (services, photos, opening times, enquiries and reviews): ${url}\nSign in with ${s(d.email)}.`,
       };
     }
     case "team_new_application":
