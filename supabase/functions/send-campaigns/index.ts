@@ -1,9 +1,10 @@
 // send-campaigns: sends queued email marketing (site.email_sends) through the TrekMail mailbox over SMTP.
+// Uses Nodemailer (denomailer crashed the Deno 2 runtime with "Bad resource ID" after sending).
 // Called every 5 minutes by the pg_cron job "send-campaigns" (only while something is queued), plus "test" sends from admin.
 // Auth: x-outbox-token must match the Vault secret "outbox_cron_token" (checked in the database). Test sends use the admin's own token instead.
 // Secrets (Supabase → Edge Functions → Secrets): MARKETING_SMTP_USER (e.g. hello@carsandcoffee.uk), MARKETING_SMTP_PASS (an app password for that mailbox),
 // optional MARKETING_SMTP_HOST (default smtp.consensusmedia.co.uk), MARKETING_FOOTER (your business name and postal address for the footer).
-import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
+import nodemailer from "npm:nodemailer@6.9.16";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 
 const SITE = "https://carsandcoffee.uk";
@@ -11,10 +12,12 @@ const ADMIN = "https://admin.carsandcoffee.uk";
 const esc = (v: unknown) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 const s = (v: unknown) => String(v ?? "").trim();
 type C = { id: string; kind: string; subject: string; preheader?: string; heading?: string; body_html: string; cta_label?: string; cta_url?: string; from_name: string; reply_to?: string };
-type R = { send_id: number; email: string; name?: string; business?: string; listing_slug?: string; token: string; campaign: C };
+type L = { name?: string; town?: string; county?: string; services?: string[]; slug?: string; image?: string };
+type R = { send_id: number; email: string; name?: string; business?: string; listing_slug?: string; token: string; campaign: C; listing?: L | null };
 
 const OURS = /^https:\/\/(carsandcoffee\.uk|club\.carsandcoffee\.uk|admin\.carsandcoffee\.uk)(\/|$)/;
 function track(url: string, token: string) { return OURS.test(url) ? `${SITE}/r/${token}?u=${encodeURIComponent(url)}` : url; }
+const img = (p?: string) => !p ? "" : /^https?:\/\//.test(p) ? p : `${SITE}/${p.replace(/^\//, "")}`;
 
 function merge(text: string, r: R, html: boolean) {
   const first = s(r.name).split(/\s+/)[0] || "";
@@ -24,31 +27,81 @@ function merge(text: string, r: R, html: boolean) {
   return text.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, k) => (k in v ? (html ? esc(v[k]) : v[k]) : ""));
 }
 
+// colours and fonts (with fallbacks for clients that ignore web fonts or CSS)
+const RED = "#c00d0d", ESP = "#1d130f", INK = "#241712", SOFT = "#6b5a50", CREAM = "#faf3ea", LINE = "#eadfd2";
+const HEAD = "'Anton','Arial Narrow','Arial Black',Impact,Arial,sans-serif", BODY = "Arial,Helvetica,sans-serif";
+
+// bulletproof button: VML for Outlook on Windows, a padded link everywhere else
+function button(href: string, label: string) {
+  return `<!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" href="${esc(href)}" style="height:52px;v-text-anchor:middle;width:300px;" arcsize="12%" stroke="f" fillcolor="${RED}"><center style="color:#ffffff;font-family:Arial,sans-serif;font-size:17px;font-weight:bold;">${esc(label)}</center></v:roundrect><![endif]-->
+<!--[if !mso]><!--><a href="${esc(href)}" style="display:inline-block;background:${RED};color:#ffffff;font:bold 17px ${BODY};text-decoration:none;padding:16px 30px;border-radius:6px;mso-hide:all">${esc(label)} &rarr;</a><!--<![endif]-->`;
+}
+
 function render(r: R) {
   const c = r.campaign, unsub = `${SITE}/unsubscribe/${r.token}`;
   const footer = s(Deno.env.get("MARKETING_FOOTER")) || "Cars and Coffee UK";
+  const outreach = c.kind === "business_outreach";
   let body = merge(c.body_html || "", r, false);
-  body = body.replace(/href="([^"]+)"/g, (_, u) => `href="${esc(track(u.replace(/&amp;/g, "&"), r.token))}"`);
+  body = body.replace(/href="([^"]+)"/g, (_, u) => `href="${esc(track(u.replace(/&amp;/g, "&"), r.token))}" style="color:${RED};font-weight:bold"`)
+    .replace(/<p>/g, `<p style="margin:0 0 16px;font:16px/1.65 ${BODY};color:${INK}">`).replace(/<h2>/g, `<h2 style="margin:24px 0 10px;font:normal 22px/1.15 ${HEAD};text-transform:uppercase;color:${ESP}">`)
+    .replace(/<ul>/g, `<ul style="margin:0 0 16px;padding-left:20px;font:16px/1.65 ${BODY};color:${INK}">`).replace(/<li>/g, `<li style="margin:0 0 6px">`);
   const ctaUrl = c.cta_url ? track(merge(c.cta_url, r, false), r.token) : "";
+  const listingUrl = track(r.listing_slug ? `${SITE}/directory/${r.listing_slug}` : `${SITE}/directory`, r.token);
+  const L = r.listing || null;
   const reason = c.kind === "newsletter" ? "You're getting this because you signed up for the Cars and Coffee UK newsletter."
-    : c.kind === "business_outreach" ? `You're getting this because ${esc(s(r.business) || "your business")} is listed in the Cars and Coffee UK directory, using the contact address on your business's website.`
+    : outreach ? `You're getting this because ${esc(s(r.business) || "your business")} is listed in the Cars and Coffee UK directory. We used the contact address published on your business's website.`
     : `You're getting this because you manage ${esc(s(r.business) || "a business")} on Cars and Coffee UK.`;
-  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(merge(c.subject, r, false))}</title></head>
-<body style="margin:0;padding:0;background:#efe6da"><span style="display:none;max-height:0;overflow:hidden;opacity:0">${esc(merge(c.preheader || "", r, false))}</span>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#efe6da"><tr><td align="center" style="padding:24px 12px">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:10px;overflow:hidden">
-<tr><td style="background:#1d130f;padding:20px 28px"><a href="${SITE}"><img src="${SITE}/logo.png" width="64" height="62" alt="Cars and Coffee UK" style="display:block;border:0;width:64px;height:62px"></a></td></tr>
-<tr><td style="padding:30px 28px 10px;font:16px/1.6 Arial,sans-serif;color:#241712">
-${c.heading ? `<h1 style="font:900 26px/1.15 Arial Black,Arial,sans-serif;margin:0 0 16px;text-transform:uppercase;color:#1d130f">${esc(merge(c.heading, r, false))}</h1>` : ""}
-<div style="font:16px/1.6 Arial,sans-serif;color:#241712">${body}</div>
-${ctaUrl && c.cta_label ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:26px 0"><tr><td style="background:#c00d0d;border-radius:6px"><a href="${esc(ctaUrl)}" style="display:inline-block;padding:14px 26px;font:700 16px Arial,sans-serif;color:#ffffff;text-decoration:none">${esc(merge(c.cta_label, r, false))}</a></td></tr></table>` : ""}
-</td></tr>
-<tr><td style="padding:10px 28px 28px;font:13px/1.5 Arial,sans-serif;color:#7a6a60;border-top:1px solid #eadfd2">
-<p style="margin:14px 0 6px">${reason}</p>
-<p style="margin:0 0 6px"><a href="${unsub}" style="color:#7a6a60">Unsubscribe</a> · or just reply to this email and we'll take you off our list.</p>
-<p style="margin:0">${esc(footer)} · <a href="${SITE}" style="color:#7a6a60">carsandcoffee.uk</a> · <a href="${SITE}/privacy" style="color:#7a6a60">Privacy</a></p>
-</td></tr></table></td></tr></table></body></html>`;
-  const text = `${c.heading ? merge(c.heading, r, false) + "\n\n" : ""}${merge(c.body_html || "", r, false).replace(/<br\s*\/?>/gi, "\n").replace(/<\/(p|h\d|li|div)>/gi, "\n\n").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/\n{3,}/g, "\n\n").trim()}${ctaUrl && c.cta_label ? `\n\n${merge(c.cta_label, r, false)}: ${ctaUrl}` : ""}\n\n--\n${reason.replace(/<[^>]+>/g, "")}\nUnsubscribe: ${unsub}\n${footer} · ${SITE}`;
+
+  // outreach: a preview of their listing and what claiming gets them
+  const card = outreach && L ? `<tr><td style="padding:0 32px 8px" class="px">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${LINE};border-radius:10px;background:${CREAM}" bgcolor="${CREAM}">
+      <tr><td style="padding:18px 20px">
+        <p style="margin:0 0 4px;font:bold 11px ${BODY};letter-spacing:1.5px;text-transform:uppercase;color:${RED}">Your listing</p>
+        <p style="margin:0 0 4px;font:normal 24px/1.15 ${HEAD};text-transform:uppercase;color:${ESP}">${esc(L.name || r.business || "")}</p>
+        <p style="margin:0 0 10px;font:14px ${BODY};color:${SOFT}">${esc([L.town, L.county].filter(Boolean).join(", "))}${(L.services || []).length ? ` &middot; ${esc((L.services || []).slice(0, 4).join(", "))}` : ""}</p>
+        <p style="margin:0;font:14px ${BODY};color:${SOFT}"><span style="display:inline-block;background:#fff3cd;color:#7a5a00;border-radius:4px;padding:2px 8px;font-weight:bold;font-size:12px">Not yet claimed</span> &nbsp;<a href="${esc(listingUrl)}" style="color:${RED};font-weight:bold">See it on the site &rarr;</a></p>
+      </td></tr></table></td></tr>
+    <tr><td style="padding:16px 32px 0" class="px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+      ${[["Your own business page", "Photos, services and prices, opening times and a map"], ["Enquiries straight to you", "Customers message you from your page"], ["Reviews you can reply to", "Build trust with local enthusiasts"], ["See your results", "Page views, calls and clicks each month"]].map(([t, d]) => `<tr><td width="34" valign="top" style="padding:0 0 12px"><div style="width:24px;height:24px;border-radius:12px;background:${RED};color:#ffffff;font:bold 14px/24px ${BODY};text-align:center">&#10003;</div></td><td valign="top" style="padding:0 0 12px;font:15px/1.45 ${BODY};color:${INK}"><strong>${t}</strong><br><span style="color:${SOFT}">${d}</span></td></tr>`).join("")}
+    </table></td></tr>` : "";
+
+  const html = `<!doctype html><html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="x-apple-disable-message-reformatting"><meta name="color-scheme" content="light only"><meta name="supported-color-schemes" content="light only">
+<title>${esc(merge(c.subject, r, false))}</title>
+<!--[if mso]><noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript><style>td,a,p,h1{font-family:Arial,sans-serif!important}</style><![endif]-->
+<style>@import url('https://fonts.googleapis.com/css2?family=Anton&display=swap');
+@media (max-width:620px){.px{padding-left:20px!important;padding-right:20px!important}.h1{font-size:30px!important}}
+a{color:${RED}}</style></head>
+<body style="margin:0;padding:0;background:#efe6da;-webkit-text-size-adjust:100%" bgcolor="#efe6da">
+<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:#efe6da">${esc(merge(c.preheader || "", r, false))}&#8199;&#65279;&#847;&#8199;&#65279;&#847;&#8199;&#65279;&#847;&#8199;&#65279;&#847;</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#efe6da" style="background:#efe6da"><tr><td align="center" style="padding:24px 10px">
+<!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0"><tr><td><![endif]-->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:12px;overflow:hidden" bgcolor="#ffffff">
+  <tr><td bgcolor="${ESP}" style="background:${ESP};padding:18px 32px" class="px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+    <td><a href="${SITE}"><img src="${SITE}/logo.png" width="58" height="56" alt="CARS AND COFFEE UK" style="display:block;border:0;width:58px;height:56px;color:#ffffff;font:bold 14px ${BODY}"></a></td>
+    <td align="right" style="font:bold 12px ${BODY};letter-spacing:1.5px;text-transform:uppercase;color:#f2a93b">${outreach ? "Business directory" : c.kind === "newsletter" ? "The newsletter" : "For businesses"}</td></tr></table></td></tr>
+  <tr><td height="5" bgcolor="${RED}" style="background:${RED};font-size:0;line-height:0">&nbsp;</td></tr>
+  ${c.heading ? `<tr><td style="padding:32px 32px 6px" class="px"><h1 class="h1" style="margin:0;font:normal 36px/1.05 ${HEAD};text-transform:uppercase;color:${ESP};letter-spacing:.3px">${esc(merge(c.heading, r, false))}</h1></td></tr>` : ""}
+  <tr><td style="padding:${c.heading ? "18px" : "32px"} 32px 8px" class="px">${body}</td></tr>
+  ${card}
+  ${ctaUrl && c.cta_label ? `<tr><td style="padding:18px 32px 8px" class="px">${button(ctaUrl, merge(c.cta_label, r, false))}<p style="margin:12px 0 0;font:13px ${BODY};color:${SOFT}">${outreach ? `Free. Takes about two minutes. Sign in with ${esc(r.email)}.` : ""}</p></td></tr>` : ""}
+  <tr><td style="padding:24px 32px 30px" class="px"><p style="margin:0;font:15px/1.6 ${BODY};color:${INK}">Any questions, just reply to this email.</p></td></tr>
+  <tr><td bgcolor="${ESP}" style="background:${ESP};padding:24px 32px" class="px">
+    <p style="margin:0 0 10px;font:normal 18px ${HEAD};text-transform:uppercase;color:#ffffff;letter-spacing:.5px">Cars and Coffee UK</p>
+    <p style="margin:0 0 14px;font:13px/1.6 ${BODY};color:#cbb9a8">Norfolk and Suffolk's car community: meets, a members' club, trusted local businesses and a shop.</p>
+    <p style="margin:0 0 14px;font:bold 13px ${BODY}"><a href="${SITE}/events" style="color:#ffffff;text-decoration:none">Events</a> &nbsp;&middot;&nbsp; <a href="${SITE}/directory" style="color:#ffffff;text-decoration:none">Directory</a> &nbsp;&middot;&nbsp; <a href="${SITE}/shop" style="color:#ffffff;text-decoration:none">Shop</a> &nbsp;&middot;&nbsp; <a href="https://club.carsandcoffee.uk" style="color:#ffffff;text-decoration:none">Club</a></p>
+    <p style="margin:0 0 6px;font:12px/1.6 ${BODY};color:#a8968a">${reason}</p>
+    <p style="margin:0;font:12px/1.6 ${BODY};color:#a8968a"><a href="${unsub}" style="color:#f2a93b">Unsubscribe</a> &middot; ${esc(footer)} &middot; <a href="${SITE}/privacy" style="color:#a8968a">Privacy</a></p>
+  </td></tr>
+</table>
+<!--[if mso]></td></tr></table><![endif]-->
+</td></tr></table></body></html>`;
+
+  // plain-text version for mail apps that don't show HTML
+  const strip = (h: string) => h.replace(/<br\s*\/?>/gi, "\n").replace(/<li[^>]*>/gi, "• ").replace(/<\/(p|h\d|li|div|ul)>/gi, "\n\n").replace(/<a [^>]*href="([^"]+)"[^>]*>([^<]*)<\/a>/gi, "$2 ($1)").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&rarr;/g, "→").replace(/&middot;/g, "·").replace(/\n{3,}/g, "\n\n").trim();
+  const text = [c.heading ? merge(c.heading, r, false).toUpperCase() : "", strip(merge(c.body_html || "", r, false)),
+    outreach && L ? `YOUR LISTING\n${L.name || r.business}${L.town ? ", " + L.town : ""} (not yet claimed)\n${listingUrl}\n\nClaim it free to get your own business page, enquiries straight to you, reviews you can reply to and monthly results.` : "",
+    ctaUrl && c.cta_label ? `${merge(c.cta_label, r, false)}: ${ctaUrl}` : "", "Any questions, just reply to this email.",
+    `--\nCars and Coffee UK · ${SITE}\n${reason}\nUnsubscribe: ${unsub}\n${footer}`].filter(Boolean).join("\n\n");
   return { subject: merge(c.subject, r, false), html, text, unsub };
 }
 
@@ -69,16 +122,20 @@ async function handle(req: Request): Promise<Response> {
 
   let rows: R[] = [], token = "", isTest = false;
   const body = await req.json().catch(() => ({}));
-  if (body.test) {
+  if (body.test || body.preview) {
     // test send from admin: the caller must be on the team
     const jwt = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
     const asUser = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: `Bearer ${jwt}` } }, auth: { persistSession: false } });
     const { data: team } = await asUser.schema("site").rpc("am_i_team");
     const { data: { user: me } } = await asUser.auth.getUser();
     if (team !== true || !me?.email) return reply({ error: "Team only." }, 403);
-    const { data: c } = await db.schema("site").from("email_campaigns").select("*").eq("id", body.campaign).maybeSingle();
+    const { data: saved } = body.draft ? { data: null } : await db.schema("site").from("email_campaigns").select("*").eq("id", body.campaign).maybeSingle();
+    const c = body.draft ? { id: "preview", from_name: "Cars and Coffee UK", ...body.draft } as C : saved;
     if (!c) return reply({ error: "Campaign not found" }, 404);
-    rows = [{ send_id: 0, email: me.email, name: "Test Recipient", business: "Example Motors Ltd", listing_slug: "", token: crypto.randomUUID(), campaign: c }];
+    const sample: R = { send_id: 0, email: me.email, name: "Sam Smith", business: "Example Motors Ltd", listing_slug: "", token: crypto.randomUUID(), campaign: c,
+      listing: c.kind === "business_outreach" ? { name: "Example Motors Ltd", town: "Norwich", county: "Norfolk", services: ["Servicing", "Bodywork"] } : null };
+    if (body.preview) { const m = render(sample); return reply({ subject: m.subject, html: m.html, text: m.text }); }
+    rows = [sample];
     isTest = true;
   } else {
     token = req.headers.get("x-outbox-token") ?? "";
@@ -88,15 +145,15 @@ async function handle(req: Request): Promise<Response> {
   }
   if (!rows.length) return reply({ sent: 0 });
 
-  const client = new SMTPClient({ connection: { hostname: Deno.env.get("MARKETING_SMTP_HOST") || "smtp.consensusmedia.co.uk", port: 465, tls: true, auth: { username: user, password: pass } } });
+  const transport = nodemailer.createTransport({ host: Deno.env.get("MARKETING_SMTP_HOST") || "smtp.consensusmedia.co.uk", port: 465, secure: true, auth: { user, pass }, pool: !isTest, maxConnections: 1, connectionTimeout: 15000, greetingTimeout: 15000, socketTimeout: 30000 });
   const results: { id: number; ok: boolean; error?: string }[] = [];
   for (const r of rows) {
     let ok = false, err = "";
     try {
       const m = render(r);
-      await client.send({
-        from: `${r.campaign.from_name || "Cars and Coffee UK"} <${user}>`, to: r.email, replyTo: r.campaign.reply_to || user,
-        subject: (isTest ? "[Test] " : "") + m.subject, content: m.text, html: m.html,
+      await transport.sendMail({
+        from: { name: r.campaign.from_name || "Cars and Coffee UK", address: user }, to: r.email, replyTo: r.campaign.reply_to || user,
+        subject: (isTest ? "[Test] " : "") + m.subject, text: m.text, html: m.html,
         headers: { "List-Unsubscribe": `<${m.unsub}>, <mailto:${user}?subject=unsubscribe>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click", "X-CAC-Campaign": r.campaign.id },
       });
       ok = true;
@@ -105,7 +162,7 @@ async function handle(req: Request): Promise<Response> {
     results.push({ id: r.send_id, ok, ...(ok ? {} : { error: err }) });
     if (!isTest) await new Promise((res) => setTimeout(res, 1500)); // gentle pace: about 40 a minute at most
   }
-  // no client.close(): denomailer's close crashes the runtime on this server ("Bad resource ID"); the connection ends with the request
+  try { transport.close(); } catch { /* ignore */ }
   if (isTest && !results[0]?.ok) {
     const host = Deno.env.get("MARKETING_SMTP_HOST") || "smtp.consensusmedia.co.uk";
     const masked = user.replace(/^(.{2}).*(@.*)$/, "$1…$2");

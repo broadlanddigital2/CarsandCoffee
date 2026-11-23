@@ -1310,7 +1310,7 @@ route("/email/:id", async ({ id }) => {
         ${c.status === "sending" ? '<button class="btn btn-warning" type="button" id="e_pause">Pause</button>' : ""}${!isNew && c.status !== "sending" ? '<button class="btn btn-outline-secondary" type="button" id="e_dup">Duplicate</button>' : ""}
         ${!isNew && c.status === "draft" ? '<button class="btn btn-outline-danger ms-auto" type="button" id="e_del">Delete</button>' : ""}</div>
     </div></form></div>
-    <div class="col-lg-5"><div class="card"><div class="card-header bg-white fw-semibold">Preview</div><div class="card-body p-0"><iframe id="e_prev" title="Email preview" style="width:100%;height:640px;border:0;background:#efe6da"></iframe></div></div>
+    <div class="col-lg-5"><div class="card"><div class="card-header bg-white"><span class="fw-semibold">Preview</span> <span class="small text-body-secondary">· Subject: <span id="e_subj"></span></span></div><div class="card-body p-0"><iframe id="e_prev" title="Email preview" style="width:100%;height:820px;border:0;background:#efe6da"></iframe></div></div>
       ${!isNew ? `<div class="card mt-3"><div class="card-header bg-white fw-semibold">Recipients ${count != null && c.status === "draft" ? `<span class="small fw-normal text-body-secondary">· ${count} will get this</span>` : ""}</div><div class="card-body small" style="max-height:340px;overflow:auto">${sends.length ? sends.slice(0, 300).map((x) => `<div class="d-flex justify-content-between border-bottom py-1"><span>${esc(x.business || x.email)}${x.business ? `<span class="text-body-secondary"> · ${esc(x.email)}</span>` : ""}</span><span>${x.unsubscribed_at ? "Unsubscribed" : x.clicked_at ? "Clicked" : esc(x.status)}</span></div>`).join("") : count ? "Recipients are added when you start sending." : c.kind === "business_outreach" ? "No businesses ready yet. Publish imported listings and save an outreach email on each (Find their details)." : "Nobody to send to yet."}</div></div>` : ""}</div></div>`;
   wireRich($("#ecf"), { upload: uploadSiteImage, onChange: () => { dirty = true; $("#ecf").dispatchEvent(new Event("input")); } });
   const val = () => ({ name: $("#e_name").value.trim(), kind: $("#e_kind").value, subject: $("#e_subject").value.trim(), preheader: $("#e_pre").value.trim() || null, heading: $("#e_heading").value.trim() || null,
@@ -1318,13 +1318,19 @@ route("/email/:id", async ({ id }) => {
     reply_to: $("#e_reply").value.trim() || null, daily_cap: Math.max(1, Math.min(2000, +$("#e_cap").value || 150)), audience: $("#e_county") ? { county: $("#e_county").value } : {}, updated_at: new Date().toISOString() });
   const sample = { first_name: "Sam", name: "Sam Smith", business: "Example Motors Ltd", listing_url: SITE + "/directory", claim_url: "https://admin.carsandcoffee.uk/", email: "sam@example.co.uk" };
   const fill = (t, html) => String(t || "").replace(/\{\{\s*(\w+)\s*\}\}/g, (_, k) => (html ? esc(sample[k] ?? "") : sample[k] ?? ""));
-  const prev = () => { const v = val(), t = (x) => esc(fill(x));
+  // live preview of the real email (rendered by the sending service), with a simple local version if that can't be reached
+  let pvTimer = null;
+  const prevLocal = () => { const v = val(), t = (x) => esc(fill(x));
     $("#e_prev").srcdoc = `<html><body style="margin:0;background:#efe6da;font-family:Arial,sans-serif"><div style="max-width:600px;margin:16px auto;background:#fff;border-radius:10px;overflow:hidden">
       <div style="background:#1d130f;padding:16px 22px"><img src="${SITE}/logo.png" width="52" alt=""></div><div style="padding:22px;color:#241712;font-size:15px;line-height:1.6">
-      <div style="color:#7a6a60;font-size:12px;margin-bottom:10px">Subject: <strong>${t(v.subject)}</strong><br>${t(v.preheader)}</div>
       ${v.heading ? `<h1 style="font:900 22px/1.15 Arial Black,Arial;text-transform:uppercase;margin:0 0 12px">${t(v.heading)}</h1>` : ""}${fill(v.body_html, true)}
-      ${v.cta_label ? `<p style="margin:22px 0"><span style="background:#c00d0d;color:#fff;padding:12px 22px;border-radius:6px;font-weight:700;display:inline-block">${t(v.cta_label)}</span></p>` : ""}</div>
-      <div style="border-top:1px solid #eadfd2;padding:14px 22px;color:#7a6a60;font-size:12px">Unsubscribe · or reply and we'll take you off our list.<br>Cars and Coffee UK · carsandcoffee.uk · Privacy</div></div></body></html>`; };
+      ${v.cta_label ? `<p style="margin:22px 0"><span style="background:#c00d0d;color:#fff;padding:12px 22px;border-radius:6px;font-weight:700;display:inline-block">${t(v.cta_label)}</span></p>` : ""}</div></div></body></html>`; };
+  const prev = () => { clearTimeout(pvTimer); pvTimer = setTimeout(async () => {
+    try { const v = val(); const { data: { session } } = await sb.auth.getSession();
+      const r = await fetch(`${SUPABASE_URL}/functions/v1/send-campaigns`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + session.access_token, apikey: SUPABASE_KEY }, body: JSON.stringify({ preview: true, draft: v }) });
+      const j = await r.json(); if (!r.ok || !j.html) throw new Error(j.error || "preview failed");
+      $("#e_prev").srcdoc = j.html; $("#e_subj").textContent = j.subject; }
+    catch { prevLocal(); } }, 500); };
   prev();
   $("#ecf").addEventListener("input", () => { dirty = true; prev(); });
   if ($("#e_kind")) $("#e_kind").onchange = () => ($("#e_kind_help").textContent = CAMP_KINDS[$("#e_kind").value][1]);
