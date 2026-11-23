@@ -123,7 +123,7 @@ export async function renderSector(p) {
     <script>document.addEventListener('DOMContentLoaded',function(){var nav=document.querySelector('.sx-jump');if(!nav)return;var links=[].slice.call(nav.querySelectorAll('a[href^="#"]')),secs=links.map(function(a){return document.getElementById(a.getAttribute('href').slice(1));}),cur=null,tick=false;
       function spy(){tick=false;var off=(nav.getBoundingClientRect().bottom||0)+40,on=-1;for(var i=0;i<secs.length;i++){if(secs[i]&&secs[i].getBoundingClientRect().top<=off)on=i;}
         if(on>=0&&secs[on].getBoundingClientRect().bottom<off-40&&on===secs.length-1)on=-1;var a=on>=0?links[on]:null;if(a===cur)return;if(cur){cur.classList.remove('on');cur.removeAttribute('aria-current');}cur=a;if(a){a.classList.add('on');a.setAttribute('aria-current','location');}}
-      addEventListener('scroll',function(){if(!tick){tick=true;requestAnimationFrame(spy);}},{passive:true});addEventListener('resize',spy);spy();});</script>`;
+      addEventListener('scroll',function(){if(!tick){tick=true;setTimeout(spy,60);}},{passive:true});addEventListener('resize',spy);spy();});</script>`;
 
   const main = [`<div class="sx">`, crumbsHTML(crumbs), hero, jump, ...out, `</div>`, newsletterHTML()].join("\n");
 
