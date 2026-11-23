@@ -36,15 +36,24 @@ export async function renderSector(p) {
   const heroImg = p.hero_image_path || SECTOR_HERO[g] || SECTOR_HERO.types;
   const hero = `<section class="phero sx-hero">${heroImg ? `<img class="bg" src="${E(img(heroImg))}" alt="${E(p.hero_image_alt || "")}" fetchpriority="high">` : ""}<div class="wrap"><span class="eyebrow">${E(groupName)}</span><h1>${E(p.h1 || p.title)}</h1>${c.strap || p.intro ? `<p>${E(c.strap || p.intro)}</p>` : ""}<div class="btns">${btn(c.primary)}${btn(c.secondary, true)}</div></div></section>`;
 
-  // At a glance: live counts for this interest, each card jumps to its section (or somewhere useful when there's nothing yet)
-  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  // At a glance: live counts for this interest; each card jumps to its section (or somewhere useful when there's nothing yet)
+  const ICON = {
+    events: '<path d="M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/><path d="M8 13h3v3H8z"/>',
+    listings: '<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
+    products: '<path d="M6 7h12l-1 13H7L6 7z"/><path d="M9 7a3 3 0 0 1 6 0"/>',
+    hub: '<circle cx="9" cy="9" r="3"/><circle cx="17" cy="10" r="2.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M14.5 15.2c.8-.5 1.6-.7 2.5-.7 2.5 0 4 1.9 4 4.5"/>',
+    reads: '<path d="M4 5.5C6.5 4 9.5 4 12 6c2.5-2 5.5-2 8-.5V19c-2.5-1.5-5.5-1.5-8 .5-2.5-2-5.5-2-8-.5V5.5z"/><path d="M12 6v13.5"/>',
+  };
   const glance = [
-    counts.events ? [String(counts.events), plural(counts.events, "upcoming event", "upcoming events"), "#events", "See dates"] : ["Coming soon", "Upcoming events", "/events", "Browse all events"],
-    counts.listings ? [String(counts.listings), plural(counts.listings, "local specialist", "local specialists"), "#specialists", "Find one"] : ["List yours free", "Local specialists", "/directory/list-your-business", "Add a business"],
-    counts.products ? [String(counts.products), plural(counts.products, "shop product", "shop products"), "#shop", "Shop now"] : ["Join free", `${short} hub`, "#hub", "Talk to owners"],
-    counts.reads ? [String(counts.reads), plural(counts.reads, "guide and story", "guides and stories"), "#guides", "Start reading"] : ["Coming soon", "Guides and stories", "/guides", "Browse all guides"],
+    counts.events ? ["events", counts.events, counts.events === 1 ? "Upcoming event" : "Upcoming events", "#events", "See the dates"] : ["events", "", "Upcoming events", "/events", "Browse all events", "New dates added often"],
+    counts.listings ? ["listings", counts.listings, counts.listings === 1 ? "Local specialist" : "Local specialists", "#specialists", "Find a specialist"] : ["listings", "", "Local specialists", "/directory/list-your-business", "List your business free", "Be the first listed"],
+    counts.products ? ["products", counts.products, counts.products === 1 ? "Shop product" : "Shop products", "#shop", "Shop the range"] : ["hub", "", `${short} hub`, "#hub", "Join the conversation", "Free for members"],
+    counts.reads ? ["reads", counts.reads, counts.reads === 1 ? "Guide or story" : "Guides and stories", "#guides", "Start reading"] : ["reads", "", "Guides and stories", "/guides", "Browse all guides", "More on the way"],
   ];
-  add("facts", "", band("facts", "At a glance", `<div class="sx-stats">${glance.map(([v, l, href, cta]) => `<a class="sx-card sx-glance" href="${E(href)}"><div class="pad"><strong>${E(v)}</strong><span>${E(l.charAt(0).toUpperCase() + l.slice(1))}</span><em>${E(cta)} ${ARROW}</em></div></a>`).join("")}</div>`));
+  add("facts", "", band("facts", "At a glance", `<div class="sx-stats sx-glances">${glance.map(([k, n, label, href, cta, note]) => `<a class="sx-glance${n ? "" : " is-empty"}" href="${E(href)}">
+      <span class="sx-gi" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICON[k]}</svg></span>
+      <span class="sx-gn">${n ? E(String(n)) : E(note)}</span><span class="sx-gl">${E(label)}</span>
+      <span class="sx-gc">${E(cta)} ${ARROW}</span></a>`).join("")}</div>`));
 
   const intro = paras(c.intro || p.body_md);
   if (intro.length) {
