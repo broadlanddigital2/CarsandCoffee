@@ -10,13 +10,7 @@ import { interestData, SECTOR_HERO } from "./standard.js";
 const SITE = "https://carsandcoffee.uk";
 const CLUB = "https://club.carsandcoffee.uk";
 const GROUPS = { services: "Car services", activities: "Things to do", types: "Car types" };
-const TOPIC = { services: "directory", activities: "events", types: "club" };
 const FALLBACK_IMG = ["sectors/card-garage.webp", "sectors/card-meet.webp", "sectors/card-livery.webp", "sectors/card-drive.webp"];
-const ENQ_COPY = {
-  services: "Tell us what you'd like done and where you're based. We'll pass your enquiry to a matching specialist or reply from the Cars and Coffee team.",
-  activities: "Tell us which event or session you're considering and what you'd like to know. We can point you to the organiser.",
-  types: "Ask the Cars and Coffee team about ownership, local meets or finding the right specialist.",
-};
 
 const paras = (t) => String(t || "").split(/\n\s*\n/).map((x) => x.trim()).filter(Boolean);
 const band = (id, title, inner, cls = "") => `<section class="sx-band ${cls}" id="${id}"><div class="wrap">${title ? `<h2>${E(title)}</h2>` : ""}${inner}</div></section>`;
@@ -38,7 +32,7 @@ export async function renderSector(p) {
   const add = (id, label, html) => { if (!html) return; if (label) nav.push([id, label]); out.push(html); };
 
   // hero
-  const btn = (pair, ghost) => (pair && pair[0] ? `<a class="btn ${ghost ? "ghost" : "red"}" href="${E(/^(#|\/|https?:)/.test(pair[1]) ? pair[1] : "#" + pair[1])}">${E(pair[0])}${ghost ? "" : " " + ARROW}</a>` : "");
+  const btn = (pair, ghost) => (pair && pair[0] && pair[1] !== "#enquire" ? `<a class="btn ${ghost ? "ghost" : "red"}" href="${E(/^(#|\/|https?:)/.test(pair[1]) ? pair[1] : "#" + pair[1])}">${E(pair[0])}${ghost ? "" : " " + ARROW}</a>` : "");
   const heroImg = p.hero_image_path || SECTOR_HERO[g] || SECTOR_HERO.types;
   const hero = `<section class="phero sx-hero">${heroImg ? `<img class="bg" src="${E(img(heroImg))}" alt="${E(p.hero_image_alt || "")}" fetchpriority="high">` : ""}<div class="wrap"><span class="eyebrow">${E(groupName)}</span><h1>${E(p.h1 || p.title)}</h1>${c.strap || p.intro ? `<p>${E(c.strap || p.intro)}</p>` : ""}<div class="btns">${btn(c.primary)}${btn(c.secondary, true)}</div></div></section>`;
 
@@ -100,23 +94,6 @@ export async function renderSector(p) {
   if (c.faqs?.length) add("faq", "FAQs", band("faq", "Frequently asked questions", `<div class="lp-faq">${c.faqs.map(([qq, a]) => `<details><summary>${E(qq)}</summary><p>${E(a)}</p></details>`).join("")}</div>`));
 
   if (related.length) add("related", "", band("related", "Related interests", `<div class="sx-grid four">${related.slice(0, 4).map((r, i) => imgCard(r.path, r.hero_image_path || FALLBACK_IMG[i % 4], r.hero_image_alt || r.title, r.title, `Explore ${r.title.toLowerCase()}`)).join("")}</div><p class="sx-after"><a class="sx-more" href="/cars">All interests ${ARROW}</a></p>`));
-
-  add("enquire", "Enquire", band("enquire", "Ask or enquire", `<div class="sx-split"><div class="sx-prose"><p>${E(c.enquire_copy || ENQ_COPY[g] || ENQ_COPY.types)}</p><p class="ct-small">We use your details to reply. Read our <a href="/privacy">privacy policy</a>.</p></div>
-    <form class="sx-form" id="sx-enq" data-captcha novalidate>
-      <label>Name<input name="name" autocomplete="name" required maxlength="120"></label>
-      <label>Email address<input name="email" type="email" autocomplete="email" required maxlength="200"></label>
-      <label>What do you need?<textarea name="message" rows="4" required maxlength="4000"></textarea></label>
-      <label class="hb-hp" aria-hidden="true">Leave this blank<input name="cc_hp" tabindex="-1" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"></label>
-      <button class="btn red" type="submit">Send enquiry ${ARROW}</button><p class="ct-msg" role="status"></p>
-    </form>
-    <script>(function(){var f=document.getElementById('sx-enq');function G(n){var a=f.querySelectorAll('[name="'+n+'"]');for(var i=0;i<a.length;i++){var v=(a[i].value||'').trim();if(v)return v;}return '';}
-      f.addEventListener('submit',async function(e){e.preventDefault();var m=f.querySelector('.ct-msg'),b=f.querySelector('[type=submit]');
-        var miss=!G('name')?'Please add your name.':!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(G('email'))?'Please check your email address.':G('message').length<5?'Please tell us a little about what you need.':'';if(miss){m.textContent=miss;m.className='ct-msg bad';return;}
-        b.disabled=true;m.className='ct-msg';m.textContent='Sending…';
-        try{var r=await fetch('/api/enquiry',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:G('name'),email:G('email'),topic:${JSON.stringify(TOPIC[g] || "general")},message:${JSON.stringify("[" + short + "] ")}+G('message'),cc_hp:G('cc_hp'),page:location.pathname})});var j=await r.json().catch(function(){return{};});
-          if(!r.ok)throw new Error(j.error||'Sorry, that didn\\'t send. Please try again.');
-          f.outerHTML='<div class="sx-box"><h3>Thanks, your enquiry is on its way.</h3><p>We\\'ll reply by email, usually within a day or two.</p></div>';}
-        catch(err){m.textContent=err.message;m.className='ct-msg bad';b.disabled=false;}});})();</script></div>`));
 
   nav.push(["newsletter", "Newsletter"]);
   const jump = `<nav class="sx-jump" aria-label="On this page"><div class="wrap">${nav.map(([id, l]) => `<a href="#${id}">${E(l)}</a>`).join("")}<select aria-label="Jump to a section" onchange="if(this.value){var t=document.getElementById(this.value);if(t)t.scrollIntoView({behavior:'smooth'});this.value='';}"><option value="">Jump to…</option>${nav.map(([id, l]) => `<option value="${id}">${E(l)}</option>`).join("")}</select></div></nav>
