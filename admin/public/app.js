@@ -1284,9 +1284,14 @@ route("/email", async () => {
   const pc = (v, of) => (of ? `${v} <span class="small text-body-secondary">${Math.round((v / of) * 100)}%</span>` : "–");
   view.innerHTML = `<div class="page-head"><h1>Email marketing</h1><div class="d-flex gap-2"><a class="btn btn-outline-primary" href="/email/new?kind=business_outreach" data-link>New business outreach</a><a class="btn btn-primary" href="/email/new" data-link>New newsletter</a></div></div>
     <p class="text-body-secondary">Branded emails sent from your TrekMail mailbox, a few at a time so they arrive in inboxes rather than spam. Every email has an unsubscribe link, and anyone who unsubscribes is never emailed again.</p>
+    ${(() => { const rows = (camps || []).map((c) => { const x = st(c.id); return { name: c.name, delivered: x.delivered, open: x.delivered ? Math.round((x.opened / x.delivered) * 100) : 0, click: x.delivered ? Math.round((x.clicked / x.delivered) * 100) : 0, claim: c.kind === "business_outreach" && x.delivered ? Math.round((x.claimed / x.delivered) * 100) : null }; }).filter((r) => r.delivered).slice(0, 8);
+      if (!rows.length) return ""; const tot = (camps || []).reduce((a, c) => { const x = st(c.id); a.d += x.delivered; a.o += x.opened; a.c += x.clicked; a.b += x.bounced; a.u += x.unsub; return a; }, { d: 0, o: 0, c: 0, b: 0, u: 0 });
+      return `${VZ_CSS}<div class="row g-3 mb-3"><div class="col-lg-4"><div class="row g-3">${[["Delivered", tot.d, "all campaigns"], ["Opened ~", tot.o, `${Math.round((tot.o / tot.d) * 100)}%`], ["Clicked", tot.c, `${Math.round((tot.c / tot.d) * 100)}%`], ["Bounced", tot.b, tot.d ? `${Math.round((tot.b / (tot.d + tot.b)) * 1000) / 10}%` : ""]].map(([l, v, sub]) => `<div class="col-6"><div class="card stat h-100"><div class="card-body"><div class="value">${v}</div><div class="label">${l}</div><div class="small text-body-secondary">${sub}</div></div></div></div>`).join("")}</div></div>
+        <div class="col-lg-8"><div class="card h-100"><div class="card-header bg-white fw-semibold">How campaigns compare <span class="small fw-normal text-body-secondary">· latest ${rows.length}</span></div><div class="card-body" id="vz_rates">${rateChart(rows)}</div></div></div></div>`; })()}
     <div class="card">${(camps || []).length ? `<div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>Campaign</th><th>Audience</th><th>Status</th><th>Delivered</th><th title="Approximate: some mail apps load images automatically">Opened ~</th><th>Clicked</th><th>Claimed</th><th>Bounced</th><th>Unsub.</th></tr></thead><tbody>
       ${camps.map((c) => { const x = st(c.id), b = CAMP_STATUS[c.status]; return `<tr><td><a class="rowlink" href="/email/${c.id}" data-link>${esc(c.name)}</a><div class="small text-body-secondary">${esc(c.subject || "No subject yet")}</div></td><td class="small">${esc(CAMP_KINDS[c.kind][0])}</td><td><span class="badge ${b[1]}">${b[0]}</span></td><td>${x.delivered}${x.queued ? ` <span class="small text-body-secondary">+${x.queued} to go</span>` : ""}</td><td>${pc(x.opened, x.delivered)}</td><td>${pc(x.clicked, x.delivered)}</td><td>${c.kind === "business_outreach" ? pc(x.claimed, x.delivered) : "–"}</td><td>${x.bounced || "–"}</td><td>${x.unsub || "–"}</td></tr>`; }).join("")}
       </tbody></table></div>` : '<div class="empty">No campaigns yet. Start with a business outreach email or a newsletter.</div>'}</div>`;
+  wireTips($("#vz_rates"));
 });
 route("/email/:id", async ({ id }) => {
   const isNew = id === "new";
@@ -1356,6 +1361,61 @@ route("/email/:id", async ({ id }) => {
   if ($("#e_del")) $("#e_del").onclick = async () => { const b = $("#e_del"); if (!b.dataset.armed) { b.dataset.armed = 1; b.textContent = "Click again to delete"; return; } const { error } = await site().from("email_campaigns").delete().eq("id", c.id); if (error) return oops(error); toast("Deleted"); go("/email", true); };
 });
 
+
+// ---------- small SVG charts for email results (no library) ----------
+// colours: categorical slot 1 (blue) for opens, slot 2 (orange) for clicks; funnel uses the single blue hue
+const VZ = { open: "#2a78d6", click: "#eb6834", grid: "#ece7e1", ink: "#241712", soft: "#6b5a50" };
+function vzTip() { let t = document.getElementById("vz-tip"); if (!t) { t = document.createElement("div"); t.id = "vz-tip"; t.style.cssText = "position:fixed;z-index:2000;pointer-events:none;background:#1d130f;color:#fff;font:12px/1.4 Inter,system-ui,sans-serif;padding:6px 9px;border-radius:6px;box-shadow:0 4px 14px rgba(0,0,0,.18);display:none;max-width:260px"; document.body.appendChild(t); } return t; }
+function wireTips(root) { if (!root) return; const t = vzTip();
+  root.querySelectorAll("[data-tip]").forEach((el) => { el.addEventListener("mousemove", (e) => { t.innerHTML = el.dataset.tip; t.style.display = "block"; t.style.left = Math.min(e.clientX + 14, innerWidth - 270) + "px"; t.style.top = e.clientY + 14 + "px"; el.classList.add("vz-on"); });
+    el.addEventListener("mouseleave", () => { t.style.display = "none"; el.classList.remove("vz-on"); }); }); }
+const VZ_CSS = `<style>.vz-bar{transition:opacity .12s}.vz-chart:hover .vz-bar{opacity:.55}.vz-chart .vz-on .vz-bar,.vz-chart .vz-bar.vz-on{opacity:1}.vz-leg{display:flex;gap:14px;font-size:12px;color:${VZ.soft}}.vz-leg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}</style>`;
+
+// funnel: delivered -> opened -> clicked -> claimed, bar length = share of delivered
+function funnelChart(steps, base) {
+  return `<div class="vz-chart">${steps.map(([label, v, note]) => { const pct = base ? (v / base) * 100 : 0;
+    return `<div class="d-flex align-items-center gap-2 mb-2" data-tip="<strong>${esc(label)}</strong><br>${v} of ${base} delivered (${Math.round(pct)}%)${note ? `<br><span style='opacity:.75'>${esc(note)}</span>` : ""}">
+      <div class="small text-nowrap" style="width:96px;color:${VZ.ink}">${esc(label)}</div>
+      <div class="flex-grow-1" style="background:#f4efe9;border-radius:4px;height:22px;position:relative"><div class="vz-bar" style="width:${Math.max(pct, v ? 1.5 : 0)}%;height:100%;background:${VZ.open};border-radius:4px"></div></div>
+      <div class="small text-nowrap text-end" style="width:84px"><strong>${v}</strong> <span class="text-body-secondary">${Math.round(pct)}%</span></div></div>`; }).join("")}</div>`;
+}
+
+// activity over time: people opening / clicking for the first time, per hour (first 2 days) or per day
+function activityChart(sends) {
+  const sent = sends.map((x) => x.sent_at).filter(Boolean).map((d) => +new Date(d)); if (!sent.length) return "";
+  const start = Math.min(...sent), now = Date.now(), hourly = now - start < 2 * 864e5, step = hourly ? 36e5 : 864e5;
+  const floor = (t) => { const d = new Date(t); hourly ? d.setMinutes(0, 0, 0) : d.setHours(0, 0, 0, 0); return +d; };
+  const first = floor(start), n = Math.min(hourly ? 48 : 30, Math.floor((floor(now) - first) / step) + 1), from = floor(now) - (n - 1) * step;
+  const B = Array.from({ length: n }, (_, i) => ({ t: from + i * step, o: 0, c: 0 }));
+  const put = (d, k) => { if (!d) return; const i = Math.floor((floor(+new Date(d)) - from) / step); if (i >= 0 && i < n) B[i][k]++; };
+  sends.forEach((x) => { put(x.opened_at, "o"); put(x.clicked_at, "c"); });
+  const max = Math.max(1, ...B.map((b) => Math.max(b.o, b.c))), nice = max <= 4 ? max : Math.ceil(max / 4) * 4;
+  const W = 640, H = 200, L = 30, R = 8, T = 10, Bm = 26, pw = W - L - R, ph = H - T - Bm, gw = pw / n, bw = Math.max(2, Math.min(14, (gw - 4) / 2 - 1));
+  const y = (v) => T + ph - (v / nice) * ph, lab = (t) => new Date(t).toLocaleString("en-GB", hourly ? { hour: "2-digit", minute: "2-digit" } : { day: "numeric", month: "short" });
+  const ticks = [0, nice / 2, nice].filter((v, i, a) => Number.isInteger(v) && a.indexOf(v) === i);
+  const every = Math.ceil(n / 8);
+  const bar = (x, v, col) => { if (!v) return ""; const h = y(0) - y(v), r = Math.min(4, h, bw / 2);
+    return `<path class="vz-bar" fill="${col}" d="M${x},${y(0)}V${y(v) + r}Q${x},${y(v)} ${x + r},${y(v)}H${x + bw - r}Q${x + bw},${y(v)} ${x + bw},${y(v) + r}V${y(0)}Z"/>`; };
+  return `<div class="vz-chart"><div class="vz-leg mb-1"><span><i style="background:${VZ.open}"></i>Opened (first time)</span><span><i style="background:${VZ.click}"></i>Clicked (first time)</span><span class="ms-auto">${hourly ? "Per hour" : "Per day"}</span></div>
+    <svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Opens and clicks over time" style="display:block;overflow:visible;font:11px Inter,system-ui,sans-serif">
+    ${ticks.map((v) => `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="${VZ.grid}" ${v ? 'stroke-dasharray="3 3"' : ""}/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end" fill="${VZ.soft}">${v}</text>`).join("")}
+    ${B.map((b, i) => { const x0 = L + i * gw + (gw - (bw * 2 + 2)) / 2; return `<g data-tip="<strong>${esc(hourly ? new Date(b.t).toLocaleString("en-GB", { weekday: "short", hour: "2-digit", minute: "2-digit" }) : new Date(b.t).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }))}</strong><br><span style='color:#8fbaf0'>&#9632;</span> ${b.o} opened<br><span style='color:#f4a07c'>&#9632;</span> ${b.c} clicked">
+      <rect x="${L + i * gw}" y="${T}" width="${gw}" height="${ph}" fill="transparent"/>${bar(x0, b.o, VZ.open)}${bar(x0 + bw + 2, b.c, VZ.click)}
+      ${i % every === 0 ? `<text x="${L + i * gw + gw / 2}" y="${H - 8}" text-anchor="middle" fill="${VZ.soft}">${esc(lab(b.t))}</text>` : ""}</g>`; }).join("")}
+    </svg></div>`;
+}
+
+// campaign comparison on the list page: open rate and click rate per campaign
+function rateChart(rows) {
+  if (!rows.length) return "";
+  const max = Math.max(10, ...rows.flatMap((r) => [r.open, r.click])), top = Math.ceil(max / 10) * 10;
+  return `<div class="vz-chart"><div class="vz-leg mb-2"><span><i style="background:${VZ.open}"></i>Open rate (approx.)</span><span><i style="background:${VZ.click}"></i>Click rate</span></div>
+    ${rows.map((r) => `<div class="mb-2" data-tip="<strong>${esc(r.name)}</strong><br>${r.delivered} delivered<br><span style='color:#8fbaf0'>&#9632;</span> ${r.open}% opened<br><span style='color:#f4a07c'>&#9632;</span> ${r.click}% clicked${r.claim != null ? `<br>${r.claim}% claimed` : ""}">
+      <div class="small text-truncate mb-1" style="color:${VZ.ink}">${esc(r.name)} <span class="text-body-secondary">· ${r.delivered} delivered</span></div>
+      ${[["open", r.open], ["click", r.click]].map(([k, v]) => `<div class="d-flex align-items-center gap-2" style="margin-bottom:2px"><div class="flex-grow-1"><div class="vz-bar" style="width:${Math.max((v / top) * 100, v ? 1 : 0)}%;height:10px;background:${VZ[k]};border-radius:0 4px 4px 0"></div></div><div class="small text-end" style="width:38px">${v}%</div></div>`).join("")}</div>`).join("")}
+    <div class="small text-body-secondary">Scale 0–${top}%.</div></div>`;
+}
+
 // ---------- campaign results: stats, links clicked, recipients ----------
 const shortUrl = (u) => { try { const x = new URL(u); return (x.hostname.replace(/^www\./, "") + x.pathname).replace(/\/$/, "") || x.hostname; } catch { return u; } };
 const sendState = (x) => x.status === "bounced" ? ["Bounced", "text-bg-danger"] : x.unsubscribed_at ? ["Unsubscribed", "text-bg-dark"] : x.claimed_at ? ["Claimed", "text-bg-success"] : x.clicked_at ? ["Clicked", "text-bg-primary"] : x.opened_at ? ["Opened", "text-bg-info"]
@@ -1368,6 +1428,8 @@ function campResults(c, sends, clicks) {
   const top = Object.entries(links).sort((a, b) => b[1].who.size - a[1].who.size).slice(0, 8);
   const F = [["all", "All"], ["opened", "Opened"], ["clicked", "Clicked"], ...(out ? [["claimed", "Claimed"]] : []), ["notopened", "Not opened"], ["bounced", "Bounced"], ["unsub", "Unsubscribed"], ...(x.failed ? [["failed", "Failed"]] : [])];
   return `<div class="row g-3 mb-3">${cards.map(([l, v, sub, tip]) => `<div class="col-6 col-md"><div class="card stat h-100"${tip ? ` title="${esc(tip)}"` : ""}><div class="card-body"><div class="value">${v}</div><div class="label">${l}</div>${sub ? `<div class="small text-body-secondary">${esc(sub)}</div>` : ""}</div></div></div>`).join("")}</div>
+    ${x.delivered ? `${VZ_CSS}<div class="row g-3 mb-3"><div class="col-lg-5"><div class="card h-100"><div class="card-header bg-white fw-semibold">From delivered to ${out ? "claimed" : "clicked"}</div><div class="card-body" id="vz_funnel">${funnelChart([["Delivered", x.delivered], ["Opened ~", x.opened, "Approximate: some mail apps load images automatically, others block them."], ["Clicked", x.clicked], ...(out ? [["Claimed", x.claimed, "Their listing now has an owner."]] : [])], x.delivered)}</div></div></div>
+      <div class="col-lg-7"><div class="card h-100"><div class="card-header bg-white fw-semibold">Activity since sending</div><div class="card-body" id="vz_act">${activityChart(sends)}</div></div></div></div>` : ""}
     <div class="row g-3 mb-3"><div class="col-lg-4"><div class="card h-100"><div class="card-header bg-white fw-semibold">Links clicked</div><div class="card-body small">${top.length ? top.map(([u, v]) => `<div class="d-flex justify-content-between gap-2 border-bottom py-1"><span class="text-truncate" title="${esc(u)}">${esc(u)}</span><span class="text-nowrap">${v.who.size} ${v.who.size === 1 ? "person" : "people"}${v.n > v.who.size ? ` <span class="text-body-secondary">· ${v.n} clicks</span>` : ""}</span></div>`).join("") : '<span class="text-body-secondary">No clicks yet.</span>'}</div></div></div>
     <div class="col-lg-8"><div class="card h-100"><div class="card-header bg-white d-flex flex-wrap align-items-center gap-2"><span class="fw-semibold me-auto">Recipients</span>
       <div class="btn-group btn-group-sm flex-wrap" id="rc_f">${F.map(([k, l], i) => `<button type="button" class="btn btn-outline-secondary${i ? "" : " active"}" data-f="${k}">${l}</button>`).join("")}</div>
@@ -1376,6 +1438,7 @@ function campResults(c, sends, clicks) {
       <div class="card-footer bg-white small text-body-secondary" id="rc_n"></div></div></div></div>`;
 }
 function wireCampResults(c, sends, clicks) {
+  wireTips($("#vz_funnel")); wireTips($("#vz_act"));
   if (!$("#rc_rows")) return;
   const out = c.kind === "business_outreach", byId = {}; for (const k of clicks) (byId[k.send_id] ||= []).push(k);
   let f = "all";
