@@ -9,6 +9,7 @@ import { loadContent, renderContent, sitemap } from "./content.js";
 import { handleAssist } from "./assist.js";
 import { q } from "./home.js";
 import { renderStandard, carsIndex } from "./standard.js";
+import { vehicleLookup } from "./vehicle.js";
 import { shopApi } from "./shop.js";
 
 const FRESH_SECONDS = 60;       // how long a rendered homepage is reused
@@ -45,6 +46,7 @@ export default {
     if ((url.pathname === "/api/shop-menu" || url.pathname === "/api/shop-search") && request.method === "GET") {
       try { return await shopApi(url.pathname, url); } catch { return new Response('{"error":"unavailable"}', { status: 503, headers: { "Content-Type": "application/json" } }); }
     }
+    if (url.pathname === "/api/vehicle") return vehicleLookup(request, env);
     if (url.pathname.startsWith("/api/")) return handleAssist(request, env, url);
     if (url.pathname === "/sitemap.xml") {
       try { return new Response(await sitemap(), { headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=3600" } }); }

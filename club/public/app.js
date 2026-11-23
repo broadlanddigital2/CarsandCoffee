@@ -241,6 +241,7 @@ function applicationForm(a, mode) {
     <label class="f">Where are you based?<select id="location" required>${townOptions(a?.location || "")}</select></label>
     <div class="f"><strong>What are you into?</strong> <small class="muted">Tap all that apply</small><div class="tiles" id="tiles" style="margin-top:8px">${tilesHTML(a?.favourite_series || [])}</div></div>
     <label class="f">Your car or cars <small>(optional) e.g. 1972 MGB GT, Focus RS</small><input type="text" id="car" maxlength="120" value="${esc(a?.car || "")}"></label>
+    ${regBox("appreg", "to fill this in for you")}
     <label class="f">How did you hear about us? <small>(optional)</small><select id="heard"><option value="">Choose one</option>${HEARD.map((h) => `<option ${a?.heard_about === h ? "selected" : ""}>${h}</option>`).join("")}</select></label>
     ${mode === "new" ? `<label class="f">Invite code <small>(optional) from a member's link</small><input type="text" id="invite" maxlength="12" value="${esc(invite)}" autocapitalize="none"></label>` : ""}
     <label class="check"><input type="checkbox" id="guidelines" ${a?.guidelines_accepted ? "checked" : ""}> <span>I agree to the <a href="/guidelines" data-link target="_blank">community guidelines</a>.</span></label>
@@ -250,6 +251,8 @@ function applicationForm(a, mode) {
   </form>`;
 }
 function wireApplicationForm(mode) {
+  wireReg("appreg", (v) => { const el = $("#car"), lab = [v.year, v.make].filter(Boolean).join(" ") + (v.colour ? ` (${v.colour.toLowerCase()})` : "");
+    el.value = el.value ? `${el.value}, ${lab}` : lab; el.focus(); });
   $("#tiles").onclick = (e) => { const b = e.target.closest(".tile"); if (b) b.setAttribute("aria-pressed", b.getAttribute("aria-pressed") !== "true"); };
   $("#appform").onsubmit = async (e) => {
     e.preventDefault();
@@ -506,6 +509,28 @@ async function deletePhoto(key) {
   fetch(`/api/media?key=${encodeURIComponent(key)}`, { method: "DELETE", headers: { Authorization: `Bearer ${session.access_token}` } }).catch(() => {});
 }
 
+// ---------- number plate lookup (DVLA via carsandcoffee.uk/api/vehicle; plates are never stored) ----------
+async function vehicleLookup(reg) {
+  const r = await fetch("https://carsandcoffee.uk/api/vehicle", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reg }) });
+  const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || "Lookup failed"); return j;
+}
+const regBox = (id, hint) => `<div class="regbox"><label class="f" for="${id}" style="margin-bottom:6px">Number plate <small>(optional) ${hint}</small></label>
+  <div class="regrow"><input class="regin" id="${id}" maxlength="9" autocomplete="off" placeholder="AB12 CDE"><button type="button" class="btn ghost small" data-regfind="${id}">Find my car</button></div>
+  <p class="muted small" id="${id}_msg" role="status" style="margin:6px 0 0"></p></div>`;
+function wireReg(id, fill) {
+  const inp = $("#" + id), btn = $(`[data-regfind="${id}"]`), msg = $("#" + id + "_msg"); if (!inp) return;
+  inp.addEventListener("input", () => (inp.value = inp.value.toUpperCase()));
+  const run = async () => {
+    const reg = inp.value.replace(/[^A-Za-z0-9]/g, ""); if (reg.length < 2) { msg.textContent = "Enter your number plate."; return; }
+    msg.textContent = "Looking up…"; btn.disabled = true;
+    try { const v = await vehicleLookup(reg); fill(v); msg.innerHTML = `Found: <strong>${esc([v.year, v.make].filter(Boolean).join(" "))}</strong>${v.colour ? `, ${esc(v.colour.toLowerCase())}` : ""}. We've filled in what the DVLA holds; add the model yourself. Your plate isn't saved.`; }
+    catch (err) { msg.textContent = err.message; }
+    btn.disabled = false;
+  };
+  btn.onclick = run; inp.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); run(); } });
+}
+const engineText = (v) => [v.engine_cc ? (v.engine_cc / 1000).toFixed(1) + " litre" : "", v.fuel ? v.fuel.toLowerCase() : ""].filter(Boolean).join(" ");
+
 // ---------- garage ----------
 const USAGE = { daily: "Daily driver", weekend: "Weekend car", project: "Project", track: "Track car", show: "Show car", classic: "Classic" };
 const carName = (c) => c.nickname || [c.year, c.make, c.model].filter(Boolean).join(" ");
@@ -543,7 +568,7 @@ routeP("/garage/:id", async ({ id }) => {
         <div class="photogrid" id="photos"></div>
         <label class="btn ghost small" style="cursor:pointer" id="addph">Add photos<input type="file" id="phfile" accept="image/*" multiple hidden></label>
         <span class="muted small" id="phmsg"></span></div>
-      <div class="panel"><h3>The car</h3><div class="row3">
+      <div class="panel"><h3>The car</h3>${isNew ? regBox("carreg", "and we'll fill in the make, year, colour and engine") : ""}<div class="row3">
         <label class="f">Make<input type="text" id="make" maxlength="60" required value="${esc(c.make)}" placeholder="e.g. Volkswagen"></label>
         <label class="f">Model<input type="text" id="model" maxlength="60" required value="${esc(c.model)}" placeholder="e.g. Golf GTI Mk1"></label>
         <label class="f">Year<input type="number" id="year" min="1885" max="${year + 1}" value="${esc(c.year ?? "")}" placeholder="${year - 40}"></label></div>
@@ -580,6 +605,8 @@ routeP("/garage/:id", async ({ id }) => {
     }
     $("#phmsg").textContent = files.length ? "Uploaded. Remember to save." : "";
   };
+  wireReg("carreg", (v) => { const set = (id, val) => { const el = $("#" + id); if (el && val && !el.value) el.value = val; };
+    set("make", v.make); set("year", v.year); set("colour", v.colour); set("engine", engineText(v)); $("#model").focus(); });
   $("#carform").onsubmit = async (e) => {
     e.preventDefault();
     const v = (id) => $("#" + id).value.trim();

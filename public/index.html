@@ -481,6 +481,14 @@ a.lp-card:hover{border-color:var(--red)}
 .rv-reply{margin:10px 0 0 14px;padding:10px 14px;border-left:3px solid var(--red);background:var(--paper);border-radius:0 8px 8px 0}.rv-reply strong{font-size:13px}.rv-reply p{margin:4px 0 0;font-size:15px}
 .lyb-steps{list-style:none;margin:0;padding:0;counter-reset:ls}.lyb-steps li{position:relative;padding:0 0 14px 44px;counter-increment:ls}.lyb-steps li::before{content:counter(ls);position:absolute;left:0;top:0;width:30px;height:30px;border-radius:50%;background:var(--red);color:#fff;display:grid;place-items:center;font:400 16px/1 Anton,Impact,sans-serif}.lyb-steps strong{display:block}.lyb-steps span{display:block;font-size:14px;color:var(--soft)}
 .lyb-next .btn{margin-top:4px}
+.pc-wrap{display:flex;gap:8px;align-items:stretch}.pc-wrap input{flex:1;min-width:0}
+.pc-find,.reg-find{flex:none;padding:0 16px;min-height:46px;border-radius:6px;border:1px solid var(--ink);background:transparent;color:var(--ink);font:700 14px Inter,sans-serif;cursor:pointer}
+.pc-find:hover,.reg-find:hover{background:var(--ink);color:var(--paper)}
+.pc-msg,.reg-out{display:block;font-weight:500;font-size:13px;color:var(--soft);min-height:0}.pc-msg.ok,.reg-out.ok{color:#2f7d46}.pc-msg.bad,.reg-out.bad{color:var(--red)}
+.reg-box{display:grid;gap:6px}.reg-row{display:flex;gap:8px}
+.reg-in{flex:1;min-width:0;max-width:220px;font:700 20px/1 "Arial Black",Arial,sans-serif !important;letter-spacing:2px;text-transform:uppercase;text-align:center;background:#f6c700 !important;color:#111 !important;border:2px solid #111 !important;border-radius:6px;padding:8px 10px !important}
+.reg-in::placeholder{color:rgba(0,0,0,.45)}
+.reg-clear{border:0;background:none;color:var(--soft);text-decoration:underline;cursor:pointer;font-size:13px;padding:0 4px}
 @media (max-width:980px){.phero.sx-hero{min-height:560px}.sx-grid.four,.sx-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:650px){.phero.sx-hero{min-height:550px;align-items:flex-end}.sx-jump{position:relative;top:auto}.sx-jump a{display:none}.sx-jump select{display:block}
  .sx-band{scroll-margin-top:90px}.sx-grid,.sx-grid.four,.sx-stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.sx-split{grid-template-columns:1fr}
@@ -679,7 +687,7 @@ a.lp-card:hover{border-color:var(--red)}
 .ct-msg{margin:0;font-size:14px;min-height:1em}.ct-msg.bad{color:var(--red);font-weight:700}
 .ct-sent{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:30px}.ct-sent h3{margin:0 0 8px}
 .ct-side{display:grid;gap:18px}.ct-links{list-style:none;padding:0;margin:0 0 10px}.ct-links li{padding:8px 0;border-bottom:1px solid var(--line)}.ct-links a{font-weight:700;color:var(--ink)}
-.hb-hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+.hb-hp{position:absolute !important;left:-9999px;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 .ab-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
 .ab-card{display:flex;flex-direction:column;gap:8px;background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:20px;color:inherit;text-decoration:none;transition:transform .15s,border-color .15s}.ab-card:hover{transform:translateY(-3px);border-color:var(--red)}
 .ab-card strong{font-family:Anton,Impact,sans-serif;font-weight:400;text-transform:uppercase;font-size:20px}.ab-card span{color:var(--soft);font-size:15px;flex:1}.ab-card em{font-style:normal;font-weight:800;color:var(--red);display:inline-flex;gap:6px;align-items:center}
@@ -720,7 +728,8 @@ a.svc-t{text-decoration:none}
 .biz-hours{list-style:none;padding:0;margin:-6px 0 12px;font-size:14px}.biz-hours li{padding:2px 0}
 .biz-social{display:flex;gap:12px}.biz-gal{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.biz-gal img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:10px}
 .lyb-svcs{border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;margin:0}.lyb-svcs legend{font-weight:700;font-size:14px;padding:0 6px}
-.lyb-chk{display:flex !important;align-items:center;gap:8px;font-weight:500 !important;font-size:15px !important}.lyb-chk input{width:18px;height:18px;min-height:0;padding:0;accent-color:var(--red)}
+.lyb-chk{display:flex !important;align-items:center;gap:8px;font-weight:500 !important;font-size:15px !important}.lyb-chk input{width:18px;height:18px;min-height:0;padding:0;accent-color:var(--red);flex:none}
+.lyb-agree{align-items:flex-start !important;line-height:1.45}.lyb-agree input{margin-top:2px}.lyb-agree a{text-decoration:underline;text-underline-offset:3px}
 .lyb-other{grid-column:1/-1;display:grid !important;grid-template-columns:auto 1fr}.lyb-other input{width:100%;height:auto;padding:8px 10px}
 @media (max-width:980px){.dir-search{grid-template-columns:1fr 1fr}.dir-search .btn{grid-column:1/-1;justify-content:center}.dir-two,.biz-hero-in{grid-template-columns:1fr}.dir-cta{flex-direction:column;align-items:flex-start}}
 @media (max-width:560px){.dir-search,.lyb-svcs{grid-template-columns:1fr}}
@@ -815,7 +824,7 @@ body:has(.mbar.show) .hb{bottom:84px}
 .hb-enq{padding:14px 16px;overflow:auto;flex:1;display:grid;gap:10px;align-content:start}.hb-enq[hidden]{display:none}
 .hb-enq label{display:grid;gap:4px;font-size:13px;font-weight:700}.hb-enq input,.hb-enq select,.hb-enq textarea{font:inherit;font-size:16px;font-weight:400;border:1px solid var(--line);border-radius:8px;padding:9px 11px;background:#fff;color:#241712}
 .hb-enq-t{margin:0;font-size:14px;color:var(--soft)}.hb-small{margin:0;font-size:12px;color:var(--soft)}.hb-small a{color:inherit;text-decoration:underline}
-.hb-hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+.hb-hp{position:absolute !important;left:-9999px;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 .hb-row{display:flex;justify-content:space-between;gap:8px}.hb-msg{margin:0;font-size:14px;color:var(--red);min-height:1em}
 .hb-sent{text-align:center;padding:30px 10px}.hb-sent strong{display:block;font-size:18px;margin-bottom:6px}
 .hb-foot{margin:0;padding:6px 12px 8px;font-size:11px;color:var(--soft);text-align:center;border-top:1px solid var(--line)}
@@ -1476,6 +1485,43 @@ const mbar=$('#mbar'),heroEl=$('#hero')||$('.phero');if(mbar&&heroEl){const hero
       enq.innerHTML='<div class="hb-sent"><strong>Thanks, message sent.</strong><p>We\'ll reply to you by email, usually within a day or two.</p><button type="button" class="btn ghost small" id="hb-done">Back to questions</button></div>';
       document.getElementById('hb-done').onclick=function(){location.reload();};}
     catch(err){m.textContent=err.message;btn.disabled=false;}});
+})();
+</script>
+
+<!-- Postcode finder (postcodes.io) and number plate lookup (/api/vehicle, DVLA) for any form that asks for them -->
+<script>
+(function(){
+  var PC=/^[A-Z]{1,2}[0-9][A-Z0-9]?\s*[0-9][A-Z]{2}$/i;
+  function tidyPc(v){v=String(v||'').toUpperCase().replace(/\s+/g,'');return v.length>3?v.slice(0,-3)+' '+v.slice(-3):v;}
+  function setVal(el,v){if(!el||!v)return;if(el.tagName==='SELECT'){var o=[].find.call(el.options,function(x){return x.value.toLowerCase()===v.toLowerCase()||x.text.toLowerCase()===v.toLowerCase();});if(o)el.value=o.value;return;}if(!el.value||el.dataset.auto==='1'){el.value=v;el.dataset.auto='1';el.dispatchEvent(new Event('input',{bubbles:true}));}}
+  function msgFor(inp){var m=inp.parentNode.parentNode.querySelector('.pc-msg[data-for="'+inp.name+'"]');if(!m){m=document.createElement('span');m.className='pc-msg';m.dataset.for=inp.name;m.setAttribute('role','status');inp.closest('label').appendChild(m);}return m;}
+  async function findPc(inp,quiet){var f=inp.form,pc=tidyPc(inp.value),m=msgFor(inp);if(!PC.test(pc)){if(!quiet){m.textContent='Please enter a full UK postcode, e.g. NR1 3DD.';m.className='pc-msg bad';}return;}
+    inp.value=pc;m.className='pc-msg';m.textContent='Finding…';
+    try{var r=await fetch('https://api.postcodes.io/postcodes/'+encodeURIComponent(pc));var j=await r.json();if(!r.ok||!j.result)throw 0;var x=j.result;
+      var town=(x.parish||'').replace(/,\s*unparished area$/i,'').replace(/\s*\(.*\)$/,'');if(!town||/unparished/i.test(x.parish||''))town=x.admin_district||x.post_town||'';
+      if(/^(Broadland|South Norfolk|North Norfolk|Breckland|East Suffolk|West Suffolk|Mid Suffolk|Babergh)$/i.test(town)&&x.admin_ward)town=x.admin_ward.replace(/\s*(&|and)\s.*$/,'');
+      var county=x.admin_county||(x.region==='East of England'?'':x.region)||'';
+      setVal(f.querySelector('[name="'+(inp.dataset.pcTown||'town')+'"]'),town);setVal(f.querySelector('[name="'+(inp.dataset.pcCounty||'county')+'"]'),county);
+      var la=f.querySelector('[name="lat"]'),ln=f.querySelector('[name="lng"]');if(la)la.value=x.latitude;if(ln)ln.value=x.longitude;
+      m.textContent='✓ '+[town,county].filter(Boolean).join(', ')+'. Check the town is right.';m.className='pc-msg ok';}
+    catch(e){if(!quiet){m.textContent="We couldn't find that postcode. Check it, or fill in the town yourself.";m.className='pc-msg bad';}else m.textContent='';}}
+  function wirePc(inp){if(inp.dataset.pcWired)return;inp.dataset.pcWired='1';var b=document.createElement('button');b.type='button';b.className='pc-find';b.textContent='Find';b.setAttribute('aria-label','Find town from postcode');
+    var w=document.createElement('span');w.className='pc-wrap';inp.parentNode.insertBefore(w,inp);w.appendChild(inp);w.appendChild(b);
+    b.addEventListener('click',function(){findPc(inp,false);});inp.addEventListener('blur',function(){if(PC.test(tidyPc(inp.value)))findPc(inp,true);});
+    inp.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();findPc(inp,false);}});}
+  window.CCVehicle=async function(reg){var r=await fetch('/api/vehicle',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reg:reg})});var j=await r.json().catch(function(){return{};});if(!r.ok)throw new Error(j.error||'Lookup failed');return j;};
+  window.CCVehicleLabel=function(v){return [v.year,v.make].filter(Boolean).join(' ')+(v.colour||v.engine_cc||v.fuel?' ('+[v.colour,v.engine_cc?(v.engine_cc/1000).toFixed(1)+' litre':'',v.fuel].filter(Boolean).join(', ').toLowerCase()+')':'');};
+  function wireReg(box){if(box.dataset.regWired)return;box.dataset.regWired='1';var inp=box.querySelector('input.reg-in'),b=box.querySelector('.reg-find'),out=box.querySelector('.reg-out'),hid=box.querySelector('input[type=hidden]');
+    async function go(){var reg=(inp.value||'').toUpperCase().replace(/[^A-Z0-9]/g,'');if(reg.length<2){out.textContent='Enter your number plate.';out.className='reg-out bad';return;}
+      out.className='reg-out';out.textContent='Looking up…';b.disabled=true;
+      try{var v=await window.CCVehicle(reg);var lab=window.CCVehicleLabel(v);if(hid)hid.value=reg+': '+lab;out.innerHTML='<strong>'+lab.replace(/[<>&]/g,'')+'</strong> <button type="button" class="reg-clear">Not right?</button>';out.className='reg-out ok';
+        out.querySelector('.reg-clear').onclick=function(){if(hid)hid.value='';out.textContent='';inp.value='';inp.focus();};}
+      catch(err){if(hid)hid.value=reg;out.textContent=err.message;out.className='reg-out bad';}b.disabled=false;}
+    b.addEventListener('click',go);inp.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();go();}});
+    inp.addEventListener('input',function(){inp.value=inp.value.toUpperCase();});}
+  function scan(){document.querySelectorAll('input[data-pc]').forEach(wirePc);document.querySelectorAll('.reg-box').forEach(wireReg);}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',scan);else scan();
+  new MutationObserver(function(){scan();}).observe(document.documentElement,{childList:true,subtree:true});
 })();
 </script>
 
