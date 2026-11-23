@@ -72,7 +72,7 @@ function townsFeature(c, events, placePages) {
       const tp = pageFor(county, t), next = events.find((e) => e.county === county && e.town === t);
       const href = tp ? tp.path : cp ? `${cp.path}#events` : "#events";
       all.push({ t, county, href, live: !!tp });
-      return `<a class="tt${tp ? " live" : ""}" href="${E(href)}"><strong>${E(t)}</strong><span>${next ? `Next: ${short(next.starts_at)}` : tp ? "Local hub" : "Coming soon"}</span>${tp ? `<i aria-hidden="true">${ARROW}</i>` : ""}</a>`;
+      return `<a class="tt${tp ? " live" : ""}" href="${E(href)}"><strong>${E(t)}</strong><span>${next ? `Next: ${short(next.starts_at)}` : tp ? "Local hub" : `Meets nearby`}</span>${tp ? `<i aria-hidden="true">${ARROW}</i>` : ""}</a>`;
     }).join("");
     return `<div class="tf-county" id="${slug(county)}">
       <div class="tf-top"><img src="${E(img(cp?.hero_image_path || COUNTY_PHOTO[county]))}" alt="" loading="lazy"><div class="tf-top-in">
