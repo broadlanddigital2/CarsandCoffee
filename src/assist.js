@@ -18,7 +18,7 @@ const money = (p) => (!p ? "Free" : "£" + (p / 100).toFixed(2).replace(".00", "
 export async function handleAssist(request, env, url) {
   if (url.pathname === "/api/search" && request.method === "GET") return search(url);
   if (url.pathname === "/api/ask" && request.method === "POST") return ask(request, env);
-  if (["/api/enquiry", "/api/listing", "/api/lead", "/api/review", "/api/order"].includes(url.pathname) && request.method === "POST") {
+  if (["/api/enquiry", "/api/listing", "/api/lead", "/api/review", "/api/order", "/api/claim"].includes(url.pathname) && request.method === "POST") {
     // Cloudflare Turnstile: checked only once the secret is set (Worker secret TURNSTILE_SECRET)
     const body = await request.clone().json().catch(() => ({}));
     if (!(await humanCheck(env, body.cf_turnstile, request))) return json({ error: "Please complete the quick security check, then try again." }, 400);
@@ -28,6 +28,7 @@ export async function handleAssist(request, env, url) {
   if (url.pathname === "/api/quote" && request.method === "POST") return quote(request);
   if (url.pathname === "/api/listing" && request.method === "POST") return listing(request);
   if (url.pathname === "/api/track" && request.method === "POST") return track(request);
+  if (url.pathname === "/api/claim" && request.method === "POST") return directoryRpc(request, "submit_claim", "clm", 3, (b) => ({ p_slug: String(b.slug || "").slice(0, 120), p_name: String(b.name || "").slice(0, 120), p_email: String(b.email || "").slice(0, 200), p_phone: String(b.phone || "").slice(0, 40), p_role: String(b.role || "").slice(0, 80), p_message: String(b.message || "").slice(0, 1000) }));
   if (url.pathname === "/api/lead" && request.method === "POST") return directoryRpc(request, "submit_lead", "lead", 4, (b) => ({ p_slug: String(b.slug || "").slice(0, 120), p_name: String(b.name || "").slice(0, 120), p_email: String(b.email || "").slice(0, 200), p_phone: String(b.phone || "").slice(0, 40), p_message: String(b.message || "").slice(0, 4000) }));
   if (url.pathname === "/api/review" && request.method === "POST") return directoryRpc(request, "submit_review", "rev", 3, (b) => ({ p_slug: String(b.slug || "").slice(0, 120), p_name: String(b.name || "").slice(0, 80), p_email: String(b.email || "").slice(0, 200), p_rating: Math.round(Number(b.rating) || 0), p_body: String(b.body || "").slice(0, 2000) }));
   return json({ error: "Not found" }, 404);

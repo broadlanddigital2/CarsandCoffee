@@ -489,6 +489,7 @@ a.lp-card:hover{border-color:var(--red)}
 .reg-in{flex:1;min-width:0;max-width:220px;font:700 20px/1 "Arial Black",Arial,sans-serif !important;letter-spacing:2px;text-transform:uppercase;text-align:center;background:#f6c700 !important;color:#111 !important;border:2px solid #111 !important;border-radius:6px;padding:8px 10px !important}
 .reg-in::placeholder{color:rgba(0,0,0,.45)}
 .reg-clear{border:0;background:none;color:var(--soft);text-decoration:underline;cursor:pointer;font-size:13px;padding:0 4px}
+.claim-band{background:var(--esp);color:#f6ece0}.claim-band .wrap{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justify-content:space-between;padding-top:14px;padding-bottom:14px}.claim-band strong{color:#fff}
 @media (max-width:980px){.phero.sx-hero{min-height:560px}.sx-grid.four,.sx-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:650px){.phero.sx-hero{min-height:550px;align-items:flex-end}.sx-jump{position:relative;top:auto}.sx-jump a{display:none}.sx-jump select{display:block}
  .sx-band{scroll-margin-top:90px}.sx-grid,.sx-grid.four,.sx-stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.sx-split{grid-template-columns:1fr}
@@ -1460,7 +1461,7 @@ const mbar=$('#mbar'),heroEl=$('#hero')||$('.phero');if(mbar&&heroEl){const hero
 <script>
 (function(){
   var m=document.querySelector('meta[name="ts-key"]');if(!m)return;var KEY=m.content,loading=null,widgets=new Map(),lastForm=null;
-  var SEL='#ctf,#hb-enq,#lyb,#lead,#rvf,#co-f,form[data-captcha]',API=['/api/enquiry','/api/listing','/api/lead','/api/review','/api/order'];
+  var SEL='#ctf,#hb-enq,#lyb,#lead,#rvf,#co-f,#clf,form[data-captcha]',API=['/api/enquiry','/api/listing','/api/lead','/api/review','/api/order','/api/claim'];
   function load(){if(window.turnstile)return Promise.resolve();if(loading)return loading;loading=new Promise(function(res,rej){var s=document.createElement('script');s.src='https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';s.async=true;s.onload=function(){res();};s.onerror=rej;document.head.appendChild(s);});return loading;}
   function ensure(form){if(widgets.has(form))return Promise.resolve(widgets.get(form));return load().then(function(){var box=document.createElement('div');box.className='ts-widget';var btn=form.querySelector('[type=submit]');(btn?btn.parentNode:form).insertBefore(box,btn||null);
     var id=window.turnstile.render(box,{sitekey:KEY,theme:'light',size:'flexible',appearance:'interaction-only'});widgets.set(form,id);return id;});}

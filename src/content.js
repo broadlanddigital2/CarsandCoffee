@@ -6,7 +6,7 @@ import { carsIndex } from "./standard.js";
 import { shareBar, galleryOf, galleryHTML } from "./ui.js";
 import { findAll } from "./assist.js";
 import { basketPage, checkoutPage, shopHome, productPage, categoryPage as shopCategory, shopsIndex, storefront, sellPage, shopSitemap } from "./shop.js";
-import { directoryHome, businessPage, servicePage, servicesIndex, regionPage, listYourBusiness } from "./directory.js";
+import { directoryHome, businessPage, servicePage, servicesIndex, regionPage, listYourBusiness, claimPage } from "./directory.js";
 export { sanitize };
 
 const SITE = "https://carsandcoffee.uk";
@@ -58,6 +58,7 @@ export async function renderContent({ kind, slug, ics }) {
     if (a === "services" && !b) return servicesIndex();
     if (a === "service" && b) return servicePage(b);
     if (a === "region" && b) return regionPage(b);
+    if (a === "claim" && b) return claimPage(b);
     return b ? null : businessPage(a); }
   if (kind === "shop") { const { a, b, params } = arguments[0];
     if (!a) return shopHome(params || {});

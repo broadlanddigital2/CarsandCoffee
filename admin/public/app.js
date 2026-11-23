@@ -119,6 +119,8 @@ function navHTML() {
         ${item("/content/gallery_items", "page", "Gallery")}
     ${item("/content/site_stats", "dash", "Stats")}
     ${item("/content/directory_listings", "dir", "Directory")}
+    ${item("/directory/import", "dir", "Import businesses")}
+    ${item("/directory/claims", "check", "Claim requests")}
     ${item("/content/directory_services", "dir", "Directory services")}
     ${item("/content/directory_regions", "pin", "Directory areas")}
     ${item("/content/sponsored_slots", "mega", "Sponsored slots")}
@@ -668,7 +670,7 @@ const CONTENT = {
     fields: [F("partner_id", "Partner", "ref", { table: "partners", show: "name", required: true }), F("block_key", "Homepage block", "select", { options: ["detail_of_month", "livery_of_week", "race_night"] }), F("title", "Title", "text", { required: true }),
       F("body", "Text", "textarea"), F("extra", "Extra line"), F("image_path", "Image", "image"), F("image_alt", "Image description"), F("cta_label", "Button 1 text"), F("cta_url", "Button 1 link"),
       F("cta2_label", "Button 2 text"), F("cta2_url", "Button 2 link"), F("countdown_to", "Countdown to", "datetime"), F("starts_at", "Show from", "datetime"), F("ends_at", "Show until", "datetime"), F("active", "Active", "bool", { def: true })] },
-  directory_listings: { title: "Directory", order: ["created_at", false], list: ["name", "town", "status", "featured"], view: "/directory/", seo: true,
+  directory_listings: { title: "Directory", order: ["created_at", false], list: ["name", "town", "status", "unclaimed", "featured"], view: "/directory/", seo: true,
     help: "Businesses in the directory. New submissions from the website arrive as Pending: check them, add details, then set Status to Published.",
     fields: [F("h_basics", "The business", "heading"), F("name", "Business name", "text", { required: true }), F("slug", "Slug", "slug", { from: "name" }), F("services", "Services (comma separated)", "array"),
       F("summary", "Short summary (shown on cards and in Google)", "textarea", { ai: "summary" }), F("body_html", "About the business", "rich", { ai: "body" }),
@@ -680,7 +682,7 @@ const CONTENT = {
       F("instagram", "Instagram (handle or link)"), F("facebook", "Facebook (page name or link)"), F("youtube", "YouTube (channel handle or link)"), F("tiktok", "TikTok (handle or link)"), F("x_url", "X (handle or link)"), F("linkedin", "LinkedIn (company page or link)"),
       F("hours", "Opening times", "hours"), F("opening_hours", "Opening notes (optional, one per line, e.g. Closed bank holidays)", "lines"),
       F("address_line", "Street address (shown publicly)"), F("town", "Town"), F("county", "County", "select", { options: ["Norfolk", "Suffolk", "Cambridgeshire", "Essex"] }), F("postcode", "Postcode", "postcode"), F("lat", "Latitude", "number", { step: "any" }), F("lng", "Longitude", "number", { step: "any" }), F("approximate", "Map pin is only approximate", "bool"), F("region", "Region"),
-      F("h_status", "Status and promotion", "heading"), F("status", "Status", "select", { options: ["pending", "published", "rejected"] }), F("checked_at", "Checked on", "date"), F("featured", "Featured", "bool"), F("featured_until", "Featured until", "date"),
+      F("h_status", "Status and promotion", "heading"), F("status", "Status", "select", { options: ["pending", "published", "rejected"] }), F("unclaimed", "Not yet claimed by the owner (shows a Claim this business button)", "bool", { short: "Unclaimed" }), F("company_number", "Companies House number"), F("checked_at", "Checked on", "date"), F("featured", "Featured", "bool"), F("featured_until", "Featured until", "date"),
       F("h_seo", "Search engines", "heading", { note: "Optional. Left empty, the name and summary are used." }), F("focus_keyword", "Focus keyword", "text", { ph: "e.g. car detailing norwich" }), F("meta_title", "Google title", "text", { ai: "meta_title" }), F("meta_description", "Google description", "textarea", { ai: "meta_description" })] },
   sponsored_slots: { title: "Sponsored slots", order: ["starts_at", false], list: ["advertiser", "title", "starts_at", "ends_at", "status"],
     fields: [F("advertiser", "Advertiser", "text", { required: true }), F("title", "Headline", "text", { required: true }), F("body", "Text", "textarea"), F("image_path", "Image", "image"), F("image_alt", "Image description"),
@@ -1232,6 +1234,79 @@ async function directoryExtras(row) {
 }
 
 // ---------- Marketing: directory performance ----------
+// ---------- directory: import businesses from Companies House (team only) ----------
+const CH_GROUPS = { repair: "Garages and repairs", parts: "Parts and accessories", sales: "Car sales" };
+route("/directory/import", async () => {
+  crumbs([["Directory", "/content/directory_listings"], ["Import businesses"]]);
+  view.innerHTML = `<div class="page-head"><h1>Import businesses</h1></div>
+    <p class="text-body-secondary">Find active car businesses registered at Companies House and add them to the directory as <strong>Pending, not yet claimed</strong> listings. Only the name, town and services are imported. Registered office addresses are often an accountant's, so no street address or phone number is copied. Check each one, publish the real ones, and the owner can claim it to build their full profile.</p>
+    <div class="card mb-3"><div class="card-body"><form id="chf" class="row g-3 align-items-end">
+      <div class="col-md-3"><label class="form-label" for="ch_county">County</label><select class="form-select" id="ch_county"><option>Norfolk</option><option>Suffolk</option><option>Cambridgeshire</option><option>Essex</option></select></div>
+      <div class="col-md-4"><label class="form-label" for="ch_group">Type of business</label><select class="form-select" id="ch_group"><option value="">Any (use the name search)</option>${Object.entries(CH_GROUPS).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join("")}</select></div>
+      <div class="col-md-3"><label class="form-label" for="ch_name">Name includes (optional)</label><input class="form-control" id="ch_name" placeholder="e.g. detailing, tyres, body"></div>
+      <div class="col-md-2"><button class="btn btn-primary w-100" type="submit">Search</button></div></form>
+      <p class="small text-body-secondary mt-2 mb-0">Tip: detailers, wrappers and tuners often register under general codes, so search their names too (detailing, valeting, wraps, tuning, performance).</p></div></div>
+    <div id="chr"></div>`;
+  let start = 0, last = null;
+  const run = async (more = false) => {
+    if (!more) start = 0;
+    const body = { county: $("#ch_county").value, group: $("#ch_group").value, name: $("#ch_name").value.trim(), start };
+    $("#chr").innerHTML = '<div class="text-body-secondary">Searching Companies House…</div>';
+    const { data: { session } } = await sb.auth.getSession();
+    let j;
+    try { const r = await fetch(SITE + "/api/ch-search", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + session.access_token }, body: JSON.stringify(body) }); j = await r.json(); if (!r.ok) throw new Error(j.error || "Search failed"); }
+    catch (err) { $("#chr").innerHTML = `<div class="alert alert-warning">${esc(err.message)}</div>`; return; }
+    const nums = j.items.map((x) => x.company_number);
+    const { data: have } = nums.length ? await site().from("directory_listings").select("company_number,name,status").in("company_number", nums) : { data: [] };
+    const got = Object.fromEntries((have || []).map((x) => [x.company_number, x]));
+    last = j;
+    $("#chr").innerHTML = `<div class="card"><div class="card-body pb-0 d-flex flex-wrap justify-content-between gap-2 align-items-center"><div><strong>${j.total}</strong> active companies found${j.total > 100 ? `, showing ${start + 1}–${start + j.items.length}` : ""}.</div>
+      <div class="d-flex gap-2"><button class="btn btn-sm btn-outline-secondary" id="ch_all">Select all new</button><button class="btn btn-sm btn-primary" id="ch_imp">Import selected as pending</button></div></div>
+      <div class="table-responsive"><table class="table table-hover align-middle mb-0 mt-2"><thead><tr><th></th><th>Company</th><th>Town</th><th>Services</th><th>Since</th><th></th></tr></thead><tbody>
+      ${j.items.map((x, i) => { const g = got[x.company_number]; return `<tr${g ? ' class="row-off"' : ""}><td><input class="form-check-input" type="checkbox" data-i="${i}" ${g ? "disabled" : ""} aria-label="Select ${esc(x.name)}"></td>
+        <td><strong>${esc(x.name)}</strong><div class="small text-body-secondary">No. ${esc(x.company_number)} · SIC ${esc(x.sic.join(", "))}</div></td><td>${esc(x.town || "–")}<div class="small text-body-secondary">${esc(x.postcode)}</div></td>
+        <td><input class="form-control form-control-sm" data-svc="${i}" value="${esc(x.services.join(", "))}" ${g ? "disabled" : ""} aria-label="Services for ${esc(x.name)}"></td><td class="small">${esc((x.incorporated || "").slice(0, 4))}</td>
+        <td class="small">${g ? `Already in directory (${esc(g.status)})` : `<a href="https://find-and-update.company-information.service.gov.uk/company/${esc(x.company_number)}" target="_blank" rel="noopener">Companies House</a>`}</td></tr>`; }).join("") || '<tr><td colspan="6" class="text-body-secondary">Nothing found. Try another type or a name word.</td></tr>'}
+      </tbody></table></div>
+      <div class="card-body d-flex justify-content-between align-items-center"><span class="small text-body-secondary">${esc(j.attribution || "")}</span>${start + j.items.length < j.total ? '<button class="btn btn-sm btn-outline-secondary" id="ch_more">Next 100</button>' : ""}</div></div>`;
+    $("#ch_all").onclick = () => $$("#chr input[type=checkbox]:not(:disabled)").forEach((c) => (c.checked = true));
+    if ($("#ch_more")) $("#ch_more").onclick = () => { start += 100; run(true); };
+    $("#ch_imp").onclick = async () => {
+      const picked = $$("#chr input[type=checkbox]:checked").map((c) => +c.dataset.i);
+      if (!picked.length) return toast("Tick the businesses to import first", true);
+      const rows = picked.map((i) => { const x = last.items[i], svc = $(`[data-svc="${i}"]`).value.split(",").map((v) => v.trim()).filter(Boolean).slice(0, 6);
+        return { name: x.name, slug: slugify(`${x.name.replace(/\b(ltd|limited|llp|plc)\b\.?/gi, "")} ${x.town}`) + "-" + x.company_number.slice(-4).toLowerCase(), services: svc.length ? svc : ["Servicing"], town: x.town || null,
+          county: $("#ch_county").value, status: "pending", source: "companies_house", company_number: x.company_number, unclaimed: true, approximate: true, enquiries_enabled: true, reviews_enabled: true }; });
+      const { error } = await site().from("directory_listings").insert(rows);
+      if (error) return oops(error);
+      toast(`${rows.length} business${rows.length === 1 ? "" : "es"} added as pending. Check and publish them in Directory.`); run(true);
+    };
+  };
+  $("#chf").onsubmit = (e) => { e.preventDefault(); run(); };
+});
+
+// ---------- directory: claim requests (team only) ----------
+route("/directory/claims", async () => {
+  crumbs([["Directory", "/content/directory_listings"], ["Claim requests"]]);
+  const { data, error } = await site().from("listing_claims").select("*, directory_listings(name,slug)").order("created_at", { ascending: false }).limit(200);
+  if (error) throw error;
+  view.innerHTML = `<div class="page-head"><h1>Claim requests</h1></div><p class="text-body-secondary">People asking to manage an unclaimed listing. Check they run the business (for example, call the business number or check their email domain), then press Approve: they get access the first time they sign in with that email.</p>
+    <div class="card">${(data || []).length ? `<div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Business</th><th>Person</th><th>Message</th><th>Received</th><th></th></tr></thead><tbody>
+    ${data.map((c) => `<tr data-id="${c.id}"><td><a href="/content/directory_listings/${c.listing_id}" data-link>${esc(c.directory_listings?.name || "")}</a></td><td>${esc(c.name)}${c.role ? ` <span class="small text-body-secondary">(${esc(c.role)})</span>` : ""}<div class="small"><a href="mailto:${esc(c.email)}">${esc(c.email)}</a>${c.phone ? ` · ${esc(c.phone)}` : ""}</div></td>
+      <td class="small">${esc(c.message || "")}</td><td class="small">${fmtDate(c.created_at, true)}</td>
+      <td class="text-end text-nowrap">${c.status === "new" ? `<button class="btn btn-sm btn-success" data-ok>Approve</button> <button class="btn btn-sm btn-outline-danger" data-no>Reject</button>` : `<span class="badge ${c.status === "approved" ? "text-bg-success" : "text-bg-secondary"}">${esc(c.status)}</span>`}</td></tr>`).join("")}</tbody></table></div>` : '<div class="empty">No claim requests yet.</div>'}</div>`;
+  view.onclick = async (e) => {
+    const tr = e.target.closest("tr[data-id]"); if (!tr) return; const c = data.find((x) => String(x.id) === tr.dataset.id);
+    if (e.target.matches("[data-ok]")) {
+      const { error: ie } = await site().from("listing_invites").insert({ listing_id: c.listing_id, email: c.email, role: "owner" });
+      if (ie && !/duplicate|unique/i.test(ie.message)) return oops(ie);
+      await site().from("listing_claims").update({ status: "approved" }).eq("id", c.id);
+      toast("Approved. Email them to say they can sign in at admin.carsandcoffee.uk with " + c.email); render();
+    }
+    if (e.target.matches("[data-no]")) { await site().from("listing_claims").update({ status: "rejected" }).eq("id", c.id); toast("Rejected"); render(); }
+  };
+});
+
 route("/marketing/directory", async () => {
   crumbs([["Marketing", "/marketing"], ["Directory performance"]]);
   const days = Number(qs().get("days") || 30);

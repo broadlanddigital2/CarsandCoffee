@@ -126,9 +126,10 @@ export async function businessPage(slug) {
         <div class="lp-chips">${(l.services || []).map(svcLink).join("")}</div>
         <p class="biz-ok"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5 9-10" fill="none" stroke="currentColor" stroke-width="2.6"/></svg>Checked by Cars and Coffee${l.checked_at ? ` · ${new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric" }).format(new Date(l.checked_at))}` : ""}</p>
         <div class="btns">${webUtm ? `<a class="btn red" href="${E(webUtm)}" target="_blank" rel="noopener" data-track="website">Visit website ${ARROW}</a>` : ""}${phoneBtn("ghost")}${l.enquiries_enabled ? `<a class="btn ghost" href="#enquire">Send an enquiry</a>` : ""}</div></div></div></section>`,
+    l.unclaimed ? `<section class="claim-band"><div class="wrap"><div><strong>Is this your business?</strong> Claim it free to add your photos, services and prices, opening times and contact details, and to reply to reviews.</div><a class="btn red small" href="/directory/claim/${E(l.slug)}">Claim this business ${ARROW}</a></div></section>` : "",
     `<nav class="hubnav" aria-label="On this page"><div class="wrap">${nav.map(([t, h]) => `<a href="${h}">${E(t)}</a>`).join("")}</div></nav>`,
     `<section class="lp-sec"><div class="wrap ep-grid biz-grid"><div class="biz-main">
-      <div id="about" class="biz-sec"><h2>About ${E(l.name)}</h2><div class="rich">${about}</div></div>
+      <div id="about" class="biz-sec"><h2>About ${E(l.name)}</h2><div class="rich">${about}</div>${l.source === "companies_house" && l.unclaimed ? `<p class="ct-small">Basic company details from Companies House, licensed under the Open Government Licence v3.0. The owner hasn't added their own details yet.</p>` : ""}</div>
       ${offerings.length ? `<div id="offer" class="biz-sec"><h2>Services and products</h2><div class="biz-offer">${offerings.map((o) => `<div class="biz-off">${o.image ? `<img src="${E(img(o.image))}" alt="" loading="lazy">` : ""}<div><h3>${E(o.name)}</h3>${o.description ? `<p>${E(o.description)}</p>` : ""}${o.price ? `<p class="biz-price">${E(o.price)}</p>` : ""}</div></div>`).join("")}</div></div>` : ""}
       ${gallery.length ? `<div id="photos" class="biz-sec" data-track-gallery>${galleryHTML(galleryOf(gallery), l.name).replace('<h2 id="gal-h">Gallery', '<h2 id="gal-h">Photos')}</div>` : ""}
       ${video ? `<div id="video" class="biz-sec"><h2>Video</h2>${video}</div>` : ""}
@@ -295,4 +296,30 @@ export async function listYourBusiness() {
       <div class="lp-panel"><h3>Why list with us?</h3><ul class="ticks"><li>Free listing with your own business page</li><li>Shown on the local car hub for your town and on matching interest pages</li><li>Found by enthusiasts searching for your services</li><li>A "Checked by Cars and Coffee" badge</li></ul></div>
       <div class="lp-panel"><h3>Want more?</h3><p>Featured listings, sponsored slots and event partnerships put you in front of even more people.</p><a class="btn ghost small" href="/contact?topic=advertising">Ask about featured listings</a></div></aside></div></section>`].join("\n");
   return shell({ title: "List your car business free | Cars and Coffee UK", description: "List your garage, detailing, restoration, tuning or car business free in the Cars and Coffee directory for Norfolk and Suffolk.", path: "/directory/list-your-business", ld: [ld(crumbs)], main, partners });
+}
+
+// ---------- /directory/claim/<slug> ----------
+export async function claimPage(slug) {
+  const [rows, partners] = await Promise.all([q(`directory_listings?select=id,slug,name,town,county,unclaimed&slug=eq.${enc(slug)}&limit=1`), partnersQ()]);
+  const l = rows[0]; if (!l) return null;
+  const crumbs = [["Home", "/"], ["Directory", "/directory"], [l.name, `/directory/${l.slug}`], ["Claim", `/directory/claim/${l.slug}`]];
+  const main = [crumbsHTML(crumbs), `<section class="lp-sec std-head"><div class="wrap"><span class="eyebrow red">Free business profile</span><h1 class="page-h1">Claim ${E(l.name)}</h1><p class="lp-lead">Run ${E(l.name)}${l.town ? ` in ${E(l.town)}` : ""}? Claim the listing to build your full profile: photos, services and prices, opening times and contact details. You'll also see your enquiries and can reply to reviews. It's free.</p></div></section>`,
+    l.unclaimed ? `<section class="lp-sec"><div class="wrap ct-grid"><form class="ct-form" id="clf" data-captcha novalidate>
+      <div class="ct-row"><label>Your name<input name="name" autocomplete="name" required maxlength="120"></label><label>Your role<input name="role" maxlength="80" placeholder="e.g. Owner, Manager"></label></div>
+      <div class="ct-row"><label>Email<input name="email" type="email" autocomplete="email" required maxlength="200"></label><label>Phone<input name="phone" type="tel" autocomplete="tel" maxlength="40"></label></div>
+      <p class="ct-small">Use your business email address if you have one (for example you@yourbusiness.co.uk). It helps us confirm you quickly. You'll sign in with this address.</p>
+      <label>Anything that helps us check (optional)<textarea name="message" rows="3" maxlength="1000" placeholder="e.g. your website, or the best time to call the business"></textarea></label>
+      <label class="hb-hp" aria-hidden="true">Leave this blank<input name="cc_hp" tabindex="-1" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"></label>
+      <button class="btn red" type="submit">Send my claim ${ARROW}</button><p class="ct-msg" role="status"></p></form>
+      <script>(function(){var f=document.getElementById('clf');function G(n){var a=f.querySelectorAll('[name="'+n+'"]');for(var i=0;i<a.length;i++){var v=(a[i].value||'').trim();if(v)return v;}return '';}
+        f.addEventListener('submit',async function(e){e.preventDefault();var m=f.querySelector('.ct-msg'),b=f.querySelector('[type=submit]');
+          var bad=!G('name')?'Please add your name.':!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(G('email'))?'Please check your email address.':'';if(bad){m.textContent=bad;m.className='ct-msg bad';return;}
+          b.disabled=true;m.className='ct-msg';m.textContent='Sending…';
+          try{var r=await fetch('/api/claim',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({slug:${JSON.stringify(l.slug)},name:G('name'),role:G('role'),email:G('email'),phone:G('phone'),message:G('message'),cc_hp:G('cc_hp')})});var j=await r.json().catch(function(){return{};});
+            if(!r.ok)throw new Error(j.error||'Sorry, that didn\\'t send. Please try again.');
+            f.outerHTML='<div class="ct-sent"><h3>Thanks, we\\'ve got your claim.</h3><p>We\\'ll check you run the business, usually within a couple of days, then email you to sign in and build your profile.</p></div>';}
+          catch(err){m.textContent=err.message;m.className='ct-msg bad';b.disabled=false;}});})();</script>
+      <aside class="ct-side"><div class="lp-panel"><h3>What you get</h3><ul class="ticks"><li>Your own business page with photos, services and prices</li><li>Enquiries sent straight to you</li><li>Reviews you can reply to</li><li>See how many people view and contact you</li></ul></div></aside></div></section>`
+    : `<section class="lp-sec"><div class="wrap"><p class="lp-empty">This business has already been claimed. If you think that's wrong, please <a href="/contact?topic=directory">contact us</a>.</p></div></section>`].join("\n");
+  return shell({ title: `Claim ${l.name} | Cars and Coffee UK`, description: `Claim the free Cars and Coffee UK directory listing for ${l.name}.`, path: `/directory/claim/${l.slug}`, noindex: true, ld: [ld(crumbs)], main, partners });
 }
