@@ -53,6 +53,12 @@ ${ctaUrl && c.cta_label ? `<table role="presentation" cellpadding="0" cellspacin
 }
 
 Deno.serve(async (req) => {
+  try { return await handle(req); } catch (e) {
+    return new Response(JSON.stringify({ error: "Sending failed: " + String((e as Error).message ?? e).slice(0, 300) }), { status: 500, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": ADMIN } });
+  }
+});
+
+async function handle(req: Request): Promise<Response> {
   const user = Deno.env.get("MARKETING_SMTP_USER"), pass = Deno.env.get("MARKETING_SMTP_PASS");
   const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
   const cors = { "Access-Control-Allow-Origin": ADMIN, "Access-Control-Allow-Headers": "authorization, content-type, apikey, x-client-info", "Access-Control-Allow-Methods": "POST, OPTIONS" };
@@ -98,6 +104,7 @@ Deno.serve(async (req) => {
     results.push({ id: r.send_id, ok, ...(ok ? {} : { error: err }) });
     await new Promise((res) => setTimeout(res, 1500)); // gentle pace: about 40 a minute at most
   }
-  await client.close().catch(() => {});
+  try { await client.close(); } catch { /* already closed */ }
+  if (isTest && !results[0]?.ok) return reply({ error: "The mailbox refused the test: " + (results[0]?.error || "unknown error") }, 502);
   return reply({ sent: results.filter((x) => x.ok).length, failed: results.filter((x) => !x.ok).length, results });
-});
+}
