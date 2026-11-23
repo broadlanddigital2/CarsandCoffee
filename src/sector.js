@@ -5,7 +5,7 @@
 import { E, img, ARROW, q, eventCard, bizCard } from "./home.js";
 import { shell, crumbsHTML, newsletterHTML } from "./pages.js";
 import { productCard } from "./shop.js";
-import { interestData } from "./standard.js";
+import { interestData, SECTOR_HERO } from "./standard.js";
 
 const SITE = "https://carsandcoffee.uk";
 const CLUB = "https://club.carsandcoffee.uk";
@@ -39,7 +39,8 @@ export async function renderSector(p) {
 
   // hero
   const btn = (pair, ghost) => (pair && pair[0] ? `<a class="btn ${ghost ? "ghost" : "red"}" href="${E(/^(#|\/|https?:)/.test(pair[1]) ? pair[1] : "#" + pair[1])}">${E(pair[0])}${ghost ? "" : " " + ARROW}</a>` : "");
-  const hero = `<section class="phero sx-hero">${p.hero_image_path ? `<img class="bg" src="${E(img(p.hero_image_path))}" alt="${E(p.hero_image_alt || "")}" fetchpriority="high">` : ""}<div class="wrap"><span class="eyebrow">${E(groupName)}</span><h1>${E(p.h1 || p.title)}</h1>${c.strap || p.intro ? `<p>${E(c.strap || p.intro)}</p>` : ""}<div class="btns">${btn(c.primary)}${btn(c.secondary, true)}</div></div></section>`;
+  const heroImg = p.hero_image_path || SECTOR_HERO[g] || SECTOR_HERO.types;
+  const hero = `<section class="phero sx-hero">${heroImg ? `<img class="bg" src="${E(img(heroImg))}" alt="${E(p.hero_image_alt || "")}" fetchpriority="high">` : ""}<div class="wrap"><span class="eyebrow">${E(groupName)}</span><h1>${E(p.h1 || p.title)}</h1>${c.strap || p.intro ? `<p>${E(c.strap || p.intro)}</p>` : ""}<div class="btns">${btn(c.primary)}${btn(c.secondary, true)}</div></div></section>`;
 
   if (c.facts?.length) add("facts", "", band("facts", "At a glance", `<div class="sx-stats">${c.facts.map(([v, l]) => `<div class="sx-card"><div class="pad"><strong>${E(v)}</strong><span>${E(l)}</span></div></div>`).join("")}</div>`));
 

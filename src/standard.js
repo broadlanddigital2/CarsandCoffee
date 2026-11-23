@@ -9,6 +9,7 @@ import { renderSector } from "./sector.js";
 const SITE = "https://carsandcoffee.uk";
 const CLUB = "https://club.carsandcoffee.uk";
 const enc = encodeURIComponent;
+export const SECTOR_HERO = { services: "sectors/detailing-valeting.webp", activities: "sectors/track-days.webp", types: "sectors/classic-cars.webp" };
 const plain = (h) => String(h || "").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
 const faqHTML = (faqs) => `<div class="lp-faq">${faqs.map(([qq, a]) => `<details><summary>${E(qq)}</summary><p>${E(a)}</p></details>`).join("")}</div>`;
 
@@ -28,8 +29,10 @@ export async function renderStandard(p) {
   const toc = heads.length >= 4 ? `<nav class="guide-toc" aria-label="On this page"><strong>On this page</strong><ol>${heads.map((h) => `<li><a href="#${h.id}">${E(h.text)}</a></li>`).join("")}</ol></nav>` : "";
   const updated = p.updated_at ? fmt(p.updated_at, { day: "numeric", month: "long", year: "numeric" }) : "";
 
-  const header = p.hero_image_path
-    ? `<section class="phero"><img class="bg" src="${E(img(p.hero_image_path))}" alt="${E(p.hero_image_alt || "")}"><div class="wrap">${c.label ? `<span class="eyebrow">${E(c.label)}</span>` : ""}<h1>${E(p.h1 || p.title)}</h1>${p.intro ? `<p>${E(p.intro)}</p>` : ""}
+  // every sector page gets the same large hero; pages without their own photo borrow their group's
+  const heroImg = p.hero_image_path || (kind === "interest" ? SECTOR_HERO[c.group] || SECTOR_HERO.types : "");
+  const header = heroImg
+    ? `<section class="phero${kind === "interest" ? " sx-hero" : ""}"><img class="bg" src="${E(img(heroImg))}" alt="${E(p.hero_image_path ? p.hero_image_alt || "" : "")}" fetchpriority="high"><div class="wrap">${c.label ? `<span class="eyebrow">${E(c.label)}</span>` : ""}<h1>${E(p.h1 || p.title)}</h1>${p.intro ? `<p>${E(p.intro)}</p>` : ""}
         ${p.cta_label && p.cta_url ? `<div class="btns"><a class="btn red" href="${E(p.cta_url)}">${E(p.cta_label)} ${ARROW}</a></div>` : ""}</div></section>`
     : `<section class="lp-sec std-head"><div class="wrap">${c.label ? `<span class="eyebrow red">${E(c.label)}</span>` : ""}<h1 class="page-h1">${E(p.h1 || p.title)}</h1>${p.intro ? `<p class="lp-lead">${E(p.intro)}</p>` : ""}
         ${kind === "legal" && updated ? `<p class="std-updated">Last updated ${E(updated)}</p>` : ""}${p.cta_label && p.cta_url ? `<div class="btns"><a class="btn red" href="${E(p.cta_url)}">${E(p.cta_label)} ${ARROW}</a></div>` : ""}</div></section>`;
@@ -50,7 +53,7 @@ export async function renderStandard(p) {
       ...(type === "AboutPage" || type === "ContactPage" ? { mainEntity: { "@type": "Organization", "@id": "https://carsandcoffee.uk/#org", name: "Cars and Coffee UK", url: "https://carsandcoffee.uk/", logo: { "@type": "ImageObject", url: "https://carsandcoffee.uk/logo.png" }, areaServed: ["Norfolk", "Suffolk"] } } : {}) },
   ];
   if (c.faqs?.length) ld.push({ "@context": "https://schema.org", "@type": "FAQPage", mainEntity: c.faqs.map(([qq, a]) => ({ "@type": "Question", name: qq, acceptedAnswer: { "@type": "Answer", text: a } })) });
-  return shell({ title: p.meta_title || `${p.title} | Cars and Coffee UK`, description: p.meta_description || p.intro || "", path: p.path, image: p.og_image_path || p.hero_image_path, noindex: p.noindex, ld, main: parts.join("\n"), partners });
+  return shell({ title: p.meta_title || `${p.title} | Cars and Coffee UK`, description: p.meta_description || p.intro || "", path: p.path, image: p.og_image_path || heroImg, noindex: p.noindex, ld, main: parts.join("\n"), partners });
 }
 
 // ---------- Contact ----------
