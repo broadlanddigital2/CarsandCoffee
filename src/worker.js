@@ -10,7 +10,8 @@ import { handleAssist } from "./assist.js";
 import { q } from "./home.js";
 import { renderStandard, carsIndex } from "./standard.js";
 import { vehicleLookup } from "./vehicle.js";
-import { companiesSearch } from "./companies.js";
+import { companiesSearch, siteScan } from "./companies.js";
+import { unsubscribePage, trackedRedirect } from "./mail.js";
 import { shopApi } from "./shop.js";
 
 const FRESH_SECONDS = 60;       // how long a rendered homepage is reused
@@ -49,6 +50,9 @@ export default {
     }
     if (url.pathname === "/api/vehicle") return vehicleLookup(request, env);
     if (url.pathname === "/api/ch-search") return companiesSearch(request, env);
+    if (url.pathname === "/api/site-scan") return siteScan(request, env);
+    if (url.pathname.startsWith("/unsubscribe/")) return unsubscribePage(request, url);
+    if (url.pathname.startsWith("/r/")) return trackedRedirect(url, ctx);
     if (url.pathname.startsWith("/api/")) return handleAssist(request, env, url);
     if (url.pathname === "/sitemap.xml") {
       try { return new Response(await sitemap(), { headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=3600" } }); }

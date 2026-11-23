@@ -124,6 +124,7 @@ function navHTML() {
     ${item("/content/directory_services", "dir", "Directory services")}
     ${item("/content/directory_regions", "pin", "Directory areas")}
     ${item("/content/sponsored_slots", "mega", "Sponsored slots")}
+    ${item("/email", "send", "Email marketing")}
     ${item("/content/newsletter_subscribers", "mail", "Newsletter")}
     ${item("/content/enquiries", "send", "Enquiries")}
     <li class="nav-title">Shop</li>
@@ -206,6 +207,7 @@ function signInScreen() {
     <p class="small mt-2 mb-0" id="msg" role="status"></p></form>
   </div></div></div>`;
   $("#google").onclick = async () => { const { error } = await sb.auth.signInWithOAuth({ provider: "google", options: { redirectTo: location.origin + "/auth/callback" } }); if (error) $("#msg").textContent = error.message; };
+  { const pre = qs().get("email"); if (pre && $("#email")) $("#email").value = pre; }
   $("#emailform").onsubmit = async (e) => {
     e.preventDefault(); const em = $("#email").value.trim(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) { $("#msg").textContent = "Please enter a valid email address."; return; }
     const { data: invited } = await site().rpc("has_shop_invite", { p_email: em });
@@ -970,7 +972,7 @@ route("/content/:table/:id", async ({ table, id }) => {
   state.uploadListing = table === "my_listing" ? row.id : null;
   if (table === "my_listing") await myListingExtras(row);
   if (table === "my_reviews") myReviewExtras(row);
-  if (table === "directory_listings" && !isNew) await listingPeopleExtras(row);
+  if (table === "directory_listings" && !isNew) { await listingPeopleExtras(row); await listingLookupExtras(row); }
   wireGallery($("#cf"));
   if (SEO_KINDS[table]) {
     const cur = () => { const r = { ...row }; for (const f of c.fields) { const el = $("#f_" + f.name); if (!el) continue;
@@ -1234,6 +1236,114 @@ async function directoryExtras(row) {
 }
 
 // ---------- Marketing: directory performance ----------
+// ---------- directory: website lookup and private outreach contact (team only) ----------
+async function listingLookupExtras(row) {
+  const { data: ct } = await site().from("directory_contacts").select("contact_name,email,phone").eq("listing_id", row.id).maybeSingle();
+  const g = `https://www.google.com/search?q=${encodeURIComponent([row.name.replace(/\b(ltd|limited|llp)\b\.?/gi, ""), row.town, "car"].filter(Boolean).join(" "))}`;
+  $("#cf .card").insertAdjacentHTML("afterend", `<div class="card mt-3" id="lookup"><div class="card-body">
+    <h2 class="h5">Find their details</h2><p class="small text-body-secondary">Find the business's own website, then fetch the phone, email, address, social links and logo from it. Everything is a suggestion: press Use for each one you've checked, then Save at the top.</p>
+    <div class="input-group mb-2" style="max-width:720px"><a class="btn btn-outline-secondary" href="${g}" target="_blank" rel="noopener">Find website on Google</a><input class="form-control" id="lk_url" placeholder="Paste their website, e.g. www.example.co.uk" value="${esc(row.website || "")}"><button class="btn btn-primary" type="button" id="lk_go">Fetch details</button></div>
+    <div id="lk_out" class="small"></div>
+    <hr class="my-4"><h2 class="h5">Outreach contact (private)</h2><p class="small text-body-secondary">Who to email about claiming this listing. Never shown on the website. Only email limited companies like this one without asking first; sole traders need to have agreed.</p>
+    <div class="row g-2" style="max-width:720px"><div class="col-md-5"><input class="form-control" id="oc_email" type="email" placeholder="Email" value="${esc(ct?.email || "")}"></div><div class="col-md-4"><input class="form-control" id="oc_name" placeholder="Contact name (optional)" value="${esc(ct?.contact_name || "")}"></div><div class="col-md-3"><button class="btn btn-outline-primary w-100" type="button" id="oc_save">Save contact</button></div></div></div></div>`);
+  $("#oc_save").onclick = async () => { const em = $("#oc_email").value.trim().toLowerCase(); if (em && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) return toast("Check the email address", true);
+    const { error } = await site().from("directory_contacts").upsert({ listing_id: row.id, email: em || null, contact_name: $("#oc_name").value.trim() || null, updated_at: new Date().toISOString() }, { onConflict: "listing_id" });
+    if (error) return oops(error); toast("Outreach contact saved"); };
+  $("#lk_go").onclick = async () => {
+    const out = $("#lk_out"), url = $("#lk_url").value.trim(); if (!url) return toast("Paste their website first", true);
+    out.innerHTML = "Reading their website…"; const { data: { session } } = await sb.auth.getSession();
+    let j; try { const r = await fetch(SITE + "/api/site-scan", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + session.access_token }, body: JSON.stringify({ url }) }); j = await r.json(); if (!r.ok) throw new Error(j.error || "Couldn't read that website"); }
+    catch (err) { out.innerHTML = `<div class="alert alert-warning mb-0">${esc(err.message)}</div>`; return; }
+    const sugg = [["website", "Website", j.website], ["phone", "Public phone", j.phone], ["email", "Public email", j.email], ["address_line", "Street address", j.address?.line], ["postcode", "Postcode", j.address?.postcode || j.postcode],
+      ...Object.entries(j.socials || {}).map(([k, v]) => [k, k === "x_url" ? "X" : k[0].toUpperCase() + k.slice(1), v]), ["logo_path", "Logo", j.logo]].filter((x) => x[2]);
+    out.innerHTML = sugg.length ? `<table class="table table-sm align-middle mb-2"><tbody>${sugg.map(([k, l, v], i) => `<tr><td class="text-body-secondary" style="width:140px">${esc(l)}</td><td>${k === "logo_path" ? `<img src="${esc(v)}" alt="" style="max-height:48px;max-width:160px;background:#f4f4f4;padding:4px;border-radius:4px"> <span class="small text-body-secondary">Only add the logo once the owner has claimed the listing or agreed.</span>` : esc(v)}</td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-primary" data-use="${i}">Use</button></td></tr>`).join("")}
+      ${j.email ? `<tr><td class="text-body-secondary">Outreach email</td><td>${esc(j.email)}${(j.other_emails || []).length ? `<div class="small text-body-secondary">Also found: ${esc(j.other_emails.join(", "))}</div>` : ""}</td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-primary" id="lk_oc">Use for outreach</button></td></tr>` : ""}</tbody></table>
+      <button type="button" class="btn btn-sm btn-primary" id="lk_all">Use all except logo</button>` : '<div class="alert alert-light border mb-0">Nothing useful found on that site. Add the details by hand.</div>';
+    const use = (i) => { const [k, , v] = sugg[i]; const el = $("#f_" + k); if (!el) return; el.value = k === "logo_path" ? v : v; el.dispatchEvent(new Event("input", { bubbles: true })); el.dispatchEvent(new Event("change", { bubbles: true })); dirty = true; };
+    $$("[data-use]", out).forEach((b) => (b.onclick = () => { use(+b.dataset.use); b.textContent = "Added"; b.disabled = true; }));
+    if ($("#lk_all")) $("#lk_all").onclick = () => { sugg.forEach(([k], i) => { if (k !== "logo_path") use(i); }); toast("Added. Check them, then Save."); };
+    if ($("#lk_oc")) $("#lk_oc").onclick = () => { $("#oc_email").value = j.email; $("#oc_save").click(); };
+  };
+}
+
+// ---------- email marketing (team only) ----------
+const CAMP_KINDS = { newsletter: ["Newsletter", "People who signed up for the newsletter (they ticked the consent box)."],
+  business_outreach: ["Claim your listing (businesses)", "Unclaimed limited companies we imported, that have an outreach email saved and haven't been emailed in the last 60 days. Each one is invited to manage their listing: signing in with that email claims it."],
+  businesses: ["Business owners", "Businesses that manage their own listing (signed-in owners)."] };
+const CAMP_STATUS = { draft: ["Draft", "text-bg-secondary"], sending: ["Sending", "text-bg-primary"], paused: ["Paused", "text-bg-warning"], sent: ["Sent", "text-bg-success"] };
+const OUTREACH_BODY = `<p>Hi {{first_name}},</p><p>We've added <strong>{{business}}</strong> to the Cars and Coffee UK directory, where car enthusiasts across Norfolk and Suffolk find garages, detailers and specialists they can trust.</p><p>Your listing is basic for now. Claim it free to add your photos, services and prices, opening times and contact details. Enquiries come straight to you, and you can reply to reviews and see how many people view your page.</p><p><a href="{{listing_url}}">See your listing</a></p><p>Thanks,<br>The Cars and Coffee UK team</p>`;
+route("/email", async () => {
+  crumbs([["Email marketing"]]);
+  const [{ data: camps, error }, { data: stats }] = await Promise.all([site().from("email_campaigns").select("*").order("created_at", { ascending: false }), site().from("email_sends").select("campaign_id,status,clicked_at,unsubscribed_at").limit(50000)]);
+  if (error) throw error;
+  const st = (id) => { const r = (stats || []).filter((x) => x.campaign_id === id); return { total: r.length, sent: r.filter((x) => x.status === "sent").length, queued: r.filter((x) => ["queued", "sending"].includes(x.status)).length, clicks: r.filter((x) => x.clicked_at).length, unsub: r.filter((x) => x.unsubscribed_at).length }; };
+  view.innerHTML = `<div class="page-head"><h1>Email marketing</h1><div class="d-flex gap-2"><a class="btn btn-outline-primary" href="/email/new?kind=business_outreach" data-link>New business outreach</a><a class="btn btn-primary" href="/email/new" data-link>New newsletter</a></div></div>
+    <p class="text-body-secondary">Branded emails sent from your TrekMail mailbox, a few at a time so they arrive in inboxes rather than spam. Every email has an unsubscribe link, and anyone who unsubscribes is never emailed again.</p>
+    <div class="card">${(camps || []).length ? `<div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>Campaign</th><th>Audience</th><th>Status</th><th>Sent</th><th>Clicked</th><th>Unsubscribed</th></tr></thead><tbody>
+      ${camps.map((c) => { const x = st(c.id), b = CAMP_STATUS[c.status]; return `<tr><td><a class="rowlink" href="/email/${c.id}" data-link>${esc(c.name)}</a><div class="small text-body-secondary">${esc(c.subject || "No subject yet")}</div></td><td class="small">${esc(CAMP_KINDS[c.kind][0])}</td><td><span class="badge ${b[1]}">${b[0]}</span></td><td>${x.sent}${x.queued ? ` <span class="small text-body-secondary">+${x.queued} to go</span>` : ""}</td><td>${x.sent ? `${x.clicks} <span class="small text-body-secondary">(${Math.round((x.clicks / x.sent) * 100)}%)</span>` : "–"}</td><td>${x.unsub || "–"}</td></tr>`; }).join("")}
+      </tbody></table></div>` : '<div class="empty">No campaigns yet. Start with a business outreach email or a newsletter.</div>'}</div>`;
+});
+route("/email/:id", async ({ id }) => {
+  const isNew = id === "new";
+  let c = { name: "", kind: qs().get("kind") || "newsletter", subject: "", preheader: "", heading: "", body_html: "", cta_label: "", cta_url: "", from_name: "Cars and Coffee UK", reply_to: "", audience: {}, daily_cap: 150, status: "draft" };
+  if (isNew && c.kind === "business_outreach") Object.assign(c, { name: "Claim your listing", subject: "{{business}} is on Cars and Coffee UK", preheader: "Claim your free business profile in two minutes.", heading: "Your business is on Cars and Coffee UK", body_html: OUTREACH_BODY, cta_label: "Claim your free profile", cta_url: "{{claim_url}}", daily_cap: 40 });
+  if (!isNew) { const { data, error } = await site().from("email_campaigns").select("*").eq("id", id).maybeSingle(); if (error) throw error; if (!data) throw new Error("Campaign not found"); c = data; }
+  crumbs([["Email marketing", "/email"], [isNew ? "New campaign" : c.name]]);
+  const locked = c.status === "sending" || c.status === "sent";
+  let count = null, sends = [];
+  if (!isNew) { const [{ data: aud }, { data: ss }] = await Promise.all([site().rpc("campaign_audience", { p_campaign: c.id }), site().from("email_sends").select("email,business,status,sent_at,clicked_at,unsubscribed_at,error").eq("campaign_id", c.id).order("id").limit(2000)]); count = (aud || []).length; sends = ss || []; }
+  const n = (k) => sends.filter((x) => x.status === k).length;
+  const fld = (idk, label, val, extra = "") => `<div class="mb-3"><label class="form-label" for="${idk}">${label}</label><input class="form-control" id="${idk}" value="${esc(val || "")}" ${locked ? "disabled" : ""} ${extra}></div>`;
+  view.innerHTML = `<div class="page-head"><h1>${isNew ? "New campaign" : esc(c.name)}</h1>${!isNew ? `<span class="badge ${CAMP_STATUS[c.status][1]} fs-6">${CAMP_STATUS[c.status][0]}</span>` : ""}</div>
+    ${!isNew && sends.length ? `<div class="row g-3 mb-3">${[["Sent", n("sent")], ["Waiting to send", n("queued") + n("sending")], ["Failed", n("failed")], ["Clicked", sends.filter((x) => x.clicked_at).length], ["Unsubscribed", sends.filter((x) => x.unsubscribed_at).length]].map(([l, v]) => `<div class="col-6 col-md"><div class="card stat"><div class="card-body"><div class="value">${v}</div><div class="label">${l}</div></div></div></div>`).join("")}</div>` : ""}
+    <div class="row g-3"><div class="col-lg-7"><form id="ecf" class="card"><div class="card-body">
+      ${fld("e_name", "Campaign name (only you see this)", c.name, "required")}
+      <div class="mb-3"><label class="form-label" for="e_kind">Who it goes to</label><select class="form-select" id="e_kind" ${locked || !isNew ? "disabled" : ""}>${Object.entries(CAMP_KINDS).map(([k, v]) => `<option value="${k}" ${c.kind === k ? "selected" : ""}>${esc(v[0])}</option>`).join("")}</select><div class="form-text" id="e_kind_help">${esc(CAMP_KINDS[c.kind][1])}</div></div>
+      ${c.kind === "business_outreach" ? `<div class="mb-3"><label class="form-label" for="e_county">Only businesses in</label><select class="form-select" id="e_county" ${locked ? "disabled" : ""}><option value="">Any county</option>${["Norfolk", "Suffolk", "Cambridgeshire", "Essex"].map((x) => `<option ${c.audience?.county === x ? "selected" : ""}>${x}</option>`).join("")}</select></div>` : ""}
+      ${fld("e_subject", "Subject line", c.subject, 'maxlength="150" required')}${fld("e_pre", "Preview text (shown after the subject in most inboxes)", c.preheader, 'maxlength="150"')}${fld("e_heading", "Big heading in the email (optional)", c.heading, 'maxlength="120"')}
+      <div class="mb-3"><label class="form-label" for="e_body_area">Message</label>${richField("e_body", c.body_html || "", esc, { compact: true })}<div class="form-text">Personalise with <code>{{first_name}}</code>, <code>{{business}}</code>, <code>{{listing_url}}</code> and <code>{{claim_url}}</code>.</div></div>
+      <div class="row g-3"><div class="col-md-6">${fld("e_cta", "Button text (optional)", c.cta_label)}</div><div class="col-md-6">${fld("e_cta_url", "Button link", c.cta_url, 'placeholder="https://carsandcoffee.uk/… or {{claim_url}}"')}</div></div>
+      <div class="row g-3"><div class="col-md-6">${fld("e_from", "From name", c.from_name)}</div><div class="col-md-6">${fld("e_reply", "Replies go to (optional)", c.reply_to, 'type="email" placeholder="Defaults to the sending mailbox"')}</div></div>
+      ${fld("e_cap", "Most emails to send per day", c.daily_cap, 'type="number" min="1" max="2000"')}<div class="form-text mb-3">Keep business outreach to 30–50 a day so replies stay manageable and the emails arrive in inboxes.</div>
+      <div class="d-flex flex-wrap gap-2">${locked ? "" : '<button class="btn btn-primary" type="submit">Save</button>'}${!isNew ? `<button class="btn btn-outline-secondary" type="button" id="e_test">Send me a test</button>` : ""}
+        ${!isNew && (c.status === "draft" || c.status === "paused") ? `<button class="btn btn-success" type="button" id="e_start">${c.status === "paused" ? "Resume sending" : `Start sending to ${count ?? 0}`}</button>` : ""}
+        ${c.status === "sending" ? '<button class="btn btn-warning" type="button" id="e_pause">Pause</button>' : ""}${!isNew && c.status !== "sending" ? '<button class="btn btn-outline-secondary" type="button" id="e_dup">Duplicate</button>' : ""}
+        ${!isNew && c.status === "draft" ? '<button class="btn btn-outline-danger ms-auto" type="button" id="e_del">Delete</button>' : ""}</div>
+    </div></form></div>
+    <div class="col-lg-5"><div class="card"><div class="card-header bg-white fw-semibold">Preview</div><div class="card-body p-0"><iframe id="e_prev" title="Email preview" style="width:100%;height:640px;border:0;background:#efe6da"></iframe></div></div>
+      ${!isNew ? `<div class="card mt-3"><div class="card-header bg-white fw-semibold">Recipients ${count != null && c.status === "draft" ? `<span class="small fw-normal text-body-secondary">· ${count} will get this</span>` : ""}</div><div class="card-body small" style="max-height:340px;overflow:auto">${sends.length ? sends.slice(0, 300).map((x) => `<div class="d-flex justify-content-between border-bottom py-1"><span>${esc(x.business || x.email)}${x.business ? `<span class="text-body-secondary"> · ${esc(x.email)}</span>` : ""}</span><span>${x.unsubscribed_at ? "Unsubscribed" : x.clicked_at ? "Clicked" : esc(x.status)}</span></div>`).join("") : count ? "Recipients are added when you start sending." : c.kind === "business_outreach" ? "No businesses ready yet. Publish imported listings and save an outreach email on each (Find their details)." : "Nobody to send to yet."}</div></div>` : ""}</div></div>`;
+  wireRich($("#ecf"), { upload: uploadSiteImage, onChange: () => { dirty = true; $("#ecf").dispatchEvent(new Event("input")); } });
+  const val = () => ({ name: $("#e_name").value.trim(), kind: $("#e_kind").value, subject: $("#e_subject").value.trim(), preheader: $("#e_pre").value.trim() || null, heading: $("#e_heading").value.trim() || null,
+    body_html: cleanHTML ? cleanHTML($("#e_body_area").innerHTML) : $("#e_body_area").innerHTML, cta_label: $("#e_cta").value.trim() || null, cta_url: $("#e_cta_url").value.trim() || null, from_name: $("#e_from").value.trim() || "Cars and Coffee UK",
+    reply_to: $("#e_reply").value.trim() || null, daily_cap: Math.max(1, Math.min(2000, +$("#e_cap").value || 150)), audience: $("#e_county") ? { county: $("#e_county").value } : {}, updated_at: new Date().toISOString() });
+  const sample = { first_name: "Sam", name: "Sam Smith", business: "Example Motors Ltd", listing_url: SITE + "/directory", claim_url: "https://admin.carsandcoffee.uk/", email: "sam@example.co.uk" };
+  const fill = (t, html) => String(t || "").replace(/\{\{\s*(\w+)\s*\}\}/g, (_, k) => (html ? esc(sample[k] ?? "") : sample[k] ?? ""));
+  const prev = () => { const v = val(), t = (x) => esc(fill(x));
+    $("#e_prev").srcdoc = `<html><body style="margin:0;background:#efe6da;font-family:Arial,sans-serif"><div style="max-width:600px;margin:16px auto;background:#fff;border-radius:10px;overflow:hidden">
+      <div style="background:#1d130f;padding:16px 22px"><img src="${SITE}/logo.png" width="52" alt=""></div><div style="padding:22px;color:#241712;font-size:15px;line-height:1.6">
+      <div style="color:#7a6a60;font-size:12px;margin-bottom:10px">Subject: <strong>${t(v.subject)}</strong><br>${t(v.preheader)}</div>
+      ${v.heading ? `<h1 style="font:900 22px/1.15 Arial Black,Arial;text-transform:uppercase;margin:0 0 12px">${t(v.heading)}</h1>` : ""}${fill(v.body_html, true)}
+      ${v.cta_label ? `<p style="margin:22px 0"><span style="background:#c00d0d;color:#fff;padding:12px 22px;border-radius:6px;font-weight:700;display:inline-block">${t(v.cta_label)}</span></p>` : ""}</div>
+      <div style="border-top:1px solid #eadfd2;padding:14px 22px;color:#7a6a60;font-size:12px">Unsubscribe · or reply and we'll take you off our list.<br>Cars and Coffee UK · carsandcoffee.uk · Privacy</div></div></body></html>`; };
+  prev();
+  $("#ecf").addEventListener("input", () => { dirty = true; prev(); });
+  if ($("#e_kind")) $("#e_kind").onchange = () => ($("#e_kind_help").textContent = CAMP_KINDS[$("#e_kind").value][1]);
+  const save = async () => { const v = val(); if (!v.name) { toast("Give the campaign a name", true); return null; }
+    const res = isNew ? await site().from("email_campaigns").insert(v).select("id").single() : await site().from("email_campaigns").update(v).eq("id", c.id).select("id").single();
+    if (res.error) { oops(res.error); return null; } dirty = false; return res.data.id; };
+  $("#ecf").onsubmit = async (e) => { e.preventDefault(); const nid = await save(); if (nid) { toast("Saved"); go(`/email/${nid}`, true); } };
+  const fn = async (body) => { const { data: { session } } = await sb.auth.getSession(); const r = await fetch(`${SUPABASE_URL}/functions/v1/send-campaigns`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + session.access_token, apikey: SUPABASE_KEY }, body: JSON.stringify(body) }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || "Couldn't send"); return j; };
+  if ($("#e_test")) $("#e_test").onclick = async () => { if (!locked && !(await save())) return; try { await fn({ test: true, campaign: c.id }); toast("Test sent to " + state.session.user.email); } catch (err) { toast(err.message, true); } };
+  if ($("#e_start")) $("#e_start").onclick = async () => { if (!locked && !(await save())) return;
+    const b = $("#e_start"); if (!b.dataset.armed) { b.dataset.armed = 1; b.textContent = c.status === "paused" ? "Click again to resume" : `Click again to send to ${count} people`; b.classList.replace("btn-success", "btn-danger"); return; }
+    if (c.status === "paused") { const { error } = await site().from("email_campaigns").update({ status: "sending" }).eq("id", c.id); if (error) return oops(error); }
+    else { const { data, error } = await site().rpc("campaign_start", { p_campaign: c.id }); if (error) return oops(error); toast(`${data} emails queued. They go out a few at a time, up to ${c.daily_cap} a day.`); }
+    render(); };
+  if ($("#e_pause")) $("#e_pause").onclick = async () => { const { error } = await site().from("email_campaigns").update({ status: "paused" }).eq("id", c.id); if (error) return oops(error); toast("Paused"); render(); };
+  if ($("#e_dup")) $("#e_dup").onclick = async () => { const { id: _i, created_at, updated_at, started_at, finished_at, created_by, ...rest } = c; const { data, error } = await site().from("email_campaigns").insert({ ...rest, name: c.name + " (copy)", status: "draft" }).select("id").single(); if (error) return oops(error); go(`/email/${data.id}`); };
+  if ($("#e_del")) $("#e_del").onclick = async () => { const b = $("#e_del"); if (!b.dataset.armed) { b.dataset.armed = 1; b.textContent = "Click again to delete"; return; } const { error } = await site().from("email_campaigns").delete().eq("id", c.id); if (error) return oops(error); toast("Deleted"); go("/email", true); };
+});
+
 // ---------- directory: import businesses from Companies House (team only) ----------
 const CH_GROUPS = { repair: "Garages and repairs", parts: "Parts and accessories", sales: "Car sales" };
 route("/directory/import", async () => {
