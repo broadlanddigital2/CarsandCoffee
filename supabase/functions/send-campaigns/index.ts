@@ -103,9 +103,9 @@ async function handle(req: Request): Promise<Response> {
     } catch (e) { err = String((e as Error).message ?? e).slice(0, 500); }
     if (!isTest) await db.schema("site").rpc("campaign_mark", { p_token: token, p_id: r.send_id, p_ok: ok, p_error: ok ? null : err });
     results.push({ id: r.send_id, ok, ...(ok ? {} : { error: err }) });
-    await new Promise((res) => setTimeout(res, 1500)); // gentle pace: about 40 a minute at most
+    if (!isTest) await new Promise((res) => setTimeout(res, 1500)); // gentle pace: about 40 a minute at most
   }
-  try { await client.close(); } catch { /* already closed */ }
+  // no client.close(): denomailer's close crashes the runtime on this server ("Bad resource ID"); the connection ends with the request
   if (isTest && !results[0]?.ok) {
     const host = Deno.env.get("MARKETING_SMTP_HOST") || "smtp.consensusmedia.co.uk";
     const masked = user.replace(/^(.{2}).*(@.*)$/, "$1…$2");
