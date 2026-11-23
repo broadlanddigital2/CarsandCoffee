@@ -37,6 +37,14 @@ export const utm = (u, medium, camp) => !u ? "#" : u.startsWith("/") ? u : `${u}
 const link = (text, href) => `<a class="more" href="${href}">${text} ${ARROW}</a>`;
 const slug = (x) => String(x).toLowerCase().replace(/ and /g, "-").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
+// count rows matching a PostgREST filter without fetching them (0 on any error)
+export async function qCount(path) {
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/${path}${path.includes("?") ? "&" : "?"}limit=1`, { method: "HEAD", headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, "Accept-Profile": "site", Prefer: "count=exact" }, cf: { cacheTtl: 0 } });
+    const n = Number((r.headers.get("content-range") || "").split("/")[1]);
+    return Number.isFinite(n) ? n : 0;
+  } catch { return 0; }
+}
 export async function q(path) {
   const r = await fetch(`${SB_URL}/rest/v1/${path}`, { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, "Accept-Profile": "site" }, cf: { cacheTtl: 0 } });
   if (!r.ok) throw new Error(`${path.split("?")[0]} ${r.status}`);

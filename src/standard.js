@@ -1,6 +1,6 @@
 // Editable pages from site.pages that aren't location hubs: legal pages, About, Contact, interest pages (/cars/...),
 // ad landing pages (/go/...) and any other page the team creates in Admin → Marketing → All SEO pages.
-import { E, img, ARROW, q, eventCard, bizCard, fmt } from "./home.js";
+import { E, img, ARROW, q, qCount, eventCard, bizCard, fmt } from "./home.js";
 import { shell, crumbsHTML, newsletterHTML } from "./pages.js";
 import { sanitize } from "./sanitize.js";
 import { productCard } from "./shop.js";
@@ -110,6 +110,16 @@ export async function interestData(p, c) {
     words.length ? q(`guides?select=slug,title,intro,image_path,image_alt&${ors(["title", "intro", "body_html"])}&order=sort&limit=3`).catch(() => []) : [],
     (c.services || []).length ? q(`directory_listings?select=slug,name,services,town,image_path,image_alt,featured&or=(${c.services.map((s) => `services.cs.{${enc(s)}}`).join(",")})&limit=6`).catch(() => []) : [],
   ]);
+  // true totals for the "At a glance" cards (the lists above are capped)
+  const counts = { events: 0, listings: 0, reads: 0, products: 0 };
+  if (c.template === "v2") {
+    const [ne, nl, na, ng] = await Promise.all([
+      words.length ? qCount(`events?select=id&ends_at=gte.${now}&${ors(["title", "summary", "event_type"])}`) : 0,
+      (c.services || []).length ? qCount(`directory_listings?select=slug&or=(${c.services.map((s) => `services.cs.{${enc(s)}}`).join(",")})`) : 0,
+      words.length ? qCount(`articles?select=slug&${ors(["title", "excerpt", "category"])}`) : 0,
+      words.length ? qCount(`guides?select=slug&${ors(["title", "intro", "body_html"])}`) : 0]);
+    Object.assign(counts, { events: Math.max(ne, events.length), listings: Math.max(nl, listings.length), reads: Math.max(na + ng, articles.length + guides.length) });
+  }
   const card = (href, image, alt, small, title, text) => `<a class="news-card" href="${E(href)}">${image ? `<img src="${E(img(image))}" alt="${E(alt || "")}" loading="lazy" width="600" height="340">` : ""}<div class="pad"><small>${E(small)}</small><h3>${E(title)}</h3>${text ? `<p>${E(text)}</p>` : ""}<span class="more">Read more ${ARROW}</span></div></a>`;
   // shop products from the linked categories (and every sub-category below them)
   let products = [], shopsById = {}, related = [], hubs = [], towns = [], firstCat = null;
@@ -125,13 +135,15 @@ export async function interestData(p, c) {
       const roots = c.shop.map((sl) => cats.find((x) => x.slug === sl)).filter(Boolean); firstCat = roots[0] || null;
       const ids = [...new Set(roots.flatMap((r) => fam(r.id)))];
       if (ids.length) {
+        if (c.template === "v2") counts.products = await qCount(`products?select=id&category_id=in.(${ids.join(",")})`);
         products = await q(`products?select=id,slug,name,price_pence,member_price_pence,compare_at_pence,badge,image_path,image_alt,shop_id,category_id,condition,stock_status,featured,created_at,units_sold_30d&category_id=in.(${ids.join(",")})&order=featured.desc,units_sold_30d.desc&limit=4`);
         const sids = [...new Set(products.map((x) => x.shop_id).filter(Boolean))];
         if (sids.length) shopsById = Object.fromEntries((await q(`shops?select=id,slug,name&id=in.(${sids.join(",")})`)).map((x) => [x.id, x]));
       }
     }
   } catch {}
-  return { events, articles, guides, listings, products, shopsById, related, hubs, towns, firstCat, card };
+  counts.products = Math.max(counts.products, products.length);
+  return { events, articles, guides, listings, products, shopsById, related, hubs, towns, firstCat, card, counts };
 }
 
 async function interestExtras(p, c) {

@@ -24,7 +24,7 @@ export async function renderSector(p) {
   const groupName = c.label || GROUPS[g] || "Interests";
   const short = c.short || p.title;
   const [d, partners] = await Promise.all([interestData(p, c), q("partners?select=slug,name,page_path,logo_path,logo_dark_path&order=sort").catch(() => [])]);
-  const { events, articles, guides, listings, products, shopsById, related, hubs, towns, firstCat, card } = d;
+  const { events, articles, guides, listings, products, shopsById, related, hubs, towns, firstCat, card, counts } = d;
 
   const crumbs = [["Home", "/"], ["Interests", "/cars"], [groupName, `/cars#${g}`], [short, p.path]];
   const nav = []; // [id, label] for the jump bar, in page order
@@ -36,7 +36,15 @@ export async function renderSector(p) {
   const heroImg = p.hero_image_path || SECTOR_HERO[g] || SECTOR_HERO.types;
   const hero = `<section class="phero sx-hero">${heroImg ? `<img class="bg" src="${E(img(heroImg))}" alt="${E(p.hero_image_alt || "")}" fetchpriority="high">` : ""}<div class="wrap"><span class="eyebrow">${E(groupName)}</span><h1>${E(p.h1 || p.title)}</h1>${c.strap || p.intro ? `<p>${E(c.strap || p.intro)}</p>` : ""}<div class="btns">${btn(c.primary)}${btn(c.secondary, true)}</div></div></section>`;
 
-  if (c.facts?.length) add("facts", "", band("facts", "At a glance", `<div class="sx-stats">${c.facts.map(([v, l]) => `<div class="sx-card"><div class="pad"><strong>${E(v)}</strong><span>${E(l)}</span></div></div>`).join("")}</div>`));
+  // At a glance: live counts for this interest, each card jumps to its section (or somewhere useful when there's nothing yet)
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  const glance = [
+    counts.events ? [String(counts.events), plural(counts.events, "upcoming event", "upcoming events"), "#events", "See dates"] : ["Coming soon", "Upcoming events", "/events", "Browse all events"],
+    counts.listings ? [String(counts.listings), plural(counts.listings, "local specialist", "local specialists"), "#specialists", "Find one"] : ["List yours free", "Local specialists", "/directory/list-your-business", "Add a business"],
+    counts.products ? [String(counts.products), plural(counts.products, "shop product", "shop products"), "#shop", "Shop now"] : ["Join free", `${short} hub`, "#hub", "Talk to owners"],
+    counts.reads ? [String(counts.reads), plural(counts.reads, "guide and story", "guides and stories"), "#guides", "Start reading"] : ["Coming soon", "Guides and stories", "/guides", "Browse all guides"],
+  ];
+  add("facts", "", band("facts", "At a glance", `<div class="sx-stats">${glance.map(([v, l, href, cta]) => `<a class="sx-card sx-glance" href="${E(href)}"><div class="pad"><strong>${E(v)}</strong><span>${E(l.charAt(0).toUpperCase() + l.slice(1))}</span><em>${E(cta)} ${ARROW}</em></div></a>`).join("")}</div>`));
 
   const intro = paras(c.intro || p.body_md);
   if (intro.length) {
