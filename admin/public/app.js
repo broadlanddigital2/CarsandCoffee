@@ -120,6 +120,7 @@ function navHTML() {
     ${item("/content/site_stats", "dash", "Stats")}
     ${item("/content/directory_listings", "dir", "Directory")}
     ${item("/directory/import", "dir", "Import businesses")}
+    ${item("/outreach", "send", "Business outreach")}
     ${item("/directory/claims", "check", "Claim requests")}
     ${item("/content/directory_services", "dir", "Directory services")}
     ${item("/content/directory_regions", "pin", "Directory areas")}
@@ -1290,7 +1291,7 @@ route("/email", async () => {
       return `${VZ_CSS}<div class="row g-3 mb-3"><div class="col-lg-4"><div class="row g-3">${[["Delivered", tot.d, "all campaigns"], ["Opened ~", tot.o, `${Math.round((tot.o / tot.d) * 100)}%`], ["Clicked", tot.c, `${Math.round((tot.c / tot.d) * 100)}%`], ["Bounced", tot.b, tot.d ? `${Math.round((tot.b / (tot.d + tot.b)) * 1000) / 10}%` : ""]].map(([l, v, sub]) => `<div class="col-6"><div class="card stat h-100"><div class="card-body"><div class="value">${v}</div><div class="label">${l}</div><div class="small text-body-secondary">${sub}</div></div></div></div>`).join("")}</div></div>
         <div class="col-lg-8"><div class="card h-100"><div class="card-header bg-white fw-semibold">How campaigns compare <span class="small fw-normal text-body-secondary">· latest ${rows.length}</span></div><div class="card-body" id="vz_rates">${rateChart(rows)}</div></div></div></div>`; })()}
     <div class="card">${(camps || []).length ? `<div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>Campaign</th><th>Audience</th><th>Status</th><th>Delivered</th><th title="Approximate: some mail apps load images automatically">Opened ~</th><th>Clicked</th><th>Claimed</th><th>Bounced</th><th>Unsub.</th></tr></thead><tbody>
-      ${camps.map((c) => { const x = st(c.id), b = CAMP_STATUS[c.status]; return `<tr><td><a class="rowlink" href="/email/${c.id}" data-link>${esc(c.name)}</a><div class="small text-body-secondary">${esc(c.subject || "No subject yet")}</div></td><td class="small">${esc(CAMP_KINDS[c.kind][0])}</td><td><span class="badge ${b[1]}">${b[0]}</span></td><td>${x.delivered}${x.queued ? ` <span class="small text-body-secondary">+${x.queued} to go</span>` : ""}</td><td>${pc(x.opened, x.delivered)}</td><td>${pc(x.clicked, x.delivered)}</td><td>${c.kind === "business_outreach" ? pc(x.claimed, x.delivered) : "–"}</td><td>${x.bounced || "–"}</td><td>${x.unsub || "–"}</td></tr>`; }).join("")}
+      ${camps.map((c) => { const x = st(c.id), b = c.sequence_step ? ["Outreach sequence", "text-bg-info"] : CAMP_STATUS[c.status]; return `<tr><td><a class="rowlink" href="/email/${c.id}" data-link>${esc(c.name)}</a><div class="small text-body-secondary">${esc(c.subject || "No subject yet")}</div></td><td class="small">${esc(CAMP_KINDS[c.kind][0])}</td><td><span class="badge ${b[1]}">${b[0]}</span></td><td>${x.delivered}${x.queued ? ` <span class="small text-body-secondary">+${x.queued} to go</span>` : ""}</td><td>${pc(x.opened, x.delivered)}</td><td>${pc(x.clicked, x.delivered)}</td><td>${c.kind === "business_outreach" ? pc(x.claimed, x.delivered) : "–"}</td><td>${x.bounced || "–"}</td><td>${x.unsub || "–"}</td></tr>`; }).join("")}
       </tbody></table></div>` : '<div class="empty">No campaigns yet. Start with a business outreach email or a newsletter.</div>'}</div>`;
   wireTips($("#vz_rates"));
 });
@@ -1300,7 +1301,7 @@ route("/email/:id", async ({ id }) => {
   if (isNew && c.kind === "business_outreach") Object.assign(c, { name: "Claim your listing", subject: "{{business}} is on Cars and Coffee UK", preheader: "Claim your free business profile in two minutes.", heading: "Your business is on Cars and Coffee UK", body_html: OUTREACH_BODY, cta_label: "Claim your free profile", cta_url: "{{claim_url}}", daily_cap: 40 });
   if (!isNew) { const { data, error } = await site().from("email_campaigns").select("*").eq("id", id).maybeSingle(); if (error) throw error; if (!data) throw new Error("Campaign not found"); c = data; }
   crumbs([["Email marketing", "/email"], [isNew ? "New campaign" : c.name]]);
-  const locked = c.status === "sending" || c.status === "sent";
+  const seq = !!c.sequence_step, locked = !seq && (c.status === "sending" || c.status === "sent");
   let count = null, sends = [], clicks = [];
   if (!isNew) { const [{ data: aud }, { data: ss }, { data: cl }] = await Promise.all([site().rpc("campaign_audience", { p_campaign: c.id }), site().from("email_sends").select("id,email,business,status,sent_at,opened_at,open_count,clicked_at,click_count,unsubscribed_at,bounced_at,bounce_reason,claimed_at,error").eq("campaign_id", c.id).order("id").limit(5000), site().from("email_clicks").select("send_id,url,created_at").eq("campaign_id", c.id).order("created_at", { ascending: false }).limit(5000)]); count = (aud || []).length; sends = ss || []; clicks = cl || []; }
   const n = (k) => sends.filter((x) => x.status === k).length;
@@ -1317,9 +1318,10 @@ route("/email/:id", async ({ id }) => {
       <div class="row g-3"><div class="col-md-6">${fld("e_from", "From name", c.from_name)}</div><div class="col-md-6">${fld("e_reply", "Replies go to (optional)", c.reply_to, 'type="email" placeholder="Defaults to the sending mailbox"')}</div></div>
       ${fld("e_cap", "Most emails to send per day", c.daily_cap, 'type="number" min="1" max="2000"')}<div class="form-text mb-3">Keep business outreach to 30–50 a day so replies stay manageable and the emails arrive in inboxes.</div>
       <div class="d-flex flex-wrap gap-2">${locked ? "" : '<button class="btn btn-primary" type="submit">Save</button>'}${!isNew ? `<button class="btn btn-outline-secondary" type="button" id="e_test">Send me a test</button>` : ""}
-        ${!isNew && (c.status === "draft" || c.status === "paused") ? `<button class="btn btn-success" type="button" id="e_start">${c.status === "paused" ? "Resume sending" : `Start sending to ${count ?? 0}`}</button>` : ""}
-        ${c.status === "sending" ? '<button class="btn btn-warning" type="button" id="e_pause">Pause</button>' : ""}${!isNew && c.status !== "sending" ? '<button class="btn btn-outline-secondary" type="button" id="e_dup">Duplicate</button>' : ""}
-        ${!isNew && c.status === "draft" ? '<button class="btn btn-outline-danger ms-auto" type="button" id="e_del">Delete</button>' : ""}</div>
+        ${seq ? `<a class="btn btn-outline-primary" href="/outreach" data-link>Part of the outreach sequence (email ${c.sequence_step})</a>` : ""}
+        ${!seq && !isNew && (c.status === "draft" || c.status === "paused") ? `<button class="btn btn-success" type="button" id="e_start">${c.status === "paused" ? "Resume sending" : `Start sending to ${count ?? 0}`}</button>` : ""}
+        ${!seq && c.status === "sending" ? '<button class="btn btn-warning" type="button" id="e_pause">Pause</button>' : ""}${!seq && !isNew && c.status !== "sending" ? '<button class="btn btn-outline-secondary" type="button" id="e_dup">Duplicate</button>' : ""}
+        ${!seq && !isNew && c.status === "draft" ? '<button class="btn btn-outline-danger ms-auto" type="button" id="e_del">Delete</button>' : ""}</div>
     </div></form></div>
     <div class="col-lg-5"><div class="card"><div class="card-header bg-white"><span class="fw-semibold">Preview</span> <span class="small text-body-secondary">· Subject: <span id="e_subj"></span></span></div><div class="card-body p-0"><iframe id="e_prev" title="Email preview" style="width:100%;height:820px;border:0;background:#efe6da"></iframe></div></div>
       ${!isNew && !sends.length ? `<div class="card mt-3"><div class="card-header bg-white fw-semibold">Recipients ${count != null ? `<span class="small fw-normal text-body-secondary">· ${count} will get this</span>` : ""}</div><div class="card-body small">${count ? "Recipients are added when you start sending. Results (opens, clicks, claims and bounces) appear above once it goes out." : c.kind === "business_outreach" ? "No businesses ready yet. Publish imported listings and save an outreach email on each (Find their details)." : "Nobody to send to yet."}</div></div>` : ""}</div></div>`;
@@ -1460,6 +1462,245 @@ function wireCampResults(c, sends, clicks) {
     const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); a.download = `${(c.name || "campaign").replace(/[^\w-]+/g, "-").toLowerCase()}-results.csv`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); };
   draw();
 }
+
+
+// ---------- business outreach: research each business, check the email, then a 3-email sequence that stops itself ----------
+const OUT_STATE = { needs_details: ["Needs details", "text-bg-secondary"], ready: ["Ready to review", "text-bg-warning"], scheduled: ["Approved, sending soon", "text-bg-info"], in_sequence: ["In sequence", "text-bg-primary"],
+  paused: ["Paused", "text-bg-dark"], no_response: ["No response", "text-bg-light border"], claimed: ["Claimed", "text-bg-success"], replied: ["Replied", "text-bg-success"], not_interested: ["Not interested", "text-bg-secondary"],
+  do_not_contact: ["Do not contact", "text-bg-dark"], wrong_business: ["Wrong business", "text-bg-secondary"], bounced: ["Bounced", "text-bg-danger"], unsubscribed: ["Unsubscribed", "text-bg-dark"] };
+const OUT_ORDER = ["needs_details", "ready", "scheduled", "in_sequence", "paused", "claimed", "replied", "no_response", "not_interested", "bounced", "unsubscribed", "do_not_contact", "wrong_business"];
+const outBadge = (st) => { const b = OUT_STATE[st] || [st, "text-bg-light"]; return `<span class="badge ${b[1]}">${esc(b[0])}</span>`; };
+const OUT_SEQ_LEN = 3;
+async function siteApi(path, body) { const { data: { session } } = await sb.auth.getSession();
+  const r = await fetch(SITE + path, { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + session.access_token }, body: JSON.stringify(body) });
+  const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || `Request failed (${r.status})`); return j; }
+async function edgeFn(body) { const { data: { session } } = await sb.auth.getSession();
+  const r = await fetch(`${SUPABASE_URL}/functions/v1/send-campaigns`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + session.access_token, apikey: SUPABASE_KEY }, body: JSON.stringify(body) });
+  const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || `Request failed (${r.status})`); return j; }
+
+// research one business: Companies House record, then its website (the listing's, or the best guess, marked as a guess)
+async function outResearch(o, l) {
+  const e = { ...(o.enrichment || {}) }, notes = [];
+  if (l.company_number) { try { e.ch = await siteApi("/api/ch-profile", { company_number: l.company_number }); delete e.ch_error; } catch (err) { e.ch_error = err.message; notes.push("Companies House: " + err.message); } }
+  let url = l.website || (e.site && e.site_confirmed ? e.site.website : "");
+  if (!url) { try { const g = await siteApi("/api/site-guess", { name: e.ch?.name || l.name, town: l.town }); e.guesses = g.items || []; const top = e.guesses[0]; if (top && top.score >= 1) { url = top.url; e.site_guessed = true; } } catch (err) { notes.push("Website search: " + err.message); } }
+  else e.site_guessed = false;
+  if (url) { try { e.site = await siteApi("/api/site-scan", { url, company_number: l.company_number || "" }); delete e.site_error; if (l.website) e.site_confirmed = true; } catch (err) { e.site_error = err.message; notes.push("Website: " + err.message); } }
+  const patch = { enrichment: e, enriched_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+  // fill the contact email only when we're sure it's their site (it's the listing's website, or the site shows their company number)
+  if (!o.contact_email && e.site?.email && (e.site_confirmed || e.site.company_match === true)) patch.contact_email = e.site.email;
+  if (!o.contact_phone && e.site?.phone && (e.site_confirmed || e.site.company_match === true)) patch.contact_phone = e.site.phone;
+  const { error } = await site().from("outreach").update(patch).eq("listing_id", o.listing_id); if (error) throw error;
+  await site().from("outreach_events").insert({ listing_id: o.listing_id, kind: "researched", detail: [e.ch ? "Companies House checked" : "", e.site ? `website read (${e.site.website})${e.site_guessed ? ", a guess to confirm" : ""}` : "no website found", ...notes].filter(Boolean).join("; ") });
+  return notes;
+}
+
+route("/outreach", async () => {
+  crumbs([["Business outreach"]]);
+  const f = qs().get("state") || "", q = (qs().get("q") || "").trim().toLowerCase();
+  const [{ data: rows, error }, { data: setg }] = await Promise.all([site().from("outreach_board").select("*").order("updated_at", { ascending: false }).limit(2000), site().from("outreach_settings").select("*").maybeSingle()]);
+  if (error) throw error;
+  const all = rows || [], count = (k) => all.filter((r) => r.state === k).length;
+  const list = all.filter((r) => (!f || r.state === f) && (!q || `${r.name} ${r.town || ""} ${r.contact_email || ""} ${r.company_number || ""}`.toLowerCase().includes(q)));
+  const S = setg || { daily_cap: 30, delays: [0, 4, 10], window_start: 9, window_end: 16, test_delay_minutes: 10 };
+  const seqLine = (r) => r.state === "in_sequence" ? `Email ${r.step} of ${OUT_SEQ_LEN} sent${r.next_send_at ? ` · next ${fmtDate(r.next_send_at, true)}` : ""}` : r.state === "scheduled" ? `First email ${r.next_send_at && new Date(r.next_send_at) > new Date() ? fmtDate(r.next_send_at, true) : "in the next send window"}` : r.state === "no_response" ? `All ${OUT_SEQ_LEN} emails sent` : r.state === "paused" ? `Paused after email ${r.step}` : "";
+  view.innerHTML = `<div class="page-head"><h1>Business outreach</h1><div class="d-flex flex-wrap gap-2"><button class="btn btn-outline-secondary" id="o_set_t">Settings</button><button class="btn btn-outline-primary" id="o_test_t">Add a test business</button><a class="btn btn-outline-secondary" href="/email" data-link>Edit the 3 emails</a><a class="btn btn-primary" href="/directory/import" data-link>Import businesses</a></div></div>
+    <p class="text-body-secondary">Every business imported from Companies House appears here. Research it, check the details and the email it will get, then approve it. It gets up to ${OUT_SEQ_LEN} emails: the first in the next send window, then follow-ups after ${S.delays[1] ?? 4} and ${S.delays[2] ?? 10} more days. The sequence stops by itself if they claim their listing, reply, unsubscribe or bounce.</p>
+    <div class="card mb-3" id="o_set" hidden><div class="card-body"><form id="o_setf" class="row g-3 align-items-end">
+      <div class="col-6 col-md-2"><label class="form-label" for="os_cap">Emails a day</label><input class="form-control" id="os_cap" type="number" min="1" max="500" value="${S.daily_cap}"></div>
+      <div class="col-6 col-md-2"><label class="form-label" for="os_d2">Follow-up 1 after (days)</label><input class="form-control" id="os_d2" type="number" min="1" max="60" value="${S.delays[1] ?? 4}"></div>
+      <div class="col-6 col-md-2"><label class="form-label" for="os_d3">Follow-up 2 after (days)</label><input class="form-control" id="os_d3" type="number" min="1" max="90" value="${S.delays[2] ?? 10}"></div>
+      <div class="col-6 col-md-2"><label class="form-label" for="os_ws">Send from (UK hour)</label><input class="form-control" id="os_ws" type="number" min="0" max="23" value="${S.window_start}"></div>
+      <div class="col-6 col-md-2"><label class="form-label" for="os_we">Send until</label><input class="form-control" id="os_we" type="number" min="1" max="24" value="${S.window_end}"></div>
+      <div class="col-6 col-md-2"><button class="btn btn-primary w-100">Save settings</button></div>
+      <div class="col-12 form-text mt-0">Emails go out Monday to Friday within these hours. The daily limit is shared with nothing else, and the mailbox's own warm-up limit is higher, so 30–40 a day is a safe start.</div></form></div></div>
+    <div class="card mb-3" id="o_test" hidden><div class="card-header bg-white fw-semibold">Add a test business</div><div class="card-body">
+      <p class="small text-body-secondary">A test business works exactly like a real one, except the follow-ups come ${S.test_delay_minutes} minutes apart instead of days, and it ignores the send window and daily limit. Use an email address you can check. You can reset it and run it again.</p>
+      <form id="o_testf" class="row g-3">
+        <div class="col-md-4"><label class="form-label" for="ot_name">Business name</label><input class="form-control" id="ot_name" required></div>
+        <div class="col-md-4"><label class="form-label" for="ot_email">Send the test emails to</label><input class="form-control" id="ot_email" type="email" required value="${esc(state.session?.user?.email || "")}"></div>
+        <div class="col-md-4"><label class="form-label" for="ot_contact">Contact first name (optional)</label><input class="form-control" id="ot_contact"></div>
+        <div class="col-md-3"><label class="form-label" for="ot_town">Town</label><input class="form-control" id="ot_town" value="Norwich"></div>
+        <div class="col-md-3"><label class="form-label" for="ot_county">County</label><select class="form-select" id="ot_county"><option>Norfolk</option><option>Suffolk</option></select></div>
+        <div class="col-md-3"><label class="form-label" for="ot_web">Website (optional)</label><input class="form-control" id="ot_web" placeholder="example.co.uk"></div>
+        <div class="col-md-3"><label class="form-label" for="ot_cn">Companies House number (optional)</label><input class="form-control" id="ot_cn" maxlength="8"></div>
+        <div class="col-12"><div class="form-check"><input class="form-check-input" type="checkbox" id="ot_pub" checked><label class="form-check-label" for="ot_pub">Publish its listing so the links in the emails work (it shows in the directory until you delete it)</label></div></div>
+        <div class="col-12"><button class="btn btn-primary">Add test business</button></div></form></div></div>
+    <div class="d-flex flex-wrap gap-2 mb-3">${[["", "All", all.length], ...OUT_ORDER.map((k) => [k, OUT_STATE[k][0], count(k)]).filter(([k, , n]) => n || ["needs_details", "ready", "in_sequence", "claimed"].includes(k))].map(([k, l, n]) => `<a class="btn btn-sm ${f === k ? "btn-dark" : "btn-outline-secondary"}" href="/outreach${k ? "?state=" + k : ""}" data-link>${esc(l)} <span class="badge text-bg-light ms-1">${n}</span></a>`).join("")}</div>
+    <div class="card"><div class="card-header bg-white d-flex flex-wrap gap-2 align-items-center">
+      <input class="form-control form-control-sm" id="o_q" placeholder="Search name, town, email or company number" value="${esc(q)}" style="max-width:320px">
+      <span class="small text-body-secondary ms-auto" id="o_selN">0 selected</span>
+      <button class="btn btn-sm btn-outline-primary" id="o_research" disabled>Research selected</button><button class="btn btn-sm btn-success" id="o_approve" disabled>Approve selected</button></div>
+      ${list.length ? `<div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th style="width:32px"><input class="form-check-input" type="checkbox" id="o_all" aria-label="Select all"></th><th>Business</th><th>Contact</th><th>Status</th><th>Engagement</th><th>Researched</th></tr></thead><tbody>
+      ${list.map((r) => `<tr><td><input class="form-check-input o_sel" type="checkbox" value="${r.listing_id}" aria-label="Select ${esc(r.name)}"></td>
+        <td><a class="rowlink fw-semibold" href="/outreach/${r.listing_id}" data-link>${esc(r.name)}</a>${r.is_test ? ' <span class="badge text-bg-warning">Test</span>' : ""}<div class="small text-body-secondary">${esc([r.town, r.county].filter(Boolean).join(", "))}${r.company_number ? ` · ${esc(r.company_number)}` : ""}${r.listing_status !== "published" ? " · listing not published" : ""}</div></td>
+        <td class="small">${r.contact_email ? esc(r.contact_email) : '<span class="text-body-secondary">No email yet</span>'}${r.contact_name ? `<div class="text-body-secondary">${esc(r.contact_name)}</div>` : ""}</td>
+        <td>${outBadge(r.state)}<div class="small text-body-secondary">${esc(seqLine(r))}</div></td>
+        <td class="small">${r.emails_sent ? `${r.emails_sent} sent` : "–"}${r.last_opened_at ? `<div>Opened ${ago(r.last_opened_at)}</div>` : ""}${r.last_clicked_at ? `<div class="fw-semibold">Clicked ${ago(r.last_clicked_at)}</div>` : ""}</td>
+        <td class="small">${r.enriched_at ? `${ago(r.enriched_at)}${r.enrichment?.site_guessed ? '<div class="text-warning-emphasis">Website is a guess</div>' : ""}` : '<span class="text-body-secondary">Not yet</span>'}</td></tr>`).join("")}
+      </tbody></table></div>` : `<div class="empty">${all.length ? "Nothing matches." : 'No businesses yet. <a href="/directory/import" data-link>Import some from Companies House</a>, or add a test business to try it out.'}</div>`}</div>
+    <div class="small text-body-secondary mt-2" id="o_prog"></div>`;
+  $("#o_set_t").onclick = () => ($("#o_set").hidden = !$("#o_set").hidden);
+  $("#o_test_t").onclick = () => { $("#o_test").hidden = !$("#o_test").hidden; if (!$("#o_test").hidden) $("#ot_name").focus(); };
+  $("#o_setf").onsubmit = async (e) => { e.preventDefault();
+    const { error } = await site().from("outreach_settings").update({ daily_cap: +$("#os_cap").value || 30, delays: [0, +$("#os_d2").value || 4, +$("#os_d3").value || 10], window_start: +$("#os_ws").value, window_end: +$("#os_we").value, updated_at: new Date().toISOString() }).eq("id", true);
+    if (error) return oops(error); toast("Settings saved"); render(); };
+  $("#o_testf").onsubmit = async (e) => { e.preventDefault();
+    const { data, error } = await site().rpc("outreach_add_test", { p_name: $("#ot_name").value, p_town: $("#ot_town").value, p_county: $("#ot_county").value, p_email: $("#ot_email").value, p_contact_name: $("#ot_contact").value || null, p_website: $("#ot_web").value || null, p_company_number: $("#ot_cn").value || null, p_publish: $("#ot_pub").checked });
+    if (error) return oops(error); toast("Test business added"); go(`/outreach/${data}`); };
+  $("#o_q").addEventListener("keydown", (e) => { if (e.key === "Enter") { const u = new URLSearchParams(location.search); e.target.value.trim() ? u.set("q", e.target.value.trim()) : u.delete("q"); go("/outreach" + (u.toString() ? "?" + u : "")); } });
+  const sel = () => $$(".o_sel").filter((x) => x.checked).map((x) => x.value);
+  const upd = () => { const n = sel().length; $("#o_selN").textContent = `${n} selected`; $("#o_research").disabled = !n; $("#o_approve").disabled = !n; };
+  view.onchange = (e) => { if (e.target.id === "o_all") $$(".o_sel").forEach((x) => (x.checked = e.target.checked)); if (e.target.matches(".o_sel, #o_all")) upd(); };
+  $("#o_research").onclick = async () => { const ids = sel(), b = $("#o_research"); b.disabled = true; let i = 0, problems = 0;
+    const { data: ls } = await site().from("directory_listings").select("id,name,town,website,company_number").in("id", ids);
+    for (const id of ids) { i++; $("#o_prog").textContent = `Researching ${i} of ${ids.length}…`; const o = all.find((r) => r.listing_id === id), l = (ls || []).find((x) => x.id === id); if (!o || !l) continue;
+      try { const n = await outResearch(o, l); if (n.length) problems++; } catch { problems++; } }
+    toast(`Researched ${ids.length}${problems ? `, ${problems} with something to check` : ""}`); render(); };
+  $("#o_approve").onclick = async () => { const b = $("#o_approve"); if (!b.dataset.armed) { b.dataset.armed = 1; b.textContent = `Click again to approve ${sel().length}`; b.classList.replace("btn-success", "btn-danger"); return; }
+    let ok = 0; const skipped = [];
+    for (const id of sel()) { const r = all.find((x) => x.listing_id === id); if (r?.state !== "ready") { skipped.push(r?.name); continue; }
+      const { error } = await site().rpc("outreach_action", { p_listing: id, p_action: "approve" }); if (error) skipped.push(`${r.name} (${error.message})`); else ok++; }
+    toast(`${ok} approved${skipped.length ? `. Skipped ${skipped.length}: only "Ready to review" businesses with a published listing can be approved.` : ""}`, !!skipped.length && !ok); render(); };
+});
+
+route("/outreach/:id", async ({ id }) => {
+  const [{ data: o, error }, { data: l }, { data: ev }, { data: sends }, { data: camps }] = await Promise.all([
+    site().from("outreach_board").select("*").eq("listing_id", id).maybeSingle(), site().from("directory_listings").select("*").eq("id", id).maybeSingle(),
+    site().from("outreach_events").select("*").eq("listing_id", id).order("created_at", { ascending: false }).limit(200),
+    site().from("email_sends").select("id,campaign_id,email,status,sent_at,opened_at,open_count,clicked_at,click_count,bounced_at,bounce_reason,unsubscribed_at,claimed_at,created_at,error").eq("listing_id", id).order("id"),
+    site().from("email_campaigns").select("id,name,sequence_step,subject").not("sequence_step", "is", null).order("sequence_step")]);
+  if (error) throw error; if (!o || !l) throw new Error("This business isn't in outreach.");
+  crumbs([["Business outreach", "/outreach"], [l.name]]);
+  const e = o.enrichment || {}, ch = e.ch, st = e.site, isSeq = (cid) => (camps || []).find((c) => c.id === cid);
+  const val = (k, v) => v ? `<div class="d-flex gap-2 py-1 border-bottom small"><div class="text-body-secondary" style="min-width:150px">${k}</div><div class="flex-grow-1">${v}</div></div>` : "";
+  const use = (field, v, label = "Use") => v ? ` <button type="button" class="btn btn-link btn-sm p-0 align-baseline" data-use="${field}" data-v="${esc(v)}">${label}</button>` : "";
+  const stepRows = (camps || []).map((c) => { const s0 = (sends || []).find((x) => x.campaign_id === c.id);
+    const when = s0 ? (s0.status === "sent" ? `Sent ${fmtDate(s0.sent_at, true)}` : s0.status === "bounced" ? "Bounced" : s0.status === "failed" ? "Failed" : "Sending now") : o.step < c.sequence_step && o.next_send_at && o.step + 1 === c.sequence_step && o.approved_at ? `Due ${fmtDate(o.next_send_at, true)}` : "Not sent";
+    return `<div class="d-flex justify-content-between align-items-start border-bottom py-2"><div><div class="fw-semibold small">Email ${c.sequence_step}: ${esc(c.subject || "")}</div><div class="small text-body-secondary">${when}${s0?.opened_at ? ` · opened${s0.open_count > 1 ? ` ×${s0.open_count}` : ""}` : ""}${s0?.clicked_at ? ` · <strong>clicked</strong>` : ""}</div></div><button type="button" class="btn btn-sm btn-outline-secondary" data-prev="${c.sequence_step}">Preview</button></div>`; }).join("");
+  const timeline = [...(ev || []).map((x) => ({ t: x.created_at, k: x.kind, d: x.detail })),
+    ...(sends || []).flatMap((x) => { const c = isSeq(x.campaign_id), n = c ? `Email ${c.sequence_step}` : "Campaign email";
+      return [x.sent_at && { t: x.sent_at, k: "sent", d: `${n} delivered to ${x.email}` }, x.opened_at && { t: x.opened_at, k: "opened", d: `${n} opened` }, x.clicked_at && { t: x.clicked_at, k: "clicked", d: `${n}: link clicked` },
+        x.bounced_at && { t: x.bounced_at, k: "bounced", d: `${n} bounced: ${x.bounce_reason || ""}` }, x.unsubscribed_at && { t: x.unsubscribed_at, k: "unsubscribed", d: "Unsubscribed" }, x.claimed_at && { t: x.claimed_at, k: "claimed", d: "Claimed the listing" }].filter(Boolean); })]
+    .sort((a, b) => new Date(b.t) - new Date(a.t));
+  const actions = { ready: [["approve", "Approve and start", "btn-success"]], scheduled: [["send_now", "Send now", "btn-primary"], ["pause", "Pause", "btn-outline-secondary"]], in_sequence: [["send_now", "Send next email now", "btn-outline-primary"], ["pause", "Pause", "btn-outline-secondary"]],
+    paused: [["resume", "Resume", "btn-primary"]], no_response: [], needs_details: [] }[o.state] || [];
+  const pub = l.status === "published";
+  const officers = (ch?.officers || []).filter((x) => !x.corporate);
+  view.innerHTML = `<div class="page-head"><div><h1 class="mb-1">${esc(l.name)} ${o.is_test ? '<span class="badge text-bg-warning fs-6 align-middle">Test</span>' : ""}</h1><div class="text-body-secondary">${esc([l.town, l.county].filter(Boolean).join(", "))}${l.company_number ? ` · Company ${esc(l.company_number)}` : ""}</div></div>
+      <div class="d-flex flex-wrap gap-2 align-items-center">${outBadge(o.state)}${pub ? `<a class="btn btn-outline-secondary" href="${SITE}/directory/${esc(l.slug)}" target="_blank" rel="noopener">View listing ↗</a>` : `<button class="btn btn-warning" id="o_pub">Publish listing</button>`}<a class="btn btn-outline-secondary" href="/content/directory_listings/${l.id}" data-link>Edit listing</a></div></div>
+    ${!pub ? '<div class="alert alert-warning py-2 small">The listing isn\'t published yet. Check it, then publish it so the links in the emails work. A business can\'t be approved until its listing is live.</div>' : ""}
+    <div class="row g-3"><div class="col-lg-7">
+      <div class="card mb-3"><div class="card-header bg-white fw-semibold">Who we'll email</div><div class="card-body"><form id="o_cf" class="row g-3">
+        <div class="col-md-6"><label class="form-label" for="oc_email">Email</label><input class="form-control" id="oc_email" type="email" value="${esc(o.contact_email || "")}" ${o.approved_at && !o.is_test ? "readonly" : ""}>
+          <div class="form-text">${st?.email ? `On their website: ${esc(st.email)}${use("email", st.email)}` : ""}${(st?.other_emails || []).map((x) => `<br>Also found: ${esc(x)}${use("email", x)}`).join("")}${o.approved_at && !o.is_test ? "<br>Locked while the sequence runs." : ""}</div></div>
+        <div class="col-md-6"><label class="form-label" for="oc_name">First name for the greeting <span class="text-body-secondary small">(optional)</span></label><input class="form-control" id="oc_name" value="${esc(o.contact_name || "")}" placeholder="Leave blank for “Hi there”">
+          <div class="form-text">${officers.slice(0, 4).map((x) => `${esc(x.name)} (${esc(x.role)})${use("name", x.first_name, "Use " + esc(x.first_name))}`).join("<br>")}</div></div>
+        <div class="col-md-6"><label class="form-label" for="oc_role">Their role <span class="text-body-secondary small">(optional)</span></label><input class="form-control" id="oc_role" value="${esc(o.contact_role || "")}"></div>
+        <div class="col-md-6"><label class="form-label" for="oc_phone">Phone <span class="text-body-secondary small">(for your notes)</span></label><input class="form-control" id="oc_phone" value="${esc(o.contact_phone || "")}">${st?.phone ? `<div class="form-text">On their website: ${esc(st.phone)}${use("phone", st.phone)}</div>` : ""}</div>
+        <div class="col-12"><label class="form-label" for="oc_notes">Notes</label><textarea class="form-control" id="oc_notes" rows="2">${esc(o.notes || "")}</textarea></div>
+        <div class="col-12 d-flex gap-2"><button class="btn btn-primary">Save contact</button>${!l.company_number && !o.is_test ? '<span class="small text-danger align-self-center">No company number: only limited companies can be emailed without consent, so this one won\'t be sent.</span>' : ""}</div></form></div></div>
+
+      <div class="card mb-3"><div class="card-header bg-white d-flex align-items-center gap-2"><span class="fw-semibold me-auto">What we know</span><span class="small text-body-secondary">${o.enriched_at ? `Checked ${ago(o.enriched_at)}` : "Not researched yet"}</span><button class="btn btn-sm btn-primary" id="o_res">${o.enriched_at ? "Research again" : "Research this business"}</button></div><div class="card-body">
+        <h6 class="text-uppercase small text-body-secondary mb-2">Companies House</h6>
+        ${ch ? `${val("Registered name", esc(ch.name))}${val("Status", ch.status === "active" ? '<span class="text-success fw-semibold">Active</span>' : `<span class="text-danger fw-semibold">${esc(ch.status)}</span>`)}${val("Type", esc(ch.type || ""))}${val("Incorporated", ch.incorporated ? `${fmtDate(ch.incorporated)} (${Math.max(0, new Date().getFullYear() - new Date(ch.incorporated).getFullYear())} years)` : "")}
+          ${val("Registered office", esc(ch.registered_office) + '<div class="text-body-secondary">Often an accountant\'s address, so it isn\'t used on the listing.</div>')}${val("What they do", (ch.sic || []).map((x) => `${esc(x.code)}${x.name ? ` ${esc(x.name)}` : ""}`).join("<br>"))}
+          ${val("Accounts", `${ch.accounts?.last_made_up_to ? `Last made up to ${fmtDate(ch.accounts.last_made_up_to)}` : "None filed yet"}${ch.accounts?.next_due ? ` · next due ${fmtDate(ch.accounts.next_due)}` : ""}${ch.accounts?.overdue ? ' <span class="badge text-bg-danger">Overdue</span>' : ""}`)}
+          ${val("Confirmation statement", ch.confirmation?.overdue ? '<span class="badge text-bg-danger">Overdue</span>' : ch.confirmation?.next_due ? `Next due ${fmtDate(ch.confirmation.next_due)}` : "")}${ch.has_insolvency ? val("Insolvency", '<span class="badge text-bg-danger">Has insolvency history</span>') : ""}
+          ${val("Officers", (ch.officers || []).map((x) => `${esc(x.name)} <span class="text-body-secondary">· ${esc(x.role)}${x.appointed ? ` since ${new Date(x.appointed).getFullYear()}` : ""}</span>`).join("<br>") || "None listed")}
+          ${(ch.accounts?.overdue || ch.status !== "active") ? '<div class="alert alert-warning small py-2 mt-2 mb-0">Overdue filings or an inactive status can mean the business has stopped trading. Worth checking before emailing.</div>' : ""}`
+        : e.ch_error ? `<p class="small text-danger">${esc(e.ch_error)}</p>` : `<p class="small text-body-secondary">${l.company_number ? "Not checked yet." : "No company number."}</p>`}
+        <h6 class="text-uppercase small text-body-secondary mt-4 mb-2">Their website</h6>
+        <div class="input-group input-group-sm mb-2"><input class="form-control" id="o_url" value="${esc(l.website || st?.website || "")}" placeholder="their-site.co.uk"><button class="btn btn-outline-secondary" id="o_scan" type="button">Read this website</button><button class="btn btn-outline-secondary" id="o_guess" type="button">Find likely websites</button><a class="btn btn-outline-secondary" target="_blank" rel="noopener" href="https://www.google.com/search?q=${encodeURIComponent(`${l.name} ${l.town || ""}`)}">Search Google ↗</a></div>
+        ${(e.guesses || []).length && !e.site_confirmed ? `<div class="small mb-2">Possible websites: ${e.guesses.map((g) => `<button type="button" class="btn btn-sm btn-outline-secondary me-1 mb-1" data-guess="${esc(g.url)}">${esc(g.url.replace(/^https?:\/\//, ""))}${g.mentions_town ? " ✓ town" : ""}</button>`).join("")}</div>` : ""}
+        ${st ? `${e.site_guessed && !e.site_confirmed ? `<div class="alert alert-warning small py-2">This website was found by guessing from the name. Check it's really theirs, then <button type="button" class="btn btn-sm btn-warning py-0" id="o_confirm">Confirm it's theirs</button></div>` : ""}
+          ${val("Website", `<a href="${esc(st.website)}" target="_blank" rel="noopener">${esc(st.website)}</a>${e.site_confirmed ? ' <span class="badge text-bg-success">Confirmed</span>' : ""}`)}
+          ${val("Company number on site", st.company_match === true ? '<span class="text-success fw-semibold">✓ Matches</span>' : st.company_match === false ? `<span class="text-danger fw-semibold">✗ Different (${esc(st.company_number_on_site)})</span>` : '<span class="text-body-secondary">Not shown on the site</span>')}
+          ${val("Page title", esc(st.title))}${val("Description", esc(st.description))}${val("About", esc(st.about))}${val("Established", esc(st.established))}
+          ${val("Services mentioned", (st.services_found || []).map((x) => `<span class="badge text-bg-light border me-1">${esc(x)}</span>`).join(""))}
+          ${val("Opening hours", esc(st.hours))}${val("Phone", esc(st.phone))}${val("Email", esc(st.email))}
+          ${val("Address", st.address ? esc([st.address.line, st.address.town, st.address.postcode].filter(Boolean).join(", ")) : st.postcode ? esc(st.postcode) : "")}
+          ${val("Social", Object.entries(st.socials || {}).map(([k, v]) => `<a href="${esc(v)}" target="_blank" rel="noopener">${esc({ x_url: "X", youtube: "YouTube", tiktok: "TikTok" }[k] || k[0].toUpperCase() + k.slice(1))}</a>`).join(" · "))}
+          ${val("Logo", st.logo ? `<img src="${esc(st.logo)}" alt="" style="max-height:48px;max-width:160px;background:#f6f2ec;padding:4px;border-radius:4px"> <span class="text-body-secondary">Only goes on the listing once they claim it or agree.</span>` : "")}
+          ${val("Main image", st.image ? `<img src="${esc(st.image)}" alt="" style="max-height:70px;border-radius:4px">` : "")}
+          <div class="mt-3"><button class="btn btn-sm btn-outline-primary" id="o_fill">Add these details to the listing…</button></div><div id="o_fillbox"></div>`
+        : e.site_error ? `<p class="small text-danger">${esc(e.site_error)}</p>` : '<p class="small text-body-secondary">No website read yet.</p>'}
+        <p class="small text-body-secondary mt-3 mb-0">Companies House data: Open Government Licence v3.0. Website details are what the business publishes itself.</p>
+      </div></div>
+    </div>
+    <div class="col-lg-5">
+      <div class="card mb-3"><div class="card-header bg-white fw-semibold">Emails</div><div class="card-body">
+        ${stepRows}
+        <div class="d-flex flex-wrap gap-2 mt-3">${actions.map(([a, label, cls]) => `<button class="btn btn-sm ${cls}" data-act="${a}">${label}</button>`).join("")}
+          ${["replied", "not_interested", "do_not_contact", "wrong_business"].includes(o.state) ? '<button class="btn btn-sm btn-outline-secondary" data-act="reopen">Reopen</button>' : ""}
+          ${o.is_test ? '<button class="btn btn-sm btn-outline-danger" data-act="reset">Reset test</button>' : ""}</div>
+        ${!["claimed", "do_not_contact", "wrong_business"].includes(o.state) ? `<div class="mt-2 small">Mark as: <button class="btn btn-link btn-sm p-0" data-act="replied">Replied</button> · <button class="btn btn-link btn-sm p-0" data-act="not_interested">Not interested</button> · <button class="btn btn-link btn-sm p-0" data-act="wrong_business">Wrong business</button> · <button class="btn btn-link btn-sm p-0 text-danger" data-act="do_not_contact">Do not contact</button></div>` : ""}
+        ${o.state === "needs_details" ? '<p class="small text-body-secondary mt-2 mb-0">Add a contact email to get started. Research the business to find one on their website.</p>' : ""}
+        ${o.state === "ready" ? `<p class="small text-body-secondary mt-2 mb-0">Approving sends email 1 in the next send window${o.is_test ? " (straight away for a test)" : ""}, then follow-ups if they don't respond.</p>` : ""}
+      </div></div>
+      <div class="card mb-3"><div class="card-header bg-white d-flex align-items-center gap-2"><span class="fw-semibold me-auto">Preview: email <span id="o_pn">1</span></span><button class="btn btn-sm btn-outline-secondary" id="o_testsend">Send me this</button></div>
+        <div class="card-body p-0"><div class="small px-3 py-2 border-bottom">To: ${esc(o.contact_email || "(no email yet)")} · Subject: <strong id="o_psubj"></strong></div><iframe id="o_prev" title="Email preview" style="width:100%;height:640px;border:0;background:#efe6da"></iframe></div></div>
+      <div class="card"><div class="card-header bg-white fw-semibold">Activity</div><div class="card-body small" style="max-height:420px;overflow:auto">
+        <form id="o_nf" class="d-flex gap-2 mb-2"><input class="form-control form-control-sm" id="o_note" placeholder="Add a note (e.g. spoke on the phone)"><button class="btn btn-sm btn-outline-secondary">Add</button></form>
+        ${timeline.map((x) => `<div class="border-bottom py-1"><span class="text-body-secondary">${fmtDate(x.t, true)}</span> · <strong>${esc({ queued: "Queued", sent: "Delivered", opened: "Opened", clicked: "Clicked", claimed: "Claimed", bounced: "Bounced", unsubscribed: "Unsubscribed", researched: "Researched", approve: "Approved", send_now: "Send now", pause: "Paused", resume: "Resumed", replied: "Replied", not_interested: "Not interested", do_not_contact: "Do not contact", wrong_business: "Wrong business", reopen: "Reopened", reset: "Test reset", note: "Note", test: "Test" }[x.k] || x.k)}</strong>${x.d ? ` · ${esc(x.d)}` : ""}</div>`).join("") || '<span class="text-body-secondary">Nothing yet.</span>'}
+      </div></div>
+    </div></div>`;
+
+  // preview of the real email for this business
+  let step = 1;
+  const showPrev = async (n) => { step = n; $("#o_pn").textContent = n; $("#o_prev").srcdoc = '<p style="font:14px sans-serif;padding:20px">Loading…</p>';
+    try { const j = await edgeFn({ preview: true, step: n, listing_id: id }); $("#o_prev").srcdoc = j.html; $("#o_psubj").textContent = j.subject; } catch (err) { $("#o_prev").srcdoc = `<p style="font:14px sans-serif;padding:20px">${esc(err.message)}</p>`; } };
+  showPrev(Math.min(OUT_SEQ_LEN, (o.step || 0) + 1));
+  view.querySelectorAll("[data-prev]").forEach((b) => (b.onclick = () => showPrev(+b.dataset.prev)));
+  $("#o_testsend").onclick = async () => { try { await edgeFn({ test: true, step, listing_id: id }); toast(`Email ${step} sent to ${state.session.user.email}`); } catch (err) { toast(err.message, true); } };
+
+  // contact
+  view.querySelectorAll("[data-use]").forEach((b) => (b.onclick = () => { $({ email: "#oc_email", name: "#oc_name", phone: "#oc_phone" }[b.dataset.use]).value = b.dataset.v; toast("Added. Save the contact to keep it."); }));
+  $("#o_cf").onsubmit = async (ev2) => { ev2.preventDefault();
+    const em = $("#oc_email").value.trim().toLowerCase(); if (em && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) return toast("Check the email address", true);
+    const patch = { contact_name: $("#oc_name").value.trim() || null, contact_role: $("#oc_role").value.trim() || null, contact_phone: $("#oc_phone").value.trim() || null, notes: $("#oc_notes").value.trim() || null, updated_at: new Date().toISOString() };
+    if (!o.approved_at || o.is_test) patch.contact_email = em || null;
+    const { error: e1 } = await site().from("outreach").update(patch).eq("listing_id", id); if (e1) return oops(e1);
+    await site().from("directory_contacts").upsert({ listing_id: id, email: patch.contact_email ?? o.contact_email, contact_name: patch.contact_name, phone: patch.contact_phone, updated_at: new Date().toISOString() }, { onConflict: "listing_id" });
+    toast("Contact saved"); render(); };
+
+  // research
+  $("#o_res").onclick = async () => { const b = $("#o_res"); b.disabled = true; b.textContent = "Researching…";
+    try { const n = await outResearch(o, l); toast(n.length ? n.join(". ") : "Research done", !!n.length); } catch (err) { toast(err.message, true); } render(); };
+  const scanUrl = async (url, confirmed) => { if (!url) return toast("Enter their website address", true);
+    try { const sres = await siteApi("/api/site-scan", { url, company_number: l.company_number || "" }); const en = { ...e, site: sres, site_guessed: !confirmed, site_confirmed: !!confirmed }; delete en.site_error;
+      await site().from("outreach").update({ enrichment: en, enriched_at: new Date().toISOString() }).eq("listing_id", id);
+      await site().from("outreach_events").insert({ listing_id: id, kind: "researched", detail: `Website read: ${sres.website}` }); toast("Website read"); render(); } catch (err) { toast(err.message, true); } };
+  $("#o_scan").onclick = () => scanUrl($("#o_url").value.trim(), true);
+  $("#o_guess").onclick = async () => { const b = $("#o_guess"); b.disabled = true; b.textContent = "Looking…";
+    try { const g = await siteApi("/api/site-guess", { name: ch?.name || l.name, town: l.town }); await site().from("outreach").update({ enrichment: { ...e, guesses: g.items || [] } }).eq("listing_id", id); toast(g.items?.length ? `Found ${g.items.length} possible website${g.items.length > 1 ? "s" : ""}` : "No likely websites found. Try searching Google."); render(); } catch (err) { toast(err.message, true); b.disabled = false; b.textContent = "Find likely websites"; } };
+  view.querySelectorAll("[data-guess]").forEach((b) => (b.onclick = () => scanUrl(b.dataset.guess, false)));
+  if ($("#o_confirm")) $("#o_confirm").onclick = async () => { const patch = { enrichment: { ...e, site_confirmed: true, site_guessed: false } }; if (!o.contact_email && st?.email) patch.contact_email = st.email;
+    await site().from("outreach").update(patch).eq("listing_id", id); if (!l.website) await site().from("directory_listings").update({ website: st.website }).eq("id", id); toast("Confirmed"); render(); };
+
+  // add found details to the listing (the team chooses; the logo is never copied before they claim)
+  if ($("#o_fill")) $("#o_fill").onclick = () => {
+    const svc = [...new Set([...(l.services || []), ...(st.services_found || [])])];
+    const F2 = [["website", "Website", st.website, l.website], ["phone", "Phone", st.phone, l.phone], ["email", "Public email", st.email, l.email], ["summary", "Short description", st.description, l.summary],
+      ["services", "Services", svc.join(", "), (l.services || []).join(", ")], ["opening_hours", "Opening hours", st.hours, (l.opening_hours || []).join("; ")],
+      ["postcode", "Postcode", st.address?.postcode || st.postcode, l.postcode], ["address_line", "Street address", st.address?.line, l.address_line],
+      ...Object.entries(st.socials || {}).map(([k, v]) => [k, k === "x_url" ? "X" : k[0].toUpperCase() + k.slice(1), v, l[k]])].filter(([, , v]) => v && String(v).trim());
+    $("#o_fillbox").innerHTML = `<div class="border rounded p-2 mt-2 small">${F2.map(([k, label, v, cur]) => `<div class="form-check"><input class="form-check-input o_fk" type="checkbox" id="fk_${k}" value="${k}" ${!cur ? "checked" : ""}><label class="form-check-label" for="fk_${k}"><strong>${label}:</strong> ${esc(String(v).slice(0, 160))}${cur && String(cur) !== String(v) ? ` <span class="text-body-secondary">(now: ${esc(String(cur).slice(0, 60))})</span>` : ""}</label></div>`).join("")}
+      <button type="button" class="btn btn-sm btn-primary mt-2" id="o_fillgo">Update the listing</button></div>`;
+    $("#o_fillgo").onclick = async () => { const pick = $$(".o_fk").filter((x) => x.checked).map((x) => x.value), patch = {};
+      for (const [k, , v] of F2) if (pick.includes(k)) patch[k] = k === "services" ? svc : k === "opening_hours" ? String(v).split(/;\s*/).filter(Boolean) : v;
+      if (!Object.keys(patch).length) return toast("Tick at least one", true);
+      patch.updated_at = new Date().toISOString(); const { error: e2 } = await site().from("directory_listings").update(patch).eq("id", id); if (e2) return oops(e2);
+      await site().from("outreach_events").insert({ listing_id: id, kind: "note", detail: "Listing updated from research: " + pick.join(", ") }); toast("Listing updated"); render(); }; };
+
+  // actions
+  if ($("#o_pub")) $("#o_pub").onclick = async () => { const { error: e3 } = await site().from("directory_listings").update({ status: "published", checked_at: new Date().toISOString().slice(0, 10) }).eq("id", id); if (e3) return oops(e3); toast("Listing published"); render(); };
+  view.querySelectorAll("[data-act]").forEach((b) => (b.onclick = async () => { const a = b.dataset.act;
+    if (["do_not_contact", "reset", "approve"].includes(a) && !b.dataset.armed) { b.dataset.armed = 1; b.textContent = a === "approve" ? `Click again to start emailing ${o.contact_email || ""}` : "Click again to confirm"; return; }
+    const { error: e4 } = await site().rpc("outreach_action", { p_listing: id, p_action: a }); if (e4) return oops(e4);
+    toast({ approve: o.is_test ? "Approved. Email 1 goes out within 5 minutes." : "Approved. Email 1 goes out in the next send window.", send_now: "It'll go out within 5 minutes.", reset: "Test reset" }[a] || "Updated"); render(); }));
+  $("#o_nf").onsubmit = async (ev3) => { ev3.preventDefault(); const t = $("#o_note").value.trim(); if (!t) return; const { error: e5 } = await site().rpc("outreach_action", { p_listing: id, p_action: "note", p_detail: t }); if (e5) return oops(e5); render(); };
+});
 
 // ---------- directory: import businesses from Companies House (team only) ----------
 const CH_GROUPS = { repair: "Garages and repairs", parts: "Parts and accessories", sales: "Car sales" };

@@ -134,11 +134,21 @@ async function handle(req: Request): Promise<Response> {
     const { data: team } = await asUser.schema("site").rpc("am_i_team");
     const { data: { user: me } } = await asUser.auth.getUser();
     if (team !== true || !me?.email) return reply({ error: "Team only." }, 403);
-    const { data: saved } = body.draft ? { data: null } : await db.schema("site").from("email_campaigns").select("*").eq("id", body.campaign).maybeSingle();
+    // a sequence step can be asked for by number (outreach screen), a saved campaign by id, or an unsaved draft
+    const q = db.schema("site").from("email_campaigns").select("*");
+    const { data: saved } = body.draft ? { data: null } : body.step ? await q.eq("sequence_step", body.step).maybeSingle() : await q.eq("id", body.campaign).maybeSingle();
     const c = body.draft ? { id: "preview", from_name: "Cars and Coffee UK", ...body.draft } as C : saved;
     if (!c) return reply({ error: "Campaign not found" }, 404);
-    const sample: R = { send_id: 0, email: me.email, name: "Sam Smith", business: "Example Motors Ltd", listing_slug: "", token: crypto.randomUUID(), campaign: c,
+    let sample: R = { send_id: 0, email: me.email, name: "Sam Smith", business: "Example Motors Ltd", listing_slug: "", token: crypto.randomUUID(), campaign: c,
       listing: c.kind === "business_outreach" ? { name: "Example Motors Ltd", town: "Norwich", county: "Norfolk", services: ["Servicing", "Bodywork"] } : null };
+    if (body.listing_id) {
+      // the real email for one business: its listing, and the outreach contact (tests go to that address; previews just show it)
+      const [{ data: l }, { data: o }] = await Promise.all([db.schema("site").from("directory_listings").select("name,slug,town,county,services,image_path").eq("id", body.listing_id).maybeSingle(),
+        db.schema("site").from("outreach").select("contact_email,contact_name").eq("listing_id", body.listing_id).maybeSingle()]);
+      if (!l) return reply({ error: "Business not found" }, 404);
+      sample = { ...sample, email: body.preview ? (o?.contact_email || me.email) : me.email, name: o?.contact_name || "", business: l.name, listing_slug: l.slug,
+        listing: { name: l.name, town: l.town, county: l.county, services: l.services, slug: l.slug, image: l.image_path } };
+    }
     if (body.preview) { const m = render(sample); return reply({ subject: m.subject, html: m.html, text: m.text }); }
     rows = [sample];
     isTest = true;
@@ -188,20 +198,27 @@ async function checkBounces(db: any, token: string, user: string, pass: string) 
   const { data: okTok } = await db.schema("site").rpc("email_bounce", { p_token: token, p_email: "nobody@invalid", p_reason: "token check", p_hard: false });
   if (okTok === null) return { error: "not allowed" };
   const client = new ImapFlow({ host: Deno.env.get("MARKETING_IMAP_HOST") || "imap.consensusmedia.co.uk", port: 993, secure: true, auth: { user, pass }, logger: false, socketTimeout: 30000 });
-  let found = 0, marked = 0;
+  let found = 0, marked = 0, replies = 0;
   try {
     await client.connect();
     const lock = await client.getMailboxLock("INBOX");
     try {
       const since = new Date(Date.now() - 8 * 864e5);
-      const uids = (await client.search({ since, unKeyword: "$CACBounce" }, { uid: true }).catch(async () => await client.search({ since }, { uid: true }))) || [];
+      const uids = (await client.search({ since, unKeyword: "$CACBounce", not: { keyword: "$CACReply" } } as never, { uid: true }).catch(async () => await client.search({ since }, { uid: true }))) || [];
       for (const uid of (uids as number[]).slice(-200)) {
         const msg = await client.fetchOne(String(uid), { source: true, envelope: true, flags: true }, { uid: true });
-        if (!msg || msg.flags?.has("$CACBounce")) continue;
+        if (!msg || msg.flags?.has("$CACBounce") || msg.flags?.has("$CACReply")) continue;
         const src = msg.source?.toString("utf8") || "";
         const from = (msg.envelope?.from?.[0]?.address || "").toLowerCase(), subj = msg.envelope?.subject || "";
         const isDsn = /multipart\/report/i.test(src) && /report-type=["']?delivery-status/i.test(src) || /^(mailer-daemon|postmaster)@/.test(from) || /undeliver|delivery (status|failure|has failed)|returned mail|failure notice/i.test(subj);
-        if (!isDsn) continue;
+        if (!isDsn) {
+          // a normal email from someone we've contacted counts as a reply: it stops their follow-ups (left unread for you to answer)
+          if (from && from !== user) {
+            const { data: n } = await db.schema("site").rpc("outreach_reply", { p_token: token, p_email: from, p_subject: subj });
+            if (Number(n || 0) > 0) { replies += Number(n); await client.messageFlagsAdd(String(uid), ["$CACReply"], { uid: true }).catch(() => {}); }
+          }
+          continue;
+        }
         found++;
         const rcpts = new Set<string>();
         for (const m of src.matchAll(/^(?:Final-Recipient|Original-Recipient):\s*rfc822;\s*<?([^\s>]+@[^\s>]+)>?/gim)) rcpts.add(m[1].toLowerCase());
@@ -218,7 +235,7 @@ async function checkBounces(db: any, token: string, user: string, pass: string) 
       }
     } finally { lock.release(); }
   } catch (e) {
-    return { error: "Couldn't check the mailbox for bounces: " + String((e as Error).message ?? e).slice(0, 200), found, marked };
+    return { error: "Couldn't check the mailbox for bounces: " + String((e as Error).message ?? e).slice(0, 200), found, marked, replies };
   } finally { try { await client.logout(); } catch { /* ignore */ } }
-  return { found, marked };
+  return { found, marked, replies };
 }
