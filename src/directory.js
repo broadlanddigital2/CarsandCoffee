@@ -147,7 +147,7 @@ export async function businessPage(slug) {
         <h2 id="claim-h">Is ${E(l.name)} your business?</h2>
         <p>Car enthusiasts across Norfolk and Suffolk are finding local businesses here. Claim this page free and make it work for you.</p>
         <ul class="claim-ad-list">${[["Show off your work", "Photos, your logo and a gallery"], ["Get enquiries", "Messages come straight to your inbox"], ["List what you do", "Services, prices and opening times"], ["Build trust", "Reply to reviews and see your page views"]].map(([t, d]) => `<li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5 9-10" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg><span><b>${t}</b>${d}</span></li>`).join("")}</ul></div>
-      <div class="claim-ad-cta"><div class="claim-ad-price"><b>£0</b><span>No catch, no contract</span></div>
+      <div class="claim-ad-cta"><div class="claim-ad-price"><b>FREE</b><em>Listing</em><span>No catch, no contract</span></div>
         <a class="btn red claim-ad-btn" href="/directory/claim/${E(l.slug)}">Claim this business ${ARROW}</a>
         <p>Takes about two minutes. We check it's really yours, then it's over to you.</p></div>
     </div></section>` : "",
