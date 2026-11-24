@@ -142,6 +142,7 @@ export async function businessPage(slug) {
         <div class="lp-chips">${(l.services || []).map(svcLink).join("")}</div>
         <p class="biz-ok"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5 9-10" fill="none" stroke="currentColor" stroke-width="2.6"/></svg>Checked by Cars and Coffee${l.checked_at ? ` · ${new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric" }).format(new Date(l.checked_at))}` : ""}</p>
         <div class="biz-acts">${webUtm ? `<a class="biz-act primary" href="${E(webUtm)}" target="_blank" rel="noopener" data-track="website">${ACT_ICON.web}<span><b class="biz-act-l">Visit website</b><small>${E(web.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, ""))}</small></span></a>` : ""}${showPhone ? `<button type="button" class="biz-act" data-reveal="${E(tel)}" data-label="${E(l.phone)}" data-track="phone_reveal">${ACT_ICON.phone}<span><b class="biz-act-l">Show number</b><small>Tap to reveal</small></span></button>` : ""}${l.enquiries_enabled ? `<a class="biz-act" href="#enquire">${ACT_ICON.mail}<span><b class="biz-act-l">Send an enquiry</b><small>Goes straight to them</small></span></a>` : ""}</div></div></div></section>`,
+    `<nav class="hubnav" aria-label="On this page"><div class="wrap">${nav.map(([t, h]) => `<a href="${h}">${E(t)}</a>`).join("")}</div></nav>`,
     l.unclaimed ? `<section class="claim-ad" aria-labelledby="claim-h"><div class="wrap claim-ad-in">
       <div class="claim-ad-copy"><span class="claim-ad-tag">For the owner · Free</span>
         <h2 id="claim-h">Is ${E(l.name)} your business?</h2>
@@ -151,7 +152,6 @@ export async function businessPage(slug) {
         <a class="btn red claim-ad-btn" href="/directory/claim/${E(l.slug)}">Claim this business ${ARROW}</a>
         <p>Takes about two minutes. We check it's really yours, then it's over to you.</p></div>
     </div></section>` : "",
-    `<nav class="hubnav" aria-label="On this page"><div class="wrap">${nav.map(([t, h]) => `<a href="${h}">${E(t)}</a>`).join("")}</div></nav>`,
     `<section class="lp-sec"><div class="wrap ep-grid biz-grid"><div class="biz-main">
       <div id="about" class="biz-sec"><h2>About ${E(l.name)}</h2><div class="rich">${about}</div>${l.source === "companies_house" && l.unclaimed ? `<p class="ct-small">Basic company details from Companies House, licensed under the Open Government Licence v3.0. The owner hasn't added their own details yet.</p>` : ""}</div>
       ${offerings.length ? `<div id="offer" class="biz-sec"><h2>Services and products</h2><div class="biz-offer">${offerings.map((o) => `<div class="biz-off">${o.image ? `<img src="${E(img(o.image))}" alt="" loading="lazy">` : ""}<div><h3>${E(o.name)}</h3>${o.description ? `<p>${E(o.description)}</p>` : ""}${o.price ? `<p class="biz-price">${E(o.price)}</p>` : ""}</div></div>`).join("")}</div></div>` : ""}
