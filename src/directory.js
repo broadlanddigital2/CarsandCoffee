@@ -7,6 +7,11 @@ import { galleryHTML, galleryOf } from "./ui.js";
 
 // simple generic icons for social links (not the networks' logos); the link label names the network
 const SV = (d) => `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const ACT_ICON = {
+  web: SV('<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>'),
+  phone: SV('<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>'),
+  mail: SV('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>'),
+};
 const SOC_ICON = {
   Instagram: SV('<rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.3" cy="6.7" r=".6" fill="currentColor"/>'),
   Facebook: SV('<path d="M7 10v11M7 10H4v11h3M7 10l4-7c1.5 0 2.5 1 2.5 2.5V9h5a2 2 0 0 1 2 2.3l-1.2 7.4A2.5 2.5 0 0 1 16.8 21H7"/>'),
@@ -136,7 +141,7 @@ export async function businessPage(slug) {
         ${reviews.length ? `<a class="biz-rating" href="#reviews">${stars(avg)} <b>${avg.toFixed(1)}</b> · ${reviews.length} review${reviews.length === 1 ? "" : "s"}</a>` : ""}
         <div class="lp-chips">${(l.services || []).map(svcLink).join("")}</div>
         <p class="biz-ok"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5 9-10" fill="none" stroke="currentColor" stroke-width="2.6"/></svg>Checked by Cars and Coffee${l.checked_at ? ` · ${new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric" }).format(new Date(l.checked_at))}` : ""}</p>
-        <div class="btns">${webUtm ? `<a class="btn red" href="${E(webUtm)}" target="_blank" rel="noopener" data-track="website">Visit website ${ARROW}</a>` : ""}${phoneBtn("ghost")}${l.enquiries_enabled ? `<a class="btn ghost" href="#enquire">Send an enquiry</a>` : ""}</div></div></div></section>`,
+        <div class="biz-acts">${webUtm ? `<a class="biz-act primary" href="${E(webUtm)}" target="_blank" rel="noopener" data-track="website">${ACT_ICON.web}<span><b class="biz-act-l">Visit website</b><small>${E(web.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, ""))}</small></span></a>` : ""}${showPhone ? `<button type="button" class="biz-act" data-reveal="${E(tel)}" data-label="${E(l.phone)}" data-track="phone_reveal">${ACT_ICON.phone}<span><b class="biz-act-l">Show number</b><small>Tap to reveal</small></span></button>` : ""}${l.enquiries_enabled ? `<a class="biz-act" href="#enquire">${ACT_ICON.mail}<span><b class="biz-act-l">Send an enquiry</b><small>Goes straight to them</small></span></a>` : ""}</div></div></div></section>`,
     l.unclaimed ? `<section class="claim-band"><div class="wrap"><div><strong>Is this your business?</strong> Claim it free to add your photos, services and prices, opening times and contact details, and to reply to reviews.</div><a class="btn red small" href="/directory/claim/${E(l.slug)}">Claim this business ${ARROW}</a></div></section>` : "",
     `<nav class="hubnav" aria-label="On this page"><div class="wrap">${nav.map(([t, h]) => `<a href="${h}">${E(t)}</a>`).join("")}</div></nav>`,
     `<section class="lp-sec"><div class="wrap ep-grid biz-grid"><div class="biz-main">
@@ -206,7 +211,7 @@ function bizScript(slug) {
     try{window.dataLayer=window.dataLayer||[];window.dataLayer.push({event:'directory_'+type,business:S});}catch(e){}}
   try{var k='cac-v-'+S;if(!sessionStorage.getItem(k)){sessionStorage.setItem(k,'1');t('view');}}catch(e){t('view');}
   document.addEventListener('click',function(e){var r=e.target.closest('[data-reveal]');
-    if(r){e.preventDefault();var tel=r.getAttribute('data-reveal'),lab=r.getAttribute('data-label');document.querySelectorAll('[data-reveal]').forEach(function(x){var a=document.createElement('a');a.href='tel:'+tel;a.className=x.className;a.textContent=x.getAttribute('data-label');a.setAttribute('data-track','phone_call');x.replaceWith(a);});t('phone_reveal');return;}
+    if(r){e.preventDefault();var tel=r.getAttribute('data-reveal'),lab=r.getAttribute('data-label');document.querySelectorAll('[data-reveal]').forEach(function(x){var a=document.createElement('a');a.href='tel:'+tel;a.className=x.className;a.setAttribute('data-track','phone_call');if(x.classList.contains('biz-act')){a.innerHTML=x.innerHTML;a.querySelector('.biz-act-l').textContent=x.getAttribute('data-label');a.querySelector('small').textContent='Tap to call';a.classList.add('shown');}else a.textContent=x.getAttribute('data-label');x.replaceWith(a);});t('phone_reveal');return;}
     var a=e.target.closest('[data-track]');if(a&&a.getAttribute('data-track')!=='video')t(a.getAttribute('data-track'));
     if(e.target.closest('[data-track-gallery] .agal-t'))t('gallery');});
   // video: load the player only when asked (no third-party requests before)
@@ -230,7 +235,7 @@ function bizScript(slug) {
       .catch(function(err){m.textContent=err.message;m.className='ct-msg bad';btn.disabled=false;});}
   var L=document.getElementById('lead');if(L)L.addEventListener('submit',function(e){e.preventDefault();var m=L.querySelector('.ct-msg');
     if(!G(L,'name')||!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(G(L,'email'))||G(L,'message').length<5){m.textContent='Please add your name, a valid email and a message.';m.className='ct-msg bad';return;}
-    send(L,'/api/lead',{slug:S,name:G(L,'name'),email:G(L,'email'),phone:G(L,'phone'),message:(G(L,'vehicle')?'Car: '+G(L,'vehicle')+'\n\n':'')+G(L,'message'),cc_hp:G(L,'cc_hp')},'<div class="ct-sent"><h3>Enquiry sent.</h3><p>The business will reply to you directly by email or phone.</p></div>');});
+    send(L,'/api/lead',{slug:S,name:G(L,'name'),email:G(L,'email'),phone:G(L,'phone'),message:(G(L,'vehicle')?'Car: '+G(L,'vehicle')+'\\n\\n':'')+G(L,'message'),cc_hp:G(L,'cc_hp')},'<div class="ct-sent"><h3>Enquiry sent.</h3><p>The business will reply to you directly by email or phone.</p></div>');});
   var R=document.getElementById('rvf');if(R)R.addEventListener('submit',function(e){e.preventDefault();var m=R.querySelector('.ct-msg'),rt=R.querySelector('[name=rating]:checked');
     if(!rt||!G(R,'name')||!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(G(R,'email'))||G(R,'body').length<10){m.textContent='Please choose a rating and add your name, email and a few words.';m.className='ct-msg bad';return;}
     send(R,'/api/review',{slug:S,name:G(R,'name'),email:G(R,'email'),rating:+rt.value,body:G(R,'body')},'<div class="ct-sent"><h3>Thanks for your review.</h3><p>Our team will check it and it will appear here soon.</p></div>');});
