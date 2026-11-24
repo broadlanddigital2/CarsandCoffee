@@ -676,7 +676,7 @@ const CONTENT = {
       F("cta2_label", "Button 2 text"), F("cta2_url", "Button 2 link"), F("countdown_to", "Countdown to", "datetime"), F("starts_at", "Show from", "datetime"), F("ends_at", "Show until", "datetime"), F("active", "Active", "bool", { def: true })] },
   directory_listings: { title: "Directory", order: ["created_at", false], list: ["name", "town", "status", "unclaimed", "featured"], view: "/directory/", seo: true,
     help: "Businesses in the directory. New submissions from the website arrive as Pending: check them, add details, then set Status to Published.",
-    fields: [F("h_basics", "The business", "heading"), F("name", "Business name", "text", { required: true }), F("slug", "Slug", "slug", { from: "name" }), F("services", "Services (comma separated)", "array"),
+    fields: [F("h_basics", "The business", "heading"), F("name", "Business name", "text", { required: true }), F("slug", "Slug", "slug", { from: "name" }), F("services", "Services", "services"),
       F("summary", "Short summary (shown on cards and in Google)", "textarea", { ai: "summary" }), F("body_html", "About the business", "rich", { ai: "body" }),
       F("image_path", "Main photo", "image"), F("image_alt", "Photo description"), F("logo_path", "Logo", "image"),
       F("h_sections", "Page sections", "heading", { note: "Each section only shows on the business page when it has something in it." }),
@@ -760,7 +760,7 @@ const CONTENT = {
       F("meta_title", "Google title"), F("meta_description", "Google description", "textarea")] },
   my_listing: { title: "Business profile", table: "directory_listings", noAi: true, noCreate: true, noDelete: true, order: ["name", true], list: ["name"], view: "/directory/",
     help: "Everything on your business page at carsandcoffee.uk/directory/… Each section only appears on your page once it has something in it. The more you add, the more you'll be found.",
-    fields: [F("h_basics", "Your business", "heading"), F("name", "Business name", "text", { required: true }), F("services", "Services (comma separated, e.g. Detailing, Ceramic coating)", "array"),
+    fields: [F("h_basics", "Your business", "heading"), F("name", "Business name", "text", { required: true }), F("services", "Services", "services"),
       F("summary", "Short summary (one or two sentences, shown on cards and in Google)", "textarea"), F("body_html", "About your business (who you are, what you specialise in, why people choose you)", "rich"),
       F("logo_path", "Logo", "image"), F("image_path", "Main photo (wide, shown at the top of your page)", "image"), F("image_alt", "Main photo description (for people who can't see it)"),
       F("h_offer", "Services, products and prices", "heading", { note: "Add each service or product with a short description, an optional price (e.g. From £150) and a photo." }),
@@ -902,6 +902,7 @@ route("/content/:table/:id", async ({ table, id }) => {
   else c.fields.forEach((f) => { if (f.def !== undefined) row[f.name] = f.def; if (f.type === "select") row[f.name] = row[f.name] ?? f.options[0]; });
   const refs = {};
   for (const f of c.fields.filter((f) => f.type === "ref")) { if (f.rows) { refs[f.name] = f.rows(); continue; } refs[f.name] = await refRows(f); }
+  const svcList = c.fields.some((f) => f.type === "services") ? ((await site().from("directory_services").select("name,slug").order("sort")).data || []).map((x) => x.name) : [];
   const titleKey = c.list[0];
   crumbs([[c.title, `/content/${table}`], [isNew ? "Add" : String(row[titleKey] ?? "Edit")]]);
   const input = (f) => {
@@ -928,6 +929,10 @@ route("/content/:table/:id", async ({ table, id }) => {
       case "date": return `<input class="form-control" type="date" id="${id}" value="${esc(v ? String(v).slice(0, 10) : "")}" ${req}>`;
       case "datetime": return `<input class="form-control" type="datetime-local" id="${id}" value="${toLocal(v)}" ${req}>`;
       case "array": return `<input class="form-control" id="${id}" value="${esc((v || []).join(", "))}">`;
+      case "services": { const cur = Array.isArray(v) ? v : [], extra = cur.filter((x) => !svcList.some((n) => n.toLowerCase() === String(x).toLowerCase()));
+        return `<div id="${id}" class="svc-pick d-flex flex-wrap gap-2">${svcList.map((n, i) => `<input type="checkbox" class="btn-check" id="${id}_${i}" value="${esc(n)}" ${cur.some((x) => String(x).toLowerCase() === n.toLowerCase()) ? "checked" : ""} autocomplete="off"><label class="btn btn-sm btn-outline-primary" for="${id}_${i}">${esc(n)}</label>`).join("")}</div>
+          <input class="form-control form-control-sm mt-2" id="${id}_extra" value="${esc(extra.join(", "))}" placeholder="Other services, comma separated (shown on the listing but not used for directory filters)">
+          <div class="form-text">Pick every service they offer. These decide which directory pages and searches the business appears in.</div>`; }
       case "image": return imageInput(id, v, req);
       default: return `<input class="form-control" id="${id}" value="${esc(v ?? "")}" placeholder="${esc(f.ph || "")}" ${req}>`;
     }
@@ -1014,6 +1019,7 @@ route("/content/:table/:id", async ({ table, id }) => {
       else if (f.type === "number") v = el.value === "" ? null : Number(el.value);
       else if (f.type === "datetime") v = el.value ? new Date(el.value).toISOString() : null;
       else if (f.type === "array") v = el.value.split(",").map((s) => s.trim()).filter(Boolean);
+      else if (f.type === "services") v = [...$$("input[type=checkbox]", el).filter((x) => x.checked).map((x) => x.value), ...($("#f_" + f.name + "_extra").value || "").split(",").map((x) => x.trim()).filter(Boolean)];
       else if (f.type === "image") v = el.value.trim() || null;
       else if (f.type === "rich") { v = cleanHTML($("#f_" + f.name + "_area").innerHTML) || null; }
       else if (f.type === "gallery") v = JSON.parse(el.value || "[]").filter((x) => x.src);

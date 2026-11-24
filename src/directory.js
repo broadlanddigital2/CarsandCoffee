@@ -164,6 +164,15 @@ export async function businessPage(slug) {
       ${hub ? `<div class="ep-first"><div><strong>More in ${E(hub.town || hub.county)}:</strong> meets, drives and other trusted businesses on the local car hub.</div><a class="btn ghost small" href="${E(hub.path)}">${E(hub.town || hub.county)} car hub</a></div>` : ""}
     </div>
     <aside class="ep-card biz-card-side" id="location"><h3>Contact and location</h3>
+      ${l.lat != null && l.lng != null ? `<div class="biz-map" id="bizmap" role="region" aria-label="Map showing where ${E(l.name)} is" data-lat="${E(l.lat)}" data-lng="${E(l.lng)}" data-approx="${l.approximate ? 1 : 0}" data-name="${E(l.name)}"><p>Loading the map…</p></div><p class="biz-map-credit">Map data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors</p>
+      <script>(function(){var el=document.getElementById('bizmap');if(!el)return;var started=false;
+        function draw(){var lat=+el.dataset.lat,lng=+el.dataset.lng,ap=el.dataset.approx==='1';el.innerHTML='';var map=L.map(el,{scrollWheelZoom:false,zoomControl:true});
+          L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
+          if(ap){L.circle([lat,lng],{radius:600,color:'#c00d0d',weight:2,fillColor:'#c00d0d',fillOpacity:.12}).addTo(map);map.setView([lat,lng],13);}
+          else{L.circleMarker([lat,lng],{radius:11,color:'#fff',weight:3,fillColor:'#c00d0d',fillOpacity:1}).addTo(map).bindTooltip(el.dataset.name,{direction:'top',offset:[0,-10]});map.setView([lat,lng],15);}}
+        function start(){if(started)return;started=true;var c=document.createElement('link');c.rel='stylesheet';c.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';document.head.appendChild(c);
+          var s=document.createElement('script');s.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';s.onload=draw;s.onerror=function(){el.innerHTML='<p>The map could not load. Use the directions below.</p>';};document.head.appendChild(s);}
+        if('IntersectionObserver' in window){var io=new IntersectionObserver(function(es){if(es[0].isIntersecting){io.disconnect();start();}},{rootMargin:'300px'});io.observe(el);}else start();})();</script>` : ""}
       ${addr ? `<p><strong>Address</strong><br>${E(addr)}</p>` : ""}
       ${showPhone ? `<p><strong>Phone</strong><br><button type="button" class="linkish" data-reveal="${E(tel)}" data-label="${E(l.phone)}" data-track="phone_reveal">Show number</button></p>` : ""}
       ${l.email ? `<p><strong>Email</strong><br><a href="mailto:${E(l.email)}" data-track="email">${E(l.email)}</a></p>` : ""}

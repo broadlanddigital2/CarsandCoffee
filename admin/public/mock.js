@@ -86,7 +86,7 @@ export function createMock(scenario) {
     },
     from: (t) => table("public", t),
     storage: { from: () => ({ upload: () => ok({ path: "x" }), getPublicUrl: (p) => ({ data: { publicUrl: "https://auth.carsandcoffee.uk/storage/v1/object/public/site-images/" + p } }) }) },
-    schema: (s) => ({ from: (t) => table(s, t) }),
+    schema: (s) => ({ from: (t) => table(s, t), rpc: () => ok([]) }),
     rpc: (name, args) => {
       const r = {
         admin_dashboard_stats: { reports_open: 1, posts_7d: 12, comments_7d: 30, pending_applications: 2, fast_track_waiting: 1, members: 1, new_members_7d: 1, emails_queued: 0, emails_failed: 1, emails_sent_7d: 4, pages_published: 1, pages_draft: 1, newsletter_subscribers: 1, invites_7d: 1 },
