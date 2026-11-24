@@ -5,6 +5,17 @@ import { shell, crumbsHTML, newsletterHTML, directions } from "./pages.js";
 import { sanitize } from "./sanitize.js";
 import { galleryHTML, galleryOf } from "./ui.js";
 
+// simple generic icons for social links (not the networks' logos); the link label names the network
+const SV = (d) => `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const SOC_ICON = {
+  Instagram: SV('<rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.3" cy="6.7" r=".6" fill="currentColor"/>'),
+  Facebook: SV('<path d="M7 10v11M7 10H4v11h3M7 10l4-7c1.5 0 2.5 1 2.5 2.5V9h5a2 2 0 0 1 2 2.3l-1.2 7.4A2.5 2.5 0 0 1 16.8 21H7"/>'),
+  YouTube: SV('<rect x="2.5" y="5" width="19" height="14" rx="4"/><path d="m10 9 5 3-5 3z" fill="currentColor"/>'),
+  TikTok: SV('<path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/>'),
+  X: SV('<path d="M5 5l14 14M19 5 5 19"/>'),
+  LinkedIn: SV('<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 10v7M8 7v.01M12 17v-4a2 2 0 0 1 4 0v4M12 10v7"/>'),
+};
+
 const SITE = "https://carsandcoffee.uk";
 const enc = encodeURIComponent;
 const slugify = (s) => String(s || "").toLowerCase().replace(/[’']/g, "").replace(/&/g, "and").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -159,7 +170,7 @@ export async function businessPage(slug) {
       ${web ? `<p><strong>Website</strong><br><a href="${E(webUtm)}" target="_blank" rel="noopener" data-track="website">${E(web.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, ""))}</a></p>` : ""}
       ${hours ? `<p><strong>Opening times</strong> <span class="biz-open" data-open-status></span></p>${hoursHTML}` : ""}
       ${l.opening_hours?.length ? `<ul class="biz-notes">${l.opening_hours.map((h) => `<li>${E(h)}</li>`).join("")}</ul>` : ""}
-      ${socials.length ? `<p class="biz-social">${socials.map(([n, h]) => `<a href="${E(h)}" target="_blank" rel="noopener" data-track="social">${n}</a>`).join("")}</p>` : ""}
+      ${socials.length ? `<p class="biz-social">${socials.map(([n, h]) => `<a href="${E(h)}" target="_blank" rel="noopener" data-track="social" aria-label="${E(l.name)} on ${n}" title="${n}">${SOC_ICON[n] || n}</a>`).join("")}</p>` : ""}
       ${d ? `<div class="lp-dir"><a class="btn red small" href="${E(d.google)}" target="_blank" rel="noopener" data-track="directions">Directions</a><a class="btn ghost small" href="${E(d.apple)}" target="_blank" rel="noopener" data-track="directions">Apple Maps</a></div>` : ""}
       ${l.lat != null ? `<p><button type="button" class="linkish" data-distance="${l.lat},${l.lng}">How far is it from me?</button></p>` : ""}
       ${l.approximate ? `<p class="small">Map location is approximate.</p>` : ""}
