@@ -13,7 +13,7 @@ const ADMIN = "https://admin.carsandcoffee.uk";
 const esc = (v: unknown) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 const s = (v: unknown) => String(v ?? "").trim();
 type C = { id: string; kind: string; subject: string; preheader?: string; heading?: string; body_html: string; cta_label?: string; cta_url?: string; from_name: string; reply_to?: string };
-type L = { name?: string; town?: string; county?: string; services?: string[]; slug?: string; image?: string };
+type L = { name?: string; town?: string; county?: string; services?: string[]; slug?: string; image?: string; logo?: string };
 type R = { send_id: number; email: string; name?: string; business?: string; listing_slug?: string; token: string; campaign: C; listing?: L | null };
 
 const OURS = /^https:\/\/(carsandcoffee\.uk|club\.carsandcoffee\.uk|admin\.carsandcoffee\.uk)(\/|$)/;
@@ -56,7 +56,7 @@ function render(r: R) {
   // outreach: a preview of their listing and what claiming gets them
   const card = outreach && L ? `<tr><td style="padding:0 32px 8px" class="px">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${LINE};border-radius:10px;background:${CREAM}" bgcolor="${CREAM}">
-      <tr><td style="padding:18px 20px">
+      <tr>${L.logo ? `<td width="88" valign="top" style="padding:18px 0 18px 20px"><img src="${esc(L.logo)}" width="68" alt="${esc(L.name || "")}" style="display:block;width:68px;max-width:68px;height:auto;border:0;border-radius:6px;background:#ffffff"></td>` : ""}<td style="padding:18px 20px">
         <p style="margin:0 0 4px;font:bold 11px ${BODY};letter-spacing:1.5px;text-transform:uppercase;color:${RED}">Your listing</p>
         <p style="margin:0 0 4px;font:normal 24px/1.15 ${HEAD};text-transform:uppercase;color:${ESP}">${esc(L.name || r.business || "")}</p>
         <p style="margin:0 0 10px;font:14px ${BODY};color:${SOFT}">${esc([L.town, L.county].filter(Boolean).join(", "))}${(L.services || []).length ? ` &middot; ${esc((L.services || []).slice(0, 4).join(", "))}` : ""}</p>
@@ -144,10 +144,10 @@ async function handle(req: Request): Promise<Response> {
     if (body.listing_id) {
       // the real email for one business: its listing, and the outreach contact (tests go to that address; previews just show it)
       const [{ data: l }, { data: o }] = await Promise.all([db.schema("site").from("directory_listings").select("name,slug,town,county,services,image_path").eq("id", body.listing_id).maybeSingle(),
-        db.schema("site").from("outreach").select("contact_email,contact_name").eq("listing_id", body.listing_id).maybeSingle()]);
+        db.schema("site").from("outreach").select("contact_email,contact_name,enrichment").eq("listing_id", body.listing_id).maybeSingle()]);
       if (!l) return reply({ error: "Business not found" }, 404);
       sample = { ...sample, email: body.preview ? (o?.contact_email || me.email) : me.email, name: o?.contact_name || "", business: l.name, listing_slug: l.slug,
-        listing: { name: l.name, town: l.town, county: l.county, services: l.services, slug: l.slug, image: l.image_path } };
+        listing: { name: l.name, town: l.town, county: l.county, services: l.services, slug: l.slug, image: l.image_path, logo: o?.enrichment?.site?.logo || "" } };
     }
     if (body.preview) { const m = render(sample); return reply({ subject: m.subject, html: m.html, text: m.text }); }
     rows = [sample];
